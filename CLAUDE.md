@@ -28,11 +28,29 @@ There is **no build system** — no Makefile, no CMake, no CI. The library is co
 
 `test/<Name>_Test/` holds one standalone `main()` per module. Unlike `esclib`, whose tests print and are compared by eye against a stored `output.txt`, these tests check their own results and return a non-zero exit code when a case fails — the interesting cases here are failure paths, and "the destination was not modified" is not something a printed transcript shows.
 
+There is no `gcc`, `clang` or MSVC on this machine, and no emulator. The host compiler is **zig**, installed into the user's Python environment (`python -m pip install ziglang`); `python -m ziglang cc` is a full clang-based C compiler:
+
 ```bash
-gcc -Wall -Wextra -Iinc/string test/SString_Test/SString_Test.c src/string/sstring.c -o sstring_test && ./sstring_test
+python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/string \
+  test/SString_Test/SString_Test.c src/string/sstring.c -o sstring_test && ./sstring_test
 ```
 
-**No host compiler is installed in this environment** — only `arm-none-eabi-gcc`, and there is no emulator. Tests can be compiled but not run here. Compiling is not passing; say so plainly rather than implying a test ran.
+Run the tests before claiming anything passes. Compiling is not passing.
+
+Undefined-behaviour sanitizer, in trap mode so it needs no runtime:
+
+```bash
+python -m ziglang cc -Wall -Wextra -std=c99 -g -fsanitize=undefined -fsanitize-trap=undefined \
+  -Iinc/string test/SString_Test/SString_Test.c src/string/sstring.c -o sstring_ubsan && ./sstring_ubsan
+```
+
+**AddressSanitizer does not link** under zig on this Windows target — the `__asan_*` runtime symbols are missing. For an out-of-bounds *read*, which ASan would normally catch, use a guard page instead: place the buffer at the end of a `VirtualAlloc` page and mark the next page `PAGE_NOACCESS`, so an over-read faults. That is how the source-scan overrun in `sstringCopy` was proven before it was fixed.
+
+Static analysis, using the analyzer built into the ARM compiler:
+
+```bash
+arm-none-eabi-gcc -c -Wall -Wextra -Wpedantic -std=c99 -fanalyzer -Iinc/string src/string/sstring.c -o /dev/null
+```
 
 Syntax and warning check for one module, and for the whole tree:
 
@@ -63,7 +81,7 @@ template/inc/generic.h, template/src/generic.c        copy these to start a new 
 
 Domains: `math` (`basicmathsafe`), `selfdiag` (`selfdiagsafe`), `string` (`sstring`).
 
-`sstring` is the reference module — it is the only one with an implementation, and its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. That document also specifies phases 2 to 4 (search/tokenize, transform/validate, number conversion), which are designed but not yet written. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
+`sstring` is the reference module and the only one with an implementation: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
 
 Modules are **fully independent**: every `.c` includes only its own header plus freestanding standard headers (`<stdint.h>`, `<stddef.h>`). No module includes another module's header. That independence is what makes single-module copy-out work.
 
@@ -73,11 +91,14 @@ Start a new module by copying `template/`, never by copying an existing module.
 
 Beyond the shared esclib style, this library adds:
 
+- **Every loop bound comes from a parameter.** No `while ( *p )`, no `for ( ; *p != '\0'; ++p )`. This is what makes an unterminated input a bounded read and a status code instead of a runaway scan.
+- **Every pointer parameter is immediately followed by the capacity of the buffer it points at**, and a bound is never inferred from a different buffer. `sstringCopy` takes `srcSize` as well as `destSize` for exactly this reason — deriving the source scan bound from the destination size let a short unterminated source be read past its end, and a guard-page test reproduced it as a fault. Do not add a function that reads through a pointer without its own capacity.
+- **Validate, then commit.** Every check completes before the first byte is written; on any failing status the destination is bit-for-bit unchanged. Build a result in a local scratch array when the final size is not known up front — see `sstringFromI32`.
 - Every pointer parameter is NULL checked before use.
-- Every buffer parameter is accompanied by its capacity, and the capacity is checked before any write. A function never writes past the declared size, and never assumes a terminator exists in caller memory.
 - No dynamic allocation, ever. The caller owns all storage.
-- No `<string.h>` dependency inside the library.
+- No `<string.h>`, no `<ctype.h>`, no `<stdlib.h>`. Only `<stdint.h>` and `<stddef.h>`.
 - Failure is reported through the return value. No abort, no assert, no logging.
+- No module state, so every function is reentrant.
 
 ## The driver-struct pattern
 
