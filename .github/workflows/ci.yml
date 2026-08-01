@@ -1,0 +1,202 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Two tiers of job.
+#
+# Blocking jobs run checks that were verified on the development machine
+# before this workflow was written, so a red result means a real
+# regression rather than a surprise from a tool nobody had run yet.
+#
+# Reporting jobs run tools that have never executed against this code:
+# there is no cppcheck and no doxygen on the development machine, and the
+# host gcc analyzer is a different version from the arm one used locally.
+# They are marked continue-on-error so that their first run tells us what
+# they say instead of blocking the branch. Flip them to blocking once a
+# run comes back clean.
+
+jobs:
+
+  # ---------------------------------------------------------------- blocking
+
+  test:
+    name: Test (${{ matrix.cc }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [ gcc, clang ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the test program
+        run: |
+          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
+            -Iinc/string \
+            test/SString_Test/SString_Test.c src/string/sstring.c \
+            -o sstring_test
+
+      - name: Run the test program
+        run: ./sstring_test
+
+  sanitizers:
+    name: ASan and UBSan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # AddressSanitizer does not link under zig on the Windows development
+      # machine, which is why the out of bounds read in sstringCopy had to
+      # be proven with a guard page instead. Here it works, so this is the
+      # first place the module is checked by a real memory sanitizer.
+      - name: Build with sanitizers
+        run: |
+          clang -Wall -Wextra -std=c99 -g \
+            -fsanitize=address,undefined -fno-sanitize-recover=all \
+            -fno-omit-frame-pointer \
+            -Iinc/string \
+            test/SString_Test/SString_Test.c src/string/sstring.c \
+            -o sstring_san
+
+      - name: Run under sanitizers
+        run: ./sstring_san
+
+  cross-compile:
+    name: Cross compile for ARM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the ARM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi
+
+      # Compiles only. The runner cannot execute an ARM binary, so this
+      # says the code builds for the target, not that it behaves there.
+      - name: Compile every module
+        run: |
+          for f in src/*/*.c; do
+            d=$(basename $(dirname "$f"))
+            echo "== $f"
+            arm-none-eabi-gcc -c -Wall -Wextra -Wpedantic -std=c99 \
+              -I"inc/$d" "$f" -o /dev/null
+          done
+
+      - name: Run the ARM gcc analyzer
+        run: |
+          for f in src/*/*.c; do
+            d=$(basename $(dirname "$f"))
+            echo "== $f"
+            arm-none-eabi-gcc -c -Wall -Wextra -Wpedantic -std=c99 -fanalyzer \
+              -I"inc/$d" "$f" -o /dev/null
+          done
+
+      # Every header must be independently includable and must coexist with
+      # the others. This is what catches a duplicate include guard or a
+      # clashing typedef.
+      - name: Check that all headers coexist
+        run: |
+          for h in inc/*/*.h; do echo "#include \"$(basename $h)\""; done > allhdr.c
+          echo "int main(void){return 0;}" >> allhdr.c
+          arm-none-eabi-gcc -c -Wall -Wextra \
+            $(for d in inc/*/; do printf " -I%s" "$d"; done) \
+            allhdr.c -o /dev/null
+
+  # --------------------------------------------------------------- reporting
+
+  cppcheck:
+    name: cppcheck (reporting)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
+
+      - name: General checks
+        run: |
+          cppcheck --enable=all --std=c99 --platform=unix32 \
+            --inline-suppr \
+            --suppress=missingIncludeSystem \
+            --suppress=unusedFunction \
+            --suppress=checkersReport \
+            -Iinc/string src/ 2>&1 | tee cppcheck.log
+
+      # The MISRA addon reports rule numbers only. The rule texts are
+      # copyrighted and cannot ship here, so a hit looks like
+      # "misra violation ... [misra-c2012-11.4]" with no description.
+      # 11.4 is the one deviation this module already records, in
+      # isOverlapping.
+      - name: MISRA C 2012 rule numbers
+        run: |
+          cppcheck --addon=misra --std=c99 --platform=unix32 \
+            --suppress=missingIncludeSystem \
+            -Iinc/string src/string/sstring.c 2>&1 | tee misra.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cppcheck-logs
+          path: |
+            cppcheck.log
+            misra.log
+
+  host-analyzer:
+    name: Host gcc analyzer (reporting)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      # A newer analyzer than the arm-none-eabi 13.2 used locally, so it
+      # may find things the local run did not.
+      - name: Run gcc -fanalyzer
+        run: |
+          for f in src/*/*.c; do
+            d=$(basename $(dirname "$f"))
+            echo "== $f"
+            gcc -c -Wall -Wextra -Wpedantic -std=c99 -fanalyzer \
+              -I"inc/$d" "$f" -o /dev/null
+          done
+
+  docs:
+    name: Doxygen (reporting)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install doxygen
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen
+
+      # The Doxyfile has never been run. WARN_NO_PARAMDOC is on, so an
+      # undocumented parameter shows up here as a warning.
+      - name: Generate the documentation
+        run: |
+          doxygen Doxyfile 2> doxygen-warnings.log
+          echo "---- warnings ----"
+          cat doxygen-warnings.log
+          if [ -s doxygen-warnings.log ]; then
+            echo "Doxygen produced warnings. See the log above."
+          else
+            echo "No warnings."
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: doxygen
+          path: |
+            doc/
+            doxygen-warnings.log
