@@ -1,25 +1,21 @@
 /**
   ******************************************************************************
   *
-  * @file:      basicmathsafe.c
-  * @author:    Engin Subasi
-  * @email:     enginsubasi@gmail.com
-  * @address:   github.com/enginsubasi
+  * @file      basicmathsafe.c
+  * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
+  * @version   0.0.2
+  * @date      25/01/2022
   *
-  * @version:   v 0.0.1
-  * @cdate:     25/01/2022
-  * @history:   25/01/2022 Created.
+  * @brief     Basic mathematics function library file.
   *
-  * @about:     Basic mathematics function library file.
-  * @device:    Generic
+  * @par Device
+  * Generic
   *
-  * @content:
-  *     FUNCTIONS:
-  *
-  * @notes:
+  * @par History
+  * 25/01/2022 Created. @n
+  * 01/08/2026 Banner converted to the Doxygen convention. @n
   *
   ******************************************************************************
   */
 
 #include "basicmathsafe.h"
-

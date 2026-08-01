@@ -1,25 +1,21 @@
 /**
   ******************************************************************************
   *
-  * @file:      selfdiagsafe.c
-  * @author:    Engin Subasi
-  * @email:     enginsubasi@gmail.com
-  * @address:   github.com/enginsubasi
+  * @file      selfdiagsafe.c
+  * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
+  * @version   0.0.2
+  * @date      25/01/2022
   *
-  * @version:   v 0.0.1
-  * @cdate:     25/01/2022
-  * @history:   25/01/2022 Created.
+  * @brief     Self diagnostic function library file without hardware dependencies.
   *
-  * @about:     Self diagnostic function library file without hardware dependencies.
-  * @device:    Generic
+  * @par Device
+  * Generic
   *
-  * @content:
-  *     FUNCTIONS:
-  *
-  * @notes:
+  * @par History
+  * 25/01/2022 Created. @n
+  * 01/08/2026 Banner converted to the Doxygen convention. @n
   *
   ******************************************************************************
   */
 
 #include "selfdiagsafe.h"
-
