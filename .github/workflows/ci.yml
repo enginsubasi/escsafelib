@@ -54,6 +54,16 @@ jobs:
       - name: Run the sarray test program
         run: ./sarray_test
 
+      - name: Build the smemory test program
+        run: |
+          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
+            -Iinc/memory \
+            test/SMemory_Test/SMemory_Test.c src/memory/smemory.c \
+            -o smemory_test
+
+      - name: Run the smemory test program
+        run: ./smemory_test
+
   sanitizers:
     name: ASan and UBSan
     runs-on: ubuntu-latest
@@ -87,6 +97,18 @@ jobs:
 
       - name: Run sarray under sanitizers
         run: ./sarray_san
+
+      - name: Build smemory with sanitizers
+        run: |
+          clang -Wall -Wextra -std=c99 -g \
+            -fsanitize=address,undefined -fno-sanitize-recover=all \
+            -fno-omit-frame-pointer \
+            -Iinc/memory \
+            test/SMemory_Test/SMemory_Test.c src/memory/smemory.c \
+            -o smemory_san
+
+      - name: Run smemory under sanitizers
+        run: ./smemory_san
 
   cross-compile:
     name: Cross compile for ARM
@@ -151,7 +173,7 @@ jobs:
             --suppress=missingIncludeSystem \
             --suppress=unusedFunction \
             --suppress=checkersReport \
-            -Iinc/string -Iinc/array -Iinc/math -Iinc/selfdiag \
+            -Iinc/string -Iinc/array -Iinc/memory -Iinc/math -Iinc/selfdiag \
             src/ 2>&1 | tee cppcheck.log
 
       # The MISRA addon reports rule numbers only. The rule texts are
@@ -167,6 +189,9 @@ jobs:
           cppcheck --addon=misra --std=c99 --platform=unix32 \
             --suppress=missingIncludeSystem \
             -Iinc/array src/array/sarray.c 2>&1 | tee -a misra.log
+          cppcheck --addon=misra --std=c99 --platform=unix32 \
+            --suppress=missingIncludeSystem \
+            -Iinc/memory src/memory/smemory.c 2>&1 | tee -a misra.log
 
       - uses: actions/upload-artifact@v4
         if: always()

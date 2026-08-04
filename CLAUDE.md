@@ -36,11 +36,14 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/string \
 
 python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/array \
   test/SArray_Test/SArray_Test.c src/array/sarray.c -o sarray_test && ./sarray_test
+
+python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/memory \
+  test/SMemory_Test/SMemory_Test.c src/memory/smemory.c -o smemory_test && ./smemory_test
 ```
 
 Run the tests before claiming anything passes. Compiling is not passing.
 
-A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared this way against six mutants before it was committed.
+A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared this way against six mutants and `smemory` against seven before either was committed. The `smemory` run is the one that shows why it matters: masking `smemoryEqualSecure` down to the low bit of each difference still passes every naive equality case, and only the deliberate high-bit-only case catches it.
 
 Undefined-behaviour sanitizer, in trap mode so it needs no runtime:
 
@@ -58,6 +61,13 @@ Static analysis, using the analyzer built into the ARM compiler:
 ```bash
 arm-none-eabi-gcc -c -Wall -Wextra -Wpedantic -std=c99 -fanalyzer -Iinc/string src/string/sstring.c -o /dev/null
 ```
+
+**`-o /dev/null` leaves a real file called `nul` in the repo root.** Both `arm-none-eabi-gcc` and `zig cc` are native Windows binaries, so neither understands the Git Bash path and both write a literal `nul` instead. `nul` is a reserved device name and `git add` on it fails outright with `fatal: mmap failed: Invalid argument`, which looks like repository corruption and is not. It is in `.gitignore` now, but **write the object to a scratchpad path and delete it** rather than generating it at all.
+
+Cleaning it up needs care, because the ordinary ways of checking for it lie:
+
+- `ls -la nul` in Git Bash prints a size even when nothing is there, and `Test-Path -LiteralPath "\\?\...\nul"` returns false even when the file *is* there. Use `Get-ChildItem <repo> -Force | Where-Object { $_.Name -like "nul*" }` — that one is accurate.
+- Deleting needs the `\\?\` prefix: `Remove-Item -LiteralPath "\\?\C:\...\nul" -Force`. Verify with `Get-ChildItem` afterwards; a silent success from `Remove-Item` is not proof.
 
 ## CI
 
@@ -95,9 +105,9 @@ test/<Name>_Test/<Name>_Test.c                        self-checking test main
 template/inc/generic.h, template/src/generic.c        copy these to start a new module
 ```
 
-Domains: `array` (`sarray`), `math` (`basicmathsafe`), `selfdiag` (`selfdiagsafe`), `string` (`sstring`).
+Domains: `array` (`sarray`), `math` (`basicmathsafe`), `memory` (`smemory`), `selfdiag` (`selfdiagsafe`), `string` (`sstring`).
 
-Two modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
+Three modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
 
 `sarray` is 92 functions: twenty three operations repeated across four element families, `uint8_t`, `uint16_t`, `uint32_t` and `int32_t`. Two things about it differ from `sstring` and will bite if forgotten:
 
@@ -105,6 +115,15 @@ Two modules are implemented. `sstring` is the reference: 41 functions covering l
 - **The four families are mechanically identical modulo the element type.** They were emitted from one template rather than typed four times, so a change to one is a change to all four. Fixing `sarraySortu32` and leaving `sarraySortu16` alone is the failure mode to watch for. The generator is not in the repo; the committed C is the source of truth, so replicate by hand and check all four.
 
 `sarray` has no `Get`/`Set` equivalent in `sstring` because C already has `arr[i]`; `sarrayGet` exists to be the bounds checked form of it. `sarrayBinarySearch` requires a sorted array and does not verify it, because verifying costs the scan the search exists to avoid — `sarrayIsSorted` is the separate precondition check.
+
+`smemory` is 17 functions, the untyped half of the library: bounded replacements for the `mem` family of `<string.h>`. **The line between it and `sarray` is whether the operation has to know what the bytes mean.** Copy, move, set, compare and search do not, so they take a `void*` and live here. A sum, a minimum or an ordering by magnitude does, so it lives in `sarray`. When adding a function, that question decides the module — do not add a typed operation to `smemory` or a byte-blind one to `sarray`.
+
+Two `smemory` functions have no `<string.h>` counterpart and exist for reasons that are easy to undo by accident:
+
+- `smemoryEqualSecure` reads all `count` bytes with no early exit, because `memcmp` on a MAC leaks the length of the matching prefix through its timing. It reports equal or not equal only — producing an ordering means finding the first difference, and finding the first difference *is* the leak. Its operands are read through `const volatile unsigned char*` so the compiler cannot restore the early exit. Do not "optimise" that loop.
+- `smemoryClearSecure` writes through `volatile`, which `smemoryClear` does not. `smemoryClear` is an ordinary store and a dead-store eliminator may delete it entirely. Both exist on purpose; the Doxygen on each says which to use.
+
+`smemory` carries a second MISRA deviation `sstring` and `sarray` do not: Rule 11.5, `void*` to object pointer. It is confined to `unsigned char*`, the one object type the standard always permits for examining an object's bytes.
 
 Modules are **fully independent**: every `.c` includes only its own header plus freestanding standard headers (`<stdint.h>`, `<stddef.h>`). No module includes another module's header. That independence is what makes single-module copy-out work.
 
