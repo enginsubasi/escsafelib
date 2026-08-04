@@ -64,6 +64,38 @@ jobs:
       - name: Run the smemory test program
         run: ./smemory_test
 
+      - name: Build the basicmathsafe test program
+        run: |
+          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
+            -Iinc/math \
+            test/BasicMathSafe_Test/BasicMathSafe_Test.c src/math/basicmathsafe.c \
+            -o basicmathsafe_test
+
+      - name: Run the basicmathsafe test program
+        run: ./basicmathsafe_test
+
+      - name: Build the selfdiagsafe test program
+        run: |
+          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
+            -Iinc/selfdiag \
+            test/SelfDiagSafe_Test/SelfDiagSafe_Test.c src/selfdiag/selfdiagsafe.c \
+            -o selfdiagsafe_test
+
+      - name: Run the selfdiagsafe test program
+        run: ./selfdiagsafe_test
+
+      # The generated modules must still be exactly what their generator
+      # produces. A non empty diff means somebody edited the output by hand
+      # and the next generator run would silently revert it.
+      - name: Check the generated modules have not drifted
+        run: |
+          python3 tools/gen_sarray.py
+          python3 tools/gen_sarray_test.py
+          python3 tools/gen_basicmathsafe.py
+          python3 tools/gen_basicmathsafe_test.py
+          git diff --stat
+          git diff --exit-code
+
   sanitizers:
     name: ASan and UBSan
     runs-on: ubuntu-latest
@@ -109,6 +141,30 @@ jobs:
 
       - name: Run smemory under sanitizers
         run: ./smemory_san
+
+      - name: Build basicmathsafe with sanitizers
+        run: |
+          clang -Wall -Wextra -std=c99 -g \
+            -fsanitize=address,undefined -fno-sanitize-recover=all \
+            -fno-omit-frame-pointer \
+            -Iinc/math \
+            test/BasicMathSafe_Test/BasicMathSafe_Test.c src/math/basicmathsafe.c \
+            -o basicmathsafe_san
+
+      - name: Run basicmathsafe under sanitizers
+        run: ./basicmathsafe_san
+
+      - name: Build selfdiagsafe with sanitizers
+        run: |
+          clang -Wall -Wextra -std=c99 -g \
+            -fsanitize=address,undefined -fno-sanitize-recover=all \
+            -fno-omit-frame-pointer \
+            -Iinc/selfdiag \
+            test/SelfDiagSafe_Test/SelfDiagSafe_Test.c src/selfdiag/selfdiagsafe.c \
+            -o selfdiagsafe_san
+
+      - name: Run selfdiagsafe under sanitizers
+        run: ./selfdiagsafe_san
 
   cross-compile:
     name: Cross compile for ARM
@@ -192,6 +248,12 @@ jobs:
           cppcheck --addon=misra --std=c99 --platform=unix32 \
             --suppress=missingIncludeSystem \
             -Iinc/memory src/memory/smemory.c 2>&1 | tee -a misra.log
+          cppcheck --addon=misra --std=c99 --platform=unix32 \
+            --suppress=missingIncludeSystem \
+            -Iinc/math src/math/basicmathsafe.c 2>&1 | tee -a misra.log
+          cppcheck --addon=misra --std=c99 --platform=unix32 \
+            --suppress=missingIncludeSystem \
+            -Iinc/selfdiag src/selfdiag/selfdiagsafe.c 2>&1 | tee -a misra.log
 
       - uses: actions/upload-artifact@v4
         if: always()
