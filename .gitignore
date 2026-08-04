@@ -53,3 +53,8 @@ dkms.conf
 
 # Doxygen generated output
 doc/
+
+# Windows leaves this behind when a compiler is told to write to /dev/null.
+# It is a reserved device name, so git cannot even read it: staging it fails
+# with "mmap failed: Invalid argument".
+nul

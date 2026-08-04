@@ -34,15 +34,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build the test program
+      - name: Build the sstring test program
         run: |
           ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
             -Iinc/string \
             test/SString_Test/SString_Test.c src/string/sstring.c \
             -o sstring_test
 
-      - name: Run the test program
+      - name: Run the sstring test program
         run: ./sstring_test
+
+      - name: Build the sarray test program
+        run: |
+          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
+            -Iinc/array \
+            test/SArray_Test/SArray_Test.c src/array/sarray.c \
+            -o sarray_test
+
+      - name: Run the sarray test program
+        run: ./sarray_test
 
   sanitizers:
     name: ASan and UBSan
@@ -54,7 +64,7 @@ jobs:
       # machine, which is why the out of bounds read in sstringCopy had to
       # be proven with a guard page instead. Here it works, so this is the
       # first place the module is checked by a real memory sanitizer.
-      - name: Build with sanitizers
+      - name: Build sstring with sanitizers
         run: |
           clang -Wall -Wextra -std=c99 -g \
             -fsanitize=address,undefined -fno-sanitize-recover=all \
@@ -63,8 +73,20 @@ jobs:
             test/SString_Test/SString_Test.c src/string/sstring.c \
             -o sstring_san
 
-      - name: Run under sanitizers
+      - name: Run sstring under sanitizers
         run: ./sstring_san
+
+      - name: Build sarray with sanitizers
+        run: |
+          clang -Wall -Wextra -std=c99 -g \
+            -fsanitize=address,undefined -fno-sanitize-recover=all \
+            -fno-omit-frame-pointer \
+            -Iinc/array \
+            test/SArray_Test/SArray_Test.c src/array/sarray.c \
+            -o sarray_san
+
+      - name: Run sarray under sanitizers
+        run: ./sarray_san
 
   cross-compile:
     name: Cross compile for ARM
@@ -129,18 +151,22 @@ jobs:
             --suppress=missingIncludeSystem \
             --suppress=unusedFunction \
             --suppress=checkersReport \
-            -Iinc/string src/ 2>&1 | tee cppcheck.log
+            -Iinc/string -Iinc/array -Iinc/math -Iinc/selfdiag \
+            src/ 2>&1 | tee cppcheck.log
 
       # The MISRA addon reports rule numbers only. The rule texts are
       # copyrighted and cannot ship here, so a hit looks like
       # "misra violation ... [misra-c2012-11.4]" with no description.
-      # 11.4 is the one deviation this module already records, in
-      # isOverlapping.
+      # 11.4 is the one deviation both implemented modules already record,
+      # in isOverlapping.
       - name: MISRA C 2012 rule numbers
         run: |
           cppcheck --addon=misra --std=c99 --platform=unix32 \
             --suppress=missingIncludeSystem \
             -Iinc/string src/string/sstring.c 2>&1 | tee misra.log
+          cppcheck --addon=misra --std=c99 --platform=unix32 \
+            --suppress=missingIncludeSystem \
+            -Iinc/array src/array/sarray.c 2>&1 | tee -a misra.log
 
       - uses: actions/upload-artifact@v4
         if: always()

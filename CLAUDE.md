@@ -33,9 +33,14 @@ There is no `gcc`, `clang` or MSVC on this machine, and no emulator. The host co
 ```bash
 python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/string \
   test/SString_Test/SString_Test.c src/string/sstring.c -o sstring_test && ./sstring_test
+
+python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/array \
+  test/SArray_Test/SArray_Test.c src/array/sarray.c -o sarray_test && ./sarray_test
 ```
 
 Run the tests before claiming anything passes. Compiling is not passing.
+
+A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared this way against six mutants before it was committed.
 
 Undefined-behaviour sanitizer, in trap mode so it needs no runtime:
 
@@ -45,6 +50,8 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -fsanitize=undefined -fsanitize-t
 ```
 
 **AddressSanitizer does not link** under zig on this Windows target — the `__asan_*` runtime symbols are missing. For an out-of-bounds *read*, which ASan would normally catch, use a guard page instead: place the buffer at the end of a `VirtualAlloc` page and mark the next page `PAGE_NOACCESS`, so an over-read faults. That is how the source-scan overrun in `sstringCopy` was proven before it was fixed.
+
+Always pair it with a negative control: declare a capacity one element larger than the buffer really is and confirm that call faults. Without it, "no fault" may only mean the guard page was never armed. The `sarray` harness reports `EXIT=0` on the honest capacities and `EXIT=139` on the over-declared one.
 
 Static analysis, using the analyzer built into the ARM compiler:
 
@@ -88,9 +95,16 @@ test/<Name>_Test/<Name>_Test.c                        self-checking test main
 template/inc/generic.h, template/src/generic.c        copy these to start a new module
 ```
 
-Domains: `math` (`basicmathsafe`), `selfdiag` (`selfdiagsafe`), `string` (`sstring`).
+Domains: `array` (`sarray`), `math` (`basicmathsafe`), `selfdiag` (`selfdiagsafe`), `string` (`sstring`).
 
-`sstring` is the reference module and the only one with an implementation: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
+Two modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
+
+`sarray` is 92 functions: twenty three operations repeated across four element families, `uint8_t`, `uint16_t`, `uint32_t` and `int32_t`. Two things about it differ from `sstring` and will bite if forgotten:
+
+- **Every size and count in `sarray` is an element count, not a byte count.** `arrSize` of 8 on a `uint32_t` array is 32 bytes. Only the two static helpers that feed `isOverlapping` deal in bytes, and `spanBytes` guards that multiply against wrapping.
+- **The four families are mechanically identical modulo the element type.** They were emitted from one template rather than typed four times, so a change to one is a change to all four. Fixing `sarraySortu32` and leaving `sarraySortu16` alone is the failure mode to watch for. The generator is not in the repo; the committed C is the source of truth, so replicate by hand and check all four.
+
+`sarray` has no `Get`/`Set` equivalent in `sstring` because C already has `arr[i]`; `sarrayGet` exists to be the bounds checked form of it. `sarrayBinarySearch` requires a sorted array and does not verify it, because verifying costs the scan the search exists to avoid — `sarrayIsSorted` is the separate precondition check.
 
 Modules are **fully independent**: every `.c` includes only its own header plus freestanding standard headers (`<stdint.h>`, `<stddef.h>`). No module includes another module's header. That independence is what makes single-module copy-out work.
 
