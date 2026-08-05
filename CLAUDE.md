@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All six modules are implemented — 246 functions and 1936 self-checking test cases.
+All seven modules are implemented — 265 functions and 2055 self-checking test cases.
 
 ## Working language
 
@@ -48,7 +48,11 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/selfdiag \
   test/SelfDiagSafe_Test/SelfDiagSafe_Test.c src/selfdiag/selfdiagsafe.c \
   -o selfdiagsafe_test && ./selfdiagsafe_test
 
-python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/ring   test/SRing_Test/SRing_Test.c src/ring/sring.c -o sring_test && ./sring_test
+python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/ring \
+  test/SRing_Test/SRing_Test.c src/ring/sring.c -o sring_test && ./sring_test
+
+python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/filter \
+  test/SFilter_Test/SFilter_Test.c src/filter/sfilter.c -o sfilter_test && ./sfilter_test
 ```
 
 Run the tests before claiming anything passes. Compiling is not passing.
@@ -63,7 +67,7 @@ Use it. gcc and clang do not warn about the same things — gcc's `-Wextra` incl
 
 **gcc has no AddressSanitizer either.** MinGW-W64 ships no ASan runtime, so the control does not link. Neither host compiler on this machine can run ASan; the Ubuntu CI runner is still the only place it works, and the guard-page harnesses are still how out-of-bounds reads get proven here.
 
-All six modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
+All seven modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
 
 ```bash
 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wcast-qual \
@@ -71,9 +75,9 @@ All six modules are clean under a much stricter warning set than the project nor
 -Wundef -Wwrite-strings
 ```
 
-Zero warnings across all six. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
+Zero warnings across all seven. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
 
-A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `basicmathsafe` against 11, `sring` against 11, `selfdiagsafe` against 10 of 12.
+A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `basicmathsafe` against 11, `sring` against 11, `sfilter` against 11, `selfdiagsafe` against 10 of 12.
 
 The `sring` run is the one that shows mutation testing paying for itself directly. A mutant that made `sringPutBlocku8` compute one byte too much free space passed the whole suite, because no case put *exactly* the usable size through the block form. That mutant is a real bug: it fills the buffer completely, which makes the two indices equal, which is the encoding for empty — so the ring would report holding nothing straight after being handed a full load. The boundary cases that kill it were written because the mutant survived, not the other way round.
 
@@ -165,9 +169,9 @@ test/<Name>_Test/<Name>_Test.c                        self-checking test main
 template/inc/generic.h, template/src/generic.c        copy these to start a new module
 ```
 
-Domains: `array` (`sarray`), `math` (`basicmathsafe`), `memory` (`smemory`), `ring` (`sring`), `selfdiag` (`selfdiagsafe`), `string` (`sstring`).
+Domains: `array` (`sarray`), `filter` (`sfilter`), `math` (`basicmathsafe`), `memory` (`smemory`), `ring` (`sring`), `selfdiag` (`selfdiagsafe`), `string` (`sstring`).
 
-All six modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
+All seven modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
 
 `sarray` is 92 functions: twenty three operations repeated across four element families, `uint8_t`, `uint16_t`, `uint32_t` and `int32_t`. Two things about it differ from `sstring` and will bite if forgotten:
 
@@ -175,6 +179,16 @@ All six modules are implemented. `sstring` is the reference: 41 functions coveri
 - **The four families are mechanically identical modulo the element type.** They are emitted from `tools/gen_sarray.py`, not typed four times. Edit the generator and re-run it; **never edit `src/array/sarray.c` or `inc/array/sarray.h` directly**, because the next generator run silently reverts the change. The same applies to `basicmathsafe` and to both generated test suites. CI runs all four generators and fails on a non-empty `git diff`, so drift is caught rather than discovered later. See `tools/README.md`.
 
 `sarray` has no `Get`/`Set` equivalent in `sstring` because C already has `arr[i]`; `sarrayGet` exists to be the bounds checked form of it. `sarrayBinarySearch` requires a sorted array and does not verify it, because verifying costs the scan the search exists to avoid — `sarrayIsSorted` is the separate precondition check.
+
+`sfilter` is 19 functions: moving average, exponential moving average, debounce, slew rate limit, hysteresis and median. **Every sample in it is an `int32_t`, whatever the sensor produced** — a filter has to subtract (the window's oldest sample, the filter's own output, the current value from the target), unsigned subtraction across zero is where those bugs live, and an `int32_t` holds every `uint8_t` and `uint16_t` reading exactly. That single choice is why the module needs no generator and stays hand-written.
+
+Three things in it are easy to break and hard to notice:
+
+- **The exponential filter keeps its accumulator scaled by `2^shift`.** Without that, the fraction discarded each step means the filter stops moving whenever the remaining difference is under `2^shift`, and sits at a permanent offset. The test drives a constant input and demands the output reach it *exactly*; that is the only case that catches it.
+- **Two accumulators are `int64_t`** (`sfilteravg_t`, `sfilterema_t`). That is what removes the overflow question entirely rather than bounding it with a rule the caller has to remember. `sfilterSlewUpdate` also forms its distance in 64 bits, because `target - current` across the ends of `int32_t` is undefined behaviour.
+- **The slew limiter's two limits are separate on purpose** and only distinguishable when the distance falls *between* them. A mutant that tested against the wrong limit survived the first suite for exactly that reason.
+
+Unlike `sring`, these are **not** safe to share between an interrupt and the main loop. Every one of them reads and writes the same fields, so there is no lock-free split to exploit. Give each context its own filter.
 
 `smemory` is 17 functions, the untyped half of the library: bounded replacements for the `mem` family of `<string.h>`. **The line between it and `sarray` is whether the operation has to know what the bytes mean.** Copy, move, set, compare and search do not, so they take a `void*` and live here. A sum, a minimum or an ordering by magnitude does, so it lives in `sarray`. When adding a function, that question decides the module — do not add a typed operation to `smemory` or a byte-blind one to `sarray`.
 

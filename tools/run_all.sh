@@ -36,6 +36,7 @@ echo "== compiler =="
 echo
 
 MODULES=(
+  "filter   sfilter       SFilter"
   "string   sstring       SString"
   "array    sarray        SArray"
   "memory   smemory       SMemory"
