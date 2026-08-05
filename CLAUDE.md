@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All nine modules are implemented — 296 functions and 2440 self-checking test cases.
+All nine modules are implemented — 296 functions and 2462 self-checking test cases.
 
 ## Working language
 
@@ -84,6 +84,8 @@ All nine modules are clean under a much stricter warning set than the project no
 Zero warnings across all nine. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
 
 A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `smath` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `sscale` against 16 of 17, `sdiag` against 10 of 12.
+
+`sring` counts 12 because the unready-driver guard was added after the first eleven. Only three of those eleven were re-run against the new source, and that is enough: the guard adds one early branch that returns TRUE for every driver a successful `Init` produced, so for the cases those mutants exercise the control flow is bit-identical.
 
 The `sring` run is the one that shows mutation testing paying for itself directly. A mutant that made `sringPutBlocku8` compute one byte too much free space passed the whole suite, because no case put *exactly* the usable size through the block form. That mutant is a real bug: it fills the buffer completely, which makes the two indices equal, which is the encoding for empty — so the ring would report holding nothing straight after being handed a full load. The boundary cases that kill it were written because the mutant survived, not the other way round.
 
@@ -286,6 +288,12 @@ Two things follow from that design and are not negotiable:
 - **`volatile` is not a memory barrier.** It stops the compiler caching an index; it does not stop the processor completing the two stores out of order, and the byte must land before the index that publishes it. Enough on Cortex-M0/M0+/M3/M4, not enough on M7 or anything multi-core. The barrier cannot be issued from library code (it is an intrinsic, and this library includes no vendor header), so it is **injected at `Init` as a function pointer** — the driver-struct rule applied literally. It fires after the data moves and before the index does, and never on a refused operation.
 
 Two producers, or two consumers, are unsafe and documented as such.
+
+**Every function but `Init` refuses a driver that never went through `Init`**, through the same `isReady` helper `sscale` has. This is part of the driver-struct pattern, not a detail of one module. It was added on 05/08/2026, after `sscale` had it and `sring` did not, and the gap was not theoretical: on a zeroed ring, `sringPutBlocku8` computed a free space of `0xFFFFFFFF` from a capacity of zero and wrote through the NULL buffer, while `sringFreeu8` and `sringCapacityu8` returned `SR_OK` and reported four gigabytes. Only the single-byte forms were accidentally safe, because two zero indices read as an empty ring.
+
+The guard costs the lock-free split nothing, and that is why it is allowed here: it reads `buffer` and `capacity`, which only `Init` writes and which neither side touches while the ring runs.
+
+Its two conditions are individually redundant against a zeroed driver and each survives mutation for that reason — `buffer == NULL` catches the zeroed case on its own, and so does `capacity < 2u`. Disabling the whole helper is killed, by an access violation. Keep both: they cover different hand-built structs, and neither is reachable through the API.
 
 Modules are **fully independent**: every `.c` includes only its own header plus freestanding standard headers (`<stdint.h>`, `<stddef.h>`). No module includes another module's header. That independence is what makes single-module copy-out work.
 

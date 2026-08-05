@@ -691,6 +691,84 @@ static void testIndexOwnership ( void )
 }
 
 /**
+ * @brief   Checks that a ring which never went through Init is refused.
+ * @note    A ring in static storage is zeroed by the C startup, so its
+ *          buffer reads as NULL and its capacity as zero. Two of the twelve
+ *          functions used to be actively dangerous in that state and three
+ *          more were quietly wrong, so each of the eleven gets its own case
+ *          rather than a sample.
+ */
+static void testUninitialised ( void )
+{
+    static sringu8_t zeroed;
+    uint8_t byte = 0;
+    uint8_t source[ 4 ] = { 1, 2, 3, 4 };
+    uint8_t dest[ 4 ];
+    uint32_t count = 0x5A5A5A5Au;
+    uint8_t flag = 0x5A;
+
+    expectStatus ( "unready: Clear refuses",
+                   sringClearu8 ( &zeroed ), SR_NULLPTR );
+    expectStatus ( "unready: Put refuses",
+                   sringPutu8 ( &zeroed, 0x42 ), SR_NULLPTR );
+    expectStatus ( "unready: Get refuses",
+                   sringGetu8 ( &zeroed, &byte ), SR_NULLPTR );
+    expectStatus ( "unready: Peek refuses",
+                   sringPeeku8 ( &zeroed, &byte ), SR_NULLPTR );
+
+    /* This one wrote through the NULL buffer before the guard existed. A
+       capacity of zero made the free space 0xFFFFFFFF, so the run fitted. */
+    expectStatus ( "unready: PutBlock refuses instead of writing through NULL",
+                   sringPutBlocku8 ( &zeroed, source, 4u, 4u ), SR_NULLPTR );
+    expectStatus ( "unready: GetBlock refuses",
+                   sringGetBlocku8 ( &zeroed, dest, 4u, 4u ), SR_NULLPTR );
+
+    /* A count of zero took the all or nothing path straight past the checks,
+       so it is worth its own case in both block forms. */
+    expectStatus ( "unready: PutBlock of nothing still refuses",
+                   sringPutBlocku8 ( &zeroed, source, 4u, 0u ), SR_NULLPTR );
+    expectStatus ( "unready: GetBlock of nothing still refuses",
+                   sringGetBlocku8 ( &zeroed, dest, 4u, 0u ), SR_NULLPTR );
+
+    expectStatus ( "unready: Count refuses",
+                   sringCountu8 ( &zeroed, &count ), SR_NULLPTR );
+    expectU32 ( "unready: and leaves the count", count, 0x5A5A5A5Au );
+
+    /* Free and Capacity used to subtract one from a capacity of zero and
+       report four gigabytes, with a status of SR_OK. */
+    expectStatus ( "unready: Free refuses instead of reporting four gigabytes",
+                   sringFreeu8 ( &zeroed, &count ), SR_NULLPTR );
+    expectU32 ( "unready: and leaves the free space", count, 0x5A5A5A5Au );
+
+    expectStatus ( "unready: Capacity refuses instead of reporting four gigabytes",
+                   sringCapacityu8 ( &zeroed, &count ), SR_NULLPTR );
+    expectU32 ( "unready: and leaves the capacity", count, 0x5A5A5A5Au );
+
+    expectStatus ( "unready: IsEmpty refuses",
+                   sringIsEmptyu8 ( &zeroed, &flag ), SR_NULLPTR );
+    expectU32 ( "unready: and leaves the flag", ( uint32_t ) flag, 0x5Au );
+
+    expectStatus ( "unready: IsFull refuses",
+                   sringIsFullu8 ( &zeroed, &flag ), SR_NULLPTR );
+    expectU32 ( "unready: and still leaves the flag", ( uint32_t ) flag, 0x5Au );
+
+    /* The guard must not refuse a ring that Init did accept, including the
+       smallest one Init allows. */
+    {
+        uint8_t tiny[ 2 ];
+        sringu8_t small;
+
+        expectStatus ( "unready: the smallest ring Init allows is accepted",
+                       sringInitu8 ( &small, tiny, 2u, NULL ), SR_OK );
+        expectStatus ( "unready: and the guard lets it through",
+                       sringPutu8 ( &small, 0x42 ), SR_OK );
+        expectStatus ( "unready: and it reads back",
+                       sringGetu8 ( &small, &byte ), SR_OK );
+        expectU32 ( "unready: the byte it stored", ( uint32_t ) byte, 0x42u );
+    }
+}
+
+/**
  * @brief   Checks that the injected barrier fires exactly when it should.
  */
 static void testBarrier ( void )
@@ -765,6 +843,7 @@ int main ( void )
     testBlocks ( );
     testAgainstModel ( );
     testIndexOwnership ( );
+    testUninitialised ( );
     testBarrier ( );
 
     printf ( "%lu cases, %lu failed\n",

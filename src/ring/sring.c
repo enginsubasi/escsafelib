@@ -14,6 +14,8 @@
   * @par History
   * 05/08/2026 Created. Single producer single consumer byte ring, with the @n
   *            memory barrier injected at Init as a function pointer. @n
+  * 05/08/2026 Every function but Init now refuses a ring that never went @n
+  *            through Init, rather than computing from a zero capacity. @n
   *
   * @note
   * This is the first module in the library with real state, and it follows
@@ -83,6 +85,8 @@
   * 3. Output parameters are written only on SR_OK.
   * 4. Freestanding. stdint.h and stddef.h only. No allocation, no assert,
   *    no logging.
+  * 5. A ring that never went through Init is refused by every other
+  *    function rather than computed from. See isReady.
   *
   * @note
   * One byte of the buffer is never used. Full and empty are otherwise the
@@ -157,6 +161,46 @@ static uint32_t usedCount ( uint32_t write, uint32_t read, uint32_t capacity )
 }
 
 /**
+ * @brief   Reports whether a ring has been through a successful Init.
+ * @param[in] driver    Ring to test.
+ * @return  TRUE when the driver holds usable storage, FALSE otherwise.
+ * @note    This reads buffer and capacity, which only sringInitu8 ever
+ *          writes and which neither side touches while the ring runs, so
+ *          the check costs the lock free split nothing.
+ * @note    It catches a ring in static storage that was never handed to
+ *          sringInitu8, because such a driver is zeroed by the C startup.
+ *          It cannot catch one in automatic storage that was never
+ *          initialised, whose fields hold whatever was on the stack. No
+ *          check in C can catch that one, and claiming otherwise would be
+ *          worse than not checking.
+ * @note    Without it a zeroed ring is not merely unhelpful, it is wrong in
+ *          three different ways. sringPutBlocku8 computes a free space of
+ *          0xFFFFFFFF from a capacity of zero and writes through the NULL
+ *          buffer. sringFreeu8 and sringCapacityu8 return SR_OK and report
+ *          four gigabytes. Only the single byte forms happen to be safe,
+ *          and only because two zero indices read as an empty ring.
+ */
+static uint8_t isReady ( const sringu8_t* driver )
+{
+    uint8_t retVal = FALSE;
+
+    if ( driver->buffer == NULL )
+    {
+        retVal = FALSE;
+    }
+    else if ( driver->capacity < 2u )
+    {
+        retVal = FALSE;
+    }
+    else
+    {
+        retVal = TRUE;
+    }
+
+    return ( retVal );
+}
+
+/**
  * @brief   Prepares a ring for use.
  * @param[out] driver    Ring to set up.
  * @param[in]  buffer    Storage the ring will use.
@@ -205,7 +249,8 @@ uint8_t sringInitu8 ( sringu8_t* driver, uint8_t* buffer, uint32_t capacity, sri
 /**
  * @brief   Discards everything waiting in a ring.
  * @param[in,out] driver  Ring to empty.
- * @return  SR_OK on success, SR_NULLPTR when driver is NULL.
+ * @return  SR_OK on success, SR_NULLPTR when driver is NULL or the ring
+ *          holds no buffer.
  * @note    Moves the read index up to the write index rather than resetting
  *          both, so it only writes the index the consumer owns and stays
  *          safe to call from the consumer side while the producer runs.
@@ -217,6 +262,10 @@ uint8_t sringClearu8 ( sringu8_t* driver )
     uint8_t retVal = SR_OK;
 
     if ( driver == NULL )
+    {
+        retVal = SR_NULLPTR;
+    }
+    else if ( isReady ( driver ) == FALSE )
     {
         retVal = SR_NULLPTR;
     }
@@ -233,7 +282,8 @@ uint8_t sringClearu8 ( sringu8_t* driver )
  * @brief   Adds one byte to a ring.
  * @param[in,out] driver  Ring to add to.
  * @param[in]     value   Byte to add.
- * @return  SR_OK on success, SR_NULLPTR when driver is NULL, SR_FULL when
+ * @return  SR_OK on success, SR_NULLPTR when driver is NULL
+ *          or the ring holds no buffer, SR_FULL when
  *          there is no space.
  * @note    This is the producer. It writes the buffer and writeIndex, and
  *          reads readIndex without writing it.
@@ -248,6 +298,10 @@ uint8_t sringPutu8 ( sringu8_t* driver, uint8_t value )
     uint32_t next = 0;
 
     if ( driver == NULL )
+    {
+        retVal = SR_NULLPTR;
+    }
+    else if ( isReady ( driver ) == FALSE )
     {
         retVal = SR_NULLPTR;
     }
@@ -287,7 +341,8 @@ uint8_t sringPutu8 ( sringu8_t* driver, uint8_t value )
  * @brief   Removes the oldest byte from a ring.
  * @param[in,out] driver  Ring to take from.
  * @param[out]    value   Set to the byte that was removed.
- * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL, SR_EMPTY
+ * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL
+ *          or the ring holds no buffer, SR_EMPTY
  *          when there is nothing waiting.
  * @note    This is the consumer. It reads the buffer and writes readIndex,
  *          and reads writeIndex without writing it.
@@ -299,6 +354,10 @@ uint8_t sringGetu8 ( sringu8_t* driver, uint8_t* value )
     uint32_t read = 0;
 
     if ( ( driver == NULL ) || ( value == NULL ) )
+    {
+        retVal = SR_NULLPTR;
+    }
+    else if ( isReady ( driver ) == FALSE )
     {
         retVal = SR_NULLPTR;
     }
@@ -337,7 +396,8 @@ uint8_t sringGetu8 ( sringu8_t* driver, uint8_t* value )
  * @brief   Reads the oldest byte of a ring without removing it.
  * @param[in]  driver  Ring to look at.
  * @param[out] value   Set to the oldest byte.
- * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL, SR_EMPTY
+ * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL
+ *          or the ring holds no buffer, SR_EMPTY
  *          when there is nothing waiting.
  * @note    Moves no index, so it changes nothing for either side. Two calls
  *          in a row return the same byte.
@@ -351,6 +411,10 @@ uint8_t sringPeeku8 ( const sringu8_t* driver, uint8_t* value )
     uint32_t read = 0;
 
     if ( ( driver == NULL ) || ( value == NULL ) )
+    {
+        retVal = SR_NULLPTR;
+    }
+    else if ( isReady ( driver ) == FALSE )
     {
         retVal = SR_NULLPTR;
     }
@@ -378,7 +442,8 @@ uint8_t sringPeeku8 ( const sringu8_t* driver, uint8_t* value )
  * @param[in]     data      Bytes to add.
  * @param[in]     dataSize  Capacity of data in bytes.
  * @param[in]     count     Number of bytes to add.
- * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL,
+ * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL
+ *          or the ring holds no buffer,
  *          SR_OVERFLOW when count is above dataSize, SR_FULL when the ring
  *          has less free space than count.
  * @note    All or nothing. A run that does not fit writes no bytes at all,
@@ -399,6 +464,10 @@ uint8_t sringPutBlocku8 ( sringu8_t* driver, const uint8_t* data, uint32_t dataS
     uint32_t i = 0;
 
     if ( ( driver == NULL ) || ( data == NULL ) )
+    {
+        retVal = SR_NULLPTR;
+    }
+    else if ( isReady ( driver ) == FALSE )
     {
         retVal = SR_NULLPTR;
     }
@@ -448,7 +517,8 @@ uint8_t sringPutBlocku8 ( sringu8_t* driver, const uint8_t* data, uint32_t dataS
  * @param[out]    dest      Where to put the bytes.
  * @param[in]     destSize  Capacity of dest in bytes.
  * @param[in]     count     Number of bytes to take.
- * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL,
+ * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL
+ *          or the ring holds no buffer,
  *          SR_OVERFLOW when count is above destSize, SR_EMPTY when the ring
  *          holds fewer than count bytes.
  * @note    All or nothing. On any status other than SR_OK the ring still
@@ -466,6 +536,10 @@ uint8_t sringGetBlocku8 ( sringu8_t* driver, uint8_t* dest, uint32_t destSize, u
     uint32_t i = 0;
 
     if ( ( driver == NULL ) || ( dest == NULL ) )
+    {
+        retVal = SR_NULLPTR;
+    }
+    else if ( isReady ( driver ) == FALSE )
     {
         retVal = SR_NULLPTR;
     }
@@ -512,7 +586,8 @@ uint8_t sringGetBlocku8 ( sringu8_t* driver, uint8_t* dest, uint32_t destSize, u
  * @brief   Reports how many bytes are waiting in a ring.
  * @param[in]  driver  Ring to look at.
  * @param[out] count   Set to the number of bytes waiting.
- * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL.
+ * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL or the
+ *          ring holds no buffer.
  * @note    Each index is read once, so the answer is consistent. It is also
  *          already in the past by the time the caller sees it, which is safe
  *          in the direction that matters: the consumer is told no more than
@@ -524,6 +599,10 @@ uint8_t sringCountu8 ( const sringu8_t* driver, uint32_t* count )
     uint8_t retVal = SR_OK;
 
     if ( ( driver == NULL ) || ( count == NULL ) )
+    {
+        retVal = SR_NULLPTR;
+    }
+    else if ( isReady ( driver ) == FALSE )
     {
         retVal = SR_NULLPTR;
     }
@@ -540,7 +619,8 @@ uint8_t sringCountu8 ( const sringu8_t* driver, uint32_t* count )
  * @brief   Reports how much room is left in a ring.
  * @param[in]  driver     Ring to look at.
  * @param[out] freeSpace  Set to the number of bytes that would still fit.
- * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL.
+ * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL or the
+ *          ring holds no buffer.
  * @note    Counted against the usable size, which is one below the capacity,
  *          so a ring reporting zero free really will refuse the next put.
  * @note    The output is not called free, because a library header that
@@ -553,6 +633,10 @@ uint8_t sringFreeu8 ( const sringu8_t* driver, uint32_t* freeSpace )
     uint32_t used = 0;
 
     if ( ( driver == NULL ) || ( freeSpace == NULL ) )
+    {
+        retVal = SR_NULLPTR;
+    }
+    else if ( isReady ( driver ) == FALSE )
     {
         retVal = SR_NULLPTR;
     }
@@ -570,7 +654,8 @@ uint8_t sringFreeu8 ( const sringu8_t* driver, uint32_t* freeSpace )
  * @brief   Reports how many bytes a ring can hold.
  * @param[in]  driver    Ring to look at.
  * @param[out] capacity  Set to the usable size in bytes.
- * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL.
+ * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL or the
+ *          ring holds no buffer.
  * @note    One below the size of the buffer handed to sringInitu8, because
  *          one byte is always left unused so that full and empty can be told
  *          apart without a field both sides write.
@@ -580,6 +665,10 @@ uint8_t sringCapacityu8 ( const sringu8_t* driver, uint32_t* capacity )
     uint8_t retVal = SR_OK;
 
     if ( ( driver == NULL ) || ( capacity == NULL ) )
+    {
+        retVal = SR_NULLPTR;
+    }
+    else if ( isReady ( driver ) == FALSE )
     {
         retVal = SR_NULLPTR;
     }
@@ -596,7 +685,8 @@ uint8_t sringCapacityu8 ( const sringu8_t* driver, uint32_t* capacity )
  * @brief   Reports whether a ring holds nothing.
  * @param[in]  driver  Ring to look at.
  * @param[out] result  Set to TRUE when the ring is empty.
- * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL.
+ * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL or the
+ *          ring holds no buffer.
  * @note    Only the consumer can rely on a TRUE answer staying true, because
  *          only the producer can make it false.
  */
@@ -605,6 +695,10 @@ uint8_t sringIsEmptyu8 ( const sringu8_t* driver, uint8_t* result )
     uint8_t retVal = SR_OK;
 
     if ( ( driver == NULL ) || ( result == NULL ) )
+    {
+        retVal = SR_NULLPTR;
+    }
+    else if ( isReady ( driver ) == FALSE )
     {
         retVal = SR_NULLPTR;
     }
@@ -629,7 +723,8 @@ uint8_t sringIsEmptyu8 ( const sringu8_t* driver, uint8_t* result )
  * @brief   Reports whether a ring has no room left.
  * @param[in]  driver  Ring to look at.
  * @param[out] result  Set to TRUE when the ring is full.
- * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL.
+ * @return  SR_OK on success, SR_NULLPTR when a pointer is NULL or the
+ *          ring holds no buffer.
  * @note    Only the producer can rely on a TRUE answer staying true, because
  *          only the consumer can make it false.
  */
@@ -639,6 +734,10 @@ uint8_t sringIsFullu8 ( const sringu8_t* driver, uint8_t* result )
     uint32_t next = 0;
 
     if ( ( driver == NULL ) || ( result == NULL ) )
+    {
+        retVal = SR_NULLPTR;
+    }
+    else if ( isReady ( driver ) == FALSE )
     {
         retVal = SR_NULLPTR;
     }

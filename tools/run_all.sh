@@ -29,6 +29,15 @@ REPO="$( cd "$( dirname "$0" )/.." && pwd )"
 OUT="${TMPDIR:-/tmp}/escsafelib-check"
 
 cd "$REPO" || exit 2
+
+# Emptied rather than reused. On Windows a compiler asked for "sring_test"
+# writes "sring_test.exe", and this script then runs "sring_test" -- which
+# resolves to the .exe only when no extensionless file of that name is
+# already there. One earlier run with a different compiler leaves exactly
+# such a file, and every later run silently reports that stale binary's
+# results under the new compiler's name. It is the worst kind of harness
+# bug: it reports a pass, from a build nobody asked for.
+rm -rf "$OUT"
 mkdir -p "$OUT"
 
 echo "== compiler =="
