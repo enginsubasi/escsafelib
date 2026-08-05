@@ -17,6 +17,10 @@
   * 05/08/2026 Renamed from basicmathsafe to smath, so that every module @n
   *            is its domain directory with an s in front. The status @n
   *            prefix is SH_ rather than SM_, which smemory already has. @n
+  * 05/08/2026 The unsigned families no longer promise statuses they @n
+  *            cannot produce. An unsigned sum only overflows, an @n
+  *            unsigned difference only underflows, and an unsigned @n
+  *            quotient cannot leave its type at all. @n
   *
   * @note
   * Five invariants hold for every function in this file.
@@ -77,8 +81,9 @@
  * @param[in] a  First term.
  * @param[in] b  Second term.
  * @return  SH_OK when the sum is representable, SH_OVERFLOW when it is above
- *          the largest value of the type, SH_UNDERFLOW when it is below the
- *          smallest.
+ *          the largest value of the type.
+ * @note    SH_UNDERFLOW is not among the answers. Two values of an
+ *          unsigned type cannot add to anything below zero.
  * @note    The test is made on the operands. Forming the sum first and
  *          looking at it afterwards is undefined behaviour for a signed type
  *          and unprovable for an unsigned one.
@@ -103,9 +108,10 @@ static uint8_t addStatusu8 ( uint8_t a, uint8_t b )
  * @brief   Reports whether subtracting two unsigned 8 bit values leaves the type.
  * @param[in] a  Value to subtract from.
  * @param[in] b  Value to subtract.
- * @return  SH_OK when the difference is representable, SH_OVERFLOW when it is
- *          above the largest value of the type, SH_UNDERFLOW when it is below
- *          the smallest.
+ * @return  SH_OK when the difference is representable, SH_UNDERFLOW when b
+ *          is above a.
+ * @note    SH_OVERFLOW is not among the answers. Subtracting a value that
+ *          is not negative cannot carry the result above the type.
  */
 static uint8_t subStatusu8 ( uint8_t a, uint8_t b )
 {
@@ -128,8 +134,9 @@ static uint8_t subStatusu8 ( uint8_t a, uint8_t b )
  * @param[in] a  First factor.
  * @param[in] b  Second factor.
  * @return  SH_OK when the product is representable, SH_OVERFLOW when it is
- *          above the largest value of the type, SH_UNDERFLOW when it is below
- *          the smallest.
+ *          above the largest value of the type.
+ * @note    SH_UNDERFLOW is not among the answers. Two values of an
+ *          unsigned type cannot multiply to anything below zero.
  * @note    Every division used here has a divisor that has already been shown
  *          to be non zero, and none of them is the one division that itself
  *          overflows, the smallest value divided by minus one.
@@ -159,8 +166,10 @@ static uint8_t mulStatusu8 ( uint8_t a, uint8_t b )
  * @param[in]  a       First term.
  * @param[in]  b       Second term.
  * @param[out] result  Set to the sum on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
- *          SH_UNDERFLOW when the sum is not representable.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW
+ *          when the sum is above the largest value of the type.
+ * @note    SH_UNDERFLOW cannot arise here, so a caller testing for it is
+ *          writing a branch that never runs.
  * @note    On any status other than SH_OK the output is not written.
  */
 uint8_t smathAddu8 ( uint8_t a, uint8_t b, uint8_t* result )
@@ -193,8 +202,10 @@ uint8_t smathAddu8 ( uint8_t a, uint8_t b, uint8_t* result )
  * @param[in]  a       Value to subtract from.
  * @param[in]  b       Value to subtract.
  * @param[out] result  Set to the difference on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
- *          SH_UNDERFLOW when the difference is not representable.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_UNDERFLOW
+ *          when b is above a.
+ * @note    SH_OVERFLOW cannot arise here, so a caller testing for it is
+ *          writing a branch that never runs.
  * @note    On an unsigned type a below b is SH_UNDERFLOW rather than a large
  *          positive answer. Unsigned subtraction wrapping past zero is one of
  *          the most common ways a length calculation turns into an overrun.
@@ -229,8 +240,10 @@ uint8_t smathSubu8 ( uint8_t a, uint8_t b, uint8_t* result )
  * @param[in]  a       First factor.
  * @param[in]  b       Second factor.
  * @param[out] result  Set to the product on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
- *          SH_UNDERFLOW when the product is not representable.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW
+ *          when the product is above the largest value of the type.
+ * @note    SH_UNDERFLOW cannot arise here, so a caller testing for it is
+ *          writing a branch that never runs.
  */
 uint8_t smathMulu8 ( uint8_t a, uint8_t b, uint8_t* result )
 {
@@ -263,8 +276,11 @@ uint8_t smathMulu8 ( uint8_t a, uint8_t b, uint8_t* result )
  * @param[in]  b       Divisor.
  * @param[out] result  Set to the quotient on success.
  * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO
- *          when the divisor is zero, SH_OVERFLOW when the quotient is not
- *          representable.
+ *          when the divisor is zero.
+ * @note    An unsigned quotient is never above its dividend, so it cannot
+ *          leave the type and there is no SH_OVERFLOW. The signed families
+ *          do report it, for the one case of the smallest value divided by
+ *          minus one.
  * @note    Division truncates toward zero.
  * @note    An unsigned quotient is never larger than its dividend, so
  *          SH_OVERFLOW cannot happen here. It is listed because the signed
@@ -331,8 +347,10 @@ uint8_t smathModu8 ( uint8_t a, uint8_t b, uint8_t* result )
  * @param[in]  denominator  Denominator of the ratio.
  * @param[out] result       Set to the scaled value on success.
  * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO
- *          when the denominator is zero, SH_OVERFLOW or SH_UNDERFLOW when
- *          the scaled value is not representable.
+ *          when the denominator is zero, SH_OVERFLOW when the scaled value
+ *          is above the largest value of the type.
+ * @note    SH_UNDERFLOW cannot arise here, so a caller testing for it is
+ *          writing a branch that never runs.
  * @note    This is the function to reach for when converting a raw reading
  *          into engineering units. Written out by hand the multiply
  *          overflows long before the division brings the value back into
@@ -836,8 +854,9 @@ uint8_t smathLog2Flooru8 ( uint8_t value, uint8_t* result )
  * @param[in] a  First term.
  * @param[in] b  Second term.
  * @return  SH_OK when the sum is representable, SH_OVERFLOW when it is above
- *          the largest value of the type, SH_UNDERFLOW when it is below the
- *          smallest.
+ *          the largest value of the type.
+ * @note    SH_UNDERFLOW is not among the answers. Two values of an
+ *          unsigned type cannot add to anything below zero.
  * @note    The test is made on the operands. Forming the sum first and
  *          looking at it afterwards is undefined behaviour for a signed type
  *          and unprovable for an unsigned one.
@@ -862,9 +881,10 @@ static uint8_t addStatusu16 ( uint16_t a, uint16_t b )
  * @brief   Reports whether subtracting two unsigned 16 bit values leaves the type.
  * @param[in] a  Value to subtract from.
  * @param[in] b  Value to subtract.
- * @return  SH_OK when the difference is representable, SH_OVERFLOW when it is
- *          above the largest value of the type, SH_UNDERFLOW when it is below
- *          the smallest.
+ * @return  SH_OK when the difference is representable, SH_UNDERFLOW when b
+ *          is above a.
+ * @note    SH_OVERFLOW is not among the answers. Subtracting a value that
+ *          is not negative cannot carry the result above the type.
  */
 static uint8_t subStatusu16 ( uint16_t a, uint16_t b )
 {
@@ -887,8 +907,9 @@ static uint8_t subStatusu16 ( uint16_t a, uint16_t b )
  * @param[in] a  First factor.
  * @param[in] b  Second factor.
  * @return  SH_OK when the product is representable, SH_OVERFLOW when it is
- *          above the largest value of the type, SH_UNDERFLOW when it is below
- *          the smallest.
+ *          above the largest value of the type.
+ * @note    SH_UNDERFLOW is not among the answers. Two values of an
+ *          unsigned type cannot multiply to anything below zero.
  * @note    Every division used here has a divisor that has already been shown
  *          to be non zero, and none of them is the one division that itself
  *          overflows, the smallest value divided by minus one.
@@ -918,8 +939,10 @@ static uint8_t mulStatusu16 ( uint16_t a, uint16_t b )
  * @param[in]  a       First term.
  * @param[in]  b       Second term.
  * @param[out] result  Set to the sum on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
- *          SH_UNDERFLOW when the sum is not representable.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW
+ *          when the sum is above the largest value of the type.
+ * @note    SH_UNDERFLOW cannot arise here, so a caller testing for it is
+ *          writing a branch that never runs.
  * @note    On any status other than SH_OK the output is not written.
  */
 uint8_t smathAddu16 ( uint16_t a, uint16_t b, uint16_t* result )
@@ -952,8 +975,10 @@ uint8_t smathAddu16 ( uint16_t a, uint16_t b, uint16_t* result )
  * @param[in]  a       Value to subtract from.
  * @param[in]  b       Value to subtract.
  * @param[out] result  Set to the difference on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
- *          SH_UNDERFLOW when the difference is not representable.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_UNDERFLOW
+ *          when b is above a.
+ * @note    SH_OVERFLOW cannot arise here, so a caller testing for it is
+ *          writing a branch that never runs.
  * @note    On an unsigned type a below b is SH_UNDERFLOW rather than a large
  *          positive answer. Unsigned subtraction wrapping past zero is one of
  *          the most common ways a length calculation turns into an overrun.
@@ -988,8 +1013,10 @@ uint8_t smathSubu16 ( uint16_t a, uint16_t b, uint16_t* result )
  * @param[in]  a       First factor.
  * @param[in]  b       Second factor.
  * @param[out] result  Set to the product on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
- *          SH_UNDERFLOW when the product is not representable.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW
+ *          when the product is above the largest value of the type.
+ * @note    SH_UNDERFLOW cannot arise here, so a caller testing for it is
+ *          writing a branch that never runs.
  */
 uint8_t smathMulu16 ( uint16_t a, uint16_t b, uint16_t* result )
 {
@@ -1022,8 +1049,11 @@ uint8_t smathMulu16 ( uint16_t a, uint16_t b, uint16_t* result )
  * @param[in]  b       Divisor.
  * @param[out] result  Set to the quotient on success.
  * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO
- *          when the divisor is zero, SH_OVERFLOW when the quotient is not
- *          representable.
+ *          when the divisor is zero.
+ * @note    An unsigned quotient is never above its dividend, so it cannot
+ *          leave the type and there is no SH_OVERFLOW. The signed families
+ *          do report it, for the one case of the smallest value divided by
+ *          minus one.
  * @note    Division truncates toward zero.
  * @note    An unsigned quotient is never larger than its dividend, so
  *          SH_OVERFLOW cannot happen here. It is listed because the signed
@@ -1090,8 +1120,10 @@ uint8_t smathModu16 ( uint16_t a, uint16_t b, uint16_t* result )
  * @param[in]  denominator  Denominator of the ratio.
  * @param[out] result       Set to the scaled value on success.
  * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO
- *          when the denominator is zero, SH_OVERFLOW or SH_UNDERFLOW when
- *          the scaled value is not representable.
+ *          when the denominator is zero, SH_OVERFLOW when the scaled value
+ *          is above the largest value of the type.
+ * @note    SH_UNDERFLOW cannot arise here, so a caller testing for it is
+ *          writing a branch that never runs.
  * @note    This is the function to reach for when converting a raw reading
  *          into engineering units. Written out by hand the multiply
  *          overflows long before the division brings the value back into
@@ -1595,8 +1627,9 @@ uint8_t smathLog2Flooru16 ( uint16_t value, uint8_t* result )
  * @param[in] a  First term.
  * @param[in] b  Second term.
  * @return  SH_OK when the sum is representable, SH_OVERFLOW when it is above
- *          the largest value of the type, SH_UNDERFLOW when it is below the
- *          smallest.
+ *          the largest value of the type.
+ * @note    SH_UNDERFLOW is not among the answers. Two values of an
+ *          unsigned type cannot add to anything below zero.
  * @note    The test is made on the operands. Forming the sum first and
  *          looking at it afterwards is undefined behaviour for a signed type
  *          and unprovable for an unsigned one.
@@ -1621,9 +1654,10 @@ static uint8_t addStatusu32 ( uint32_t a, uint32_t b )
  * @brief   Reports whether subtracting two unsigned 32 bit values leaves the type.
  * @param[in] a  Value to subtract from.
  * @param[in] b  Value to subtract.
- * @return  SH_OK when the difference is representable, SH_OVERFLOW when it is
- *          above the largest value of the type, SH_UNDERFLOW when it is below
- *          the smallest.
+ * @return  SH_OK when the difference is representable, SH_UNDERFLOW when b
+ *          is above a.
+ * @note    SH_OVERFLOW is not among the answers. Subtracting a value that
+ *          is not negative cannot carry the result above the type.
  */
 static uint8_t subStatusu32 ( uint32_t a, uint32_t b )
 {
@@ -1646,8 +1680,9 @@ static uint8_t subStatusu32 ( uint32_t a, uint32_t b )
  * @param[in] a  First factor.
  * @param[in] b  Second factor.
  * @return  SH_OK when the product is representable, SH_OVERFLOW when it is
- *          above the largest value of the type, SH_UNDERFLOW when it is below
- *          the smallest.
+ *          above the largest value of the type.
+ * @note    SH_UNDERFLOW is not among the answers. Two values of an
+ *          unsigned type cannot multiply to anything below zero.
  * @note    Every division used here has a divisor that has already been shown
  *          to be non zero, and none of them is the one division that itself
  *          overflows, the smallest value divided by minus one.
@@ -1677,8 +1712,10 @@ static uint8_t mulStatusu32 ( uint32_t a, uint32_t b )
  * @param[in]  a       First term.
  * @param[in]  b       Second term.
  * @param[out] result  Set to the sum on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
- *          SH_UNDERFLOW when the sum is not representable.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW
+ *          when the sum is above the largest value of the type.
+ * @note    SH_UNDERFLOW cannot arise here, so a caller testing for it is
+ *          writing a branch that never runs.
  * @note    On any status other than SH_OK the output is not written.
  */
 uint8_t smathAddu32 ( uint32_t a, uint32_t b, uint32_t* result )
@@ -1711,8 +1748,10 @@ uint8_t smathAddu32 ( uint32_t a, uint32_t b, uint32_t* result )
  * @param[in]  a       Value to subtract from.
  * @param[in]  b       Value to subtract.
  * @param[out] result  Set to the difference on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
- *          SH_UNDERFLOW when the difference is not representable.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_UNDERFLOW
+ *          when b is above a.
+ * @note    SH_OVERFLOW cannot arise here, so a caller testing for it is
+ *          writing a branch that never runs.
  * @note    On an unsigned type a below b is SH_UNDERFLOW rather than a large
  *          positive answer. Unsigned subtraction wrapping past zero is one of
  *          the most common ways a length calculation turns into an overrun.
@@ -1747,8 +1786,10 @@ uint8_t smathSubu32 ( uint32_t a, uint32_t b, uint32_t* result )
  * @param[in]  a       First factor.
  * @param[in]  b       Second factor.
  * @param[out] result  Set to the product on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
- *          SH_UNDERFLOW when the product is not representable.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW
+ *          when the product is above the largest value of the type.
+ * @note    SH_UNDERFLOW cannot arise here, so a caller testing for it is
+ *          writing a branch that never runs.
  */
 uint8_t smathMulu32 ( uint32_t a, uint32_t b, uint32_t* result )
 {
@@ -1781,8 +1822,11 @@ uint8_t smathMulu32 ( uint32_t a, uint32_t b, uint32_t* result )
  * @param[in]  b       Divisor.
  * @param[out] result  Set to the quotient on success.
  * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO
- *          when the divisor is zero, SH_OVERFLOW when the quotient is not
- *          representable.
+ *          when the divisor is zero.
+ * @note    An unsigned quotient is never above its dividend, so it cannot
+ *          leave the type and there is no SH_OVERFLOW. The signed families
+ *          do report it, for the one case of the smallest value divided by
+ *          minus one.
  * @note    Division truncates toward zero.
  * @note    An unsigned quotient is never larger than its dividend, so
  *          SH_OVERFLOW cannot happen here. It is listed because the signed
@@ -1849,8 +1893,10 @@ uint8_t smathModu32 ( uint32_t a, uint32_t b, uint32_t* result )
  * @param[in]  denominator  Denominator of the ratio.
  * @param[out] result       Set to the scaled value on success.
  * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO
- *          when the denominator is zero, SH_OVERFLOW or SH_UNDERFLOW when
- *          the scaled value is not representable.
+ *          when the denominator is zero, SH_OVERFLOW when the scaled value
+ *          is above the largest value of the type.
+ * @note    SH_UNDERFLOW cannot arise here, so a caller testing for it is
+ *          writing a branch that never runs.
  * @note    This is the function to reach for when converting a raw reading
  *          into engineering units. Written out by hand the multiply
  *          overflows long before the division brings the value back into

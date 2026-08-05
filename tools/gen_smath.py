@@ -130,6 +130,10 @@ SOURCE_HEAD = r"""/**
   * 05/08/2026 Renamed from basicmathsafe to smath, so that every module @n
   *            is its domain directory with an s in front. The status @n
   *            prefix is SH_ rather than SM_, which smemory already has. @n
+  * 05/08/2026 The unsigned families no longer promise statuses they @n
+  *            cannot produce. An unsigned sum only overflows, an @n
+  *            unsigned difference only underflows, and an unsigned @n
+  *            quotient cannot leave its type at all. @n
   *
   * @note
   * Five invariants hold for every function in this file.
@@ -191,9 +195,7 @@ FAMILY = Template(r"""
  * @brief   Reports whether adding two ${HUMAN} values leaves the type.
  * @param[in] a  First term.
  * @param[in] b  Second term.
- * @return  SH_OK when the sum is representable, SH_OVERFLOW when it is above
- *          the largest value of the type, SH_UNDERFLOW when it is below the
- *          smallest.
+${ADDSTATUSRET}
  * @note    The test is made on the operands. Forming the sum first and
  *          looking at it afterwards is undefined behaviour for a signed type
  *          and unprovable for an unsigned one.
@@ -211,9 +213,7 @@ ${ADDCHECK}
  * @brief   Reports whether subtracting two ${HUMAN} values leaves the type.
  * @param[in] a  Value to subtract from.
  * @param[in] b  Value to subtract.
- * @return  SH_OK when the difference is representable, SH_OVERFLOW when it is
- *          above the largest value of the type, SH_UNDERFLOW when it is below
- *          the smallest.
+${SUBSTATUSRET}
  */
 static uint8_t subStatus${S} ( ${T} a, ${T} b )
 {
@@ -228,9 +228,7 @@ ${SUBCHECK}
  * @brief   Reports whether multiplying two ${HUMAN} values leaves the type.
  * @param[in] a  First factor.
  * @param[in] b  Second factor.
- * @return  SH_OK when the product is representable, SH_OVERFLOW when it is
- *          above the largest value of the type, SH_UNDERFLOW when it is below
- *          the smallest.
+${MULSTATUSRET}
  * @note    Every division used here has a divisor that has already been shown
  *          to be non zero, and none of them is the one division that itself
  *          overflows, the smallest value divided by minus one.
@@ -249,8 +247,7 @@ ${MULCHECK}
  * @param[in]  a       First term.
  * @param[in]  b       Second term.
  * @param[out] result  Set to the sum on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
- *          SH_UNDERFLOW when the sum is not representable.
+${ADDRET}
  * @note    On any status other than SH_OK the output is not written.
  */
 uint8_t smathAdd${S} ( ${T} a, ${T} b, ${T}* result )
@@ -283,8 +280,7 @@ uint8_t smathAdd${S} ( ${T} a, ${T} b, ${T}* result )
  * @param[in]  a       Value to subtract from.
  * @param[in]  b       Value to subtract.
  * @param[out] result  Set to the difference on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
- *          SH_UNDERFLOW when the difference is not representable.
+${SUBRET}
  * @note    On an unsigned type a below b is SH_UNDERFLOW rather than a large
  *          positive answer. Unsigned subtraction wrapping past zero is one of
  *          the most common ways a length calculation turns into an overrun.
@@ -319,8 +315,7 @@ uint8_t smathSub${S} ( ${T} a, ${T} b, ${T}* result )
  * @param[in]  a       First factor.
  * @param[in]  b       Second factor.
  * @param[out] result  Set to the product on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
- *          SH_UNDERFLOW when the product is not representable.
+${MULRET}
  */
 uint8_t smathMul${S} ( ${T} a, ${T} b, ${T}* result )
 {
@@ -352,9 +347,7 @@ uint8_t smathMul${S} ( ${T} a, ${T} b, ${T}* result )
  * @param[in]  a       Dividend.
  * @param[in]  b       Divisor.
  * @param[out] result  Set to the quotient on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO
- *          when the divisor is zero, SH_OVERFLOW when the quotient is not
- *          representable.
+${DIVRET}
  * @note    Division truncates toward zero.
 ${DIVNOTE}
  */
@@ -417,9 +410,7 @@ ${MODGUARD}    else
  * @param[in]  numerator    Numerator of the ratio.
  * @param[in]  denominator  Denominator of the ratio.
  * @param[out] result       Set to the scaled value on success.
- * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO
- *          when the denominator is zero, SH_OVERFLOW or SH_UNDERFLOW when
- *          the scaled value is not representable.
+${SCALERET}
  * @note    This is the function to reach for when converting a raw reading
  *          into engineering units. Written out by hand the multiply
  *          overflows long before the division brings the value back into
@@ -1203,6 +1194,51 @@ def build_header():
     return "".join(parts)
 
 
+
+# The four families share one template, so a @return written once would
+# promise every family every status. These are the differences that are
+# real: an unsigned sum can only overflow, an unsigned difference can
+# only underflow, and an unsigned quotient cannot leave its type at all.
+
+RETURNS_SIGNED = {
+    'ADDSTATUSRET':
+        ' * @return  SH_OK when the sum is representable, SH_OVERFLOW when it is above\n *          the largest value of the type, SH_UNDERFLOW when it is below the\n *          smallest.',
+    'SUBSTATUSRET':
+        ' * @return  SH_OK when the difference is representable, SH_OVERFLOW when it is\n *          above the largest value of the type, SH_UNDERFLOW when it is below\n *          the smallest.',
+    'MULSTATUSRET':
+        ' * @return  SH_OK when the product is representable, SH_OVERFLOW when it is\n *          above the largest value of the type, SH_UNDERFLOW when it is below\n *          the smallest.',
+    'ADDRET':
+        ' * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or\n *          SH_UNDERFLOW when the sum is not representable.',
+    'SUBRET':
+        ' * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or\n *          SH_UNDERFLOW when the difference is not representable.',
+    'MULRET':
+        ' * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or\n *          SH_UNDERFLOW when the product is not representable.',
+    'DIVRET':
+        ' * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO\n *          when the divisor is zero, SH_OVERFLOW when the quotient is not\n *          representable.',
+    'SCALERET':
+        ' * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO\n *          when the denominator is zero, SH_OVERFLOW or SH_UNDERFLOW when\n *          the scaled value is not representable.',
+}
+
+RETURNS_UNSIGNED = {
+    'ADDSTATUSRET':
+        ' * @return  SH_OK when the sum is representable, SH_OVERFLOW when it is above\n *          the largest value of the type.\n * @note    SH_UNDERFLOW is not among the answers. Two values of an\n *          unsigned type cannot add to anything below zero.',
+    'SUBSTATUSRET':
+        ' * @return  SH_OK when the difference is representable, SH_UNDERFLOW when b\n *          is above a.\n * @note    SH_OVERFLOW is not among the answers. Subtracting a value that\n *          is not negative cannot carry the result above the type.',
+    'MULSTATUSRET':
+        ' * @return  SH_OK when the product is representable, SH_OVERFLOW when it is\n *          above the largest value of the type.\n * @note    SH_UNDERFLOW is not among the answers. Two values of an\n *          unsigned type cannot multiply to anything below zero.',
+    'ADDRET':
+        ' * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW\n *          when the sum is above the largest value of the type.\n * @note    SH_UNDERFLOW cannot arise here, so a caller testing for it is\n *          writing a branch that never runs.',
+    'SUBRET':
+        ' * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_UNDERFLOW\n *          when b is above a.\n * @note    SH_OVERFLOW cannot arise here, so a caller testing for it is\n *          writing a branch that never runs.',
+    'MULRET':
+        ' * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW\n *          when the product is above the largest value of the type.\n * @note    SH_UNDERFLOW cannot arise here, so a caller testing for it is\n *          writing a branch that never runs.',
+    'DIVRET':
+        ' * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO\n *          when the divisor is zero.\n * @note    An unsigned quotient is never above its dividend, so it cannot\n *          leave the type and there is no SH_OVERFLOW. The signed families\n *          do report it, for the one case of the smallest value divided by\n *          minus one.',
+    'SCALERET':
+        ' * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO\n *          when the denominator is zero, SH_OVERFLOW when the scaled value\n *          is above the largest value of the type.\n * @note    SH_UNDERFLOW cannot arise here, so a caller testing for it is\n *          writing a branch that never runs.',
+}
+
+
 def build_source():
     parts = [SOURCE_HEAD]
 
@@ -1230,11 +1266,14 @@ def build_source():
             modnote = MOD_NOTE_UNSIGNED
             specific = SPECIFIC_UNSIGNED.substitute(S=suffix, T=ctype)
 
+        returns = RETURNS_SIGNED if signed else RETURNS_UNSIGNED
+
         parts.append(FAMILY.substitute(
             S=suffix, T=ctype, HUMAN=human, MAX=mx, MIN=mn, WIDE=wide,
             ADDCHECK=addcheck, SUBCHECK=subcheck, MULCHECK=mulcheck,
             DIVGUARD=divguard, MODGUARD=modguard, SCALEGUARD=scaleguard,
             DIVNOTE=divnote, MODNOTE=modnote, SPECIFIC=specific,
+            **returns
         ))
 
     return "".join(parts)

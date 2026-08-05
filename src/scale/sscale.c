@@ -14,6 +14,8 @@
   * @par History
   * 05/08/2026 Created. Piecewise linear lookup with a validated table, @n
   *            and the two point map that needs no table. @n
+  * 05/08/2026 Documented why Invert cannot report two of the statuses @n
+  *            sscaleInit can. @n
   *
   * @note
   * This module turns a raw reading into an engineering value. A datasheet
@@ -525,6 +527,13 @@ uint8_t sscaleInit ( sscale_t* driver, const int32_t* x, uint32_t xSize, const i
  *          keep in step with the first.
  * @note    The inverse driver points at the same two arrays as the source,
  *          so the caller's storage has to outlive both.
+ * @note    sscaleInit is what does the work here, yet two of the statuses
+ *          it can report cannot reach this function's caller.
+ *          SC_INVALIDSIZE cannot, because a source that passed isReady
+ *          already holds at least two breakpoints and the counts handed on
+ *          are its own. SC_OVERFLOW cannot, because the span product the
+ *          check forms is the two magnitudes multiplied, and exchanging
+ *          the arrays exchanges the factors without changing the product.
  */
 uint8_t sscaleInvert ( sscale_t* driver, const sscale_t* source )
 {

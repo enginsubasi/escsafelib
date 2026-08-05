@@ -14,6 +14,8 @@
   * @par History
   * 05/08/2026 Created. Conversion, checked arithmetic, rounding, @n
   *            interpolation and square root in Q16.16. @n
+  * 05/08/2026 Documented why the range check in Floor, Ceil, Lerp and @n
+  *            Sqrt cannot report the statuses it is able to form. @n
   *
   * @note
   * One format, Q16.16: an int32_t holding the real value multiplied by
@@ -570,6 +572,9 @@ uint8_t sfixedAbs ( sfixed_t value, sfixed_t* result )
  * @note    Down means toward minus infinity for both signs, so -1.5 floors
  *          to -2 and not to -1. That is what separates this from
  *          sfixedToInt, which truncates toward zero.
+ * @note    fitsFixed can also report SX_OVERFLOW, and rounding down never
+ *          reaches it. The result is not above the input, and the input
+ *          was already a value of the type.
  */
 uint8_t sfixedFloor ( sfixed_t value, sfixed_t* result )
 {
@@ -617,6 +622,9 @@ uint8_t sfixedFloor ( sfixed_t value, sfixed_t* result )
  * @return  SX_OK on success, SX_NULLPTR when result is NULL, SX_OVERFLOW
  *          when rounding up would leave the type.
  * @note    Up means toward plus infinity for both signs, so -1.5 ceils to -1.
+ * @note    fitsFixed can also report SX_UNDERFLOW, and rounding up never
+ *          reaches it. The result is not below the input, and the input
+ *          was already a value of the type.
  */
 uint8_t sfixedCeil ( sfixed_t value, sfixed_t* result )
 {
@@ -825,6 +833,10 @@ uint8_t sfixedClamp ( sfixed_t value, sfixed_t low, sfixed_t high, sfixed_t* res
  *          sensor reading turns into a number nobody measured.
  * @note    The whole calculation is done in 64 bits, so a and b may sit at
  *          opposite ends of the type.
+ * @note    Neither SX_OVERFLOW nor SX_UNDERFLOW can arise, although the
+ *          range check that would report them is still made. With t inside
+ *          its own range the answer lies between a and b, and both of those
+ *          are values of the type already.
  */
 uint8_t sfixedLerp ( sfixed_t a, sfixed_t b, sfixed_t t, sfixed_t* result )
 {
@@ -875,6 +887,11 @@ uint8_t sfixedLerp ( sfixed_t a, sfixed_t b, sfixed_t t, sfixed_t* result )
  * @note    Integer arithmetic throughout, so the answer is the same on a
  *          part with an FPU and a part without one. The result is the floor
  *          of the true root at the resolution of the format.
+ * @note    Neither SX_OVERFLOW nor SX_UNDERFLOW can arise. The largest
+ *          input this format holds is a little under 32768, and its root
+ *          in the format is around 11.9 million, which is well inside an
+ *          int32_t. The range check is kept so that the scaling and the
+ *          check cannot drift apart later.
  */
 uint8_t sfixedSqrt ( sfixed_t value, sfixed_t* result )
 {

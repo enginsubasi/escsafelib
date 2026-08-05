@@ -165,6 +165,15 @@ for m in "${MODULES[@]}"; do
 done
 
 echo
+echo "== doxygen comments match the convention =="
+if python tools/doxcheck.py > "$OUT/doxcheck.log" 2>&1; then
+  echo "  $(tail -1 "$OUT/doxcheck.log")"
+else
+  sed 's/^/  /' "$OUT/doxcheck.log"
+  fail=1
+fi
+
+echo
 echo "== generated modules have not drifted =="
 # Scoped to the generated files only. A bare "git diff" would also flag every
 # uncommitted edit elsewhere in the tree, which makes this report DRIFT during

@@ -298,6 +298,22 @@ jobs:
 
   # --------------------------------------------------------------- reporting
 
+  doxygen-convention:
+    name: Doxygen comment convention
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Blocking, unlike the doxygen job below. This one checks the
+      # things doxygen would not: that a @param list matches the
+      # signature in both directions, and that a @return names every
+      # status the body can produce and no status it cannot. It runs
+      # clean on the development machine, so a red result here is a
+      # real regression.
+      - name: Check the comments against the convention
+        run: python3 tools/doxcheck.py
+
   cppcheck:
     name: cppcheck (reporting)
     runs-on: ubuntu-latest

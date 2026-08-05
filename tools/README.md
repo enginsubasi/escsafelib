@@ -88,5 +88,32 @@ An empty diff means the two have not drifted apart. A non empty one means
 somebody edited the output by hand, and whatever they changed is about to be
 lost.
 
-`sstring`, `smemory` and `sdiag` are single implementations with no
-repetition, are written by hand, and have no generator.
+`sstring`, `smemory`, `sring`, `sfilter`, `sfixed`, `sscale` and `sdiag`
+are single implementations with no repetition, are written by hand, and
+have no generator.
+
+## doxcheck.py
+
+Not a generator. It checks the Doxygen comments in every `.c` against the
+convention, and it exists because doxygen is not installed on the
+development machine and because the two checks worth most are ones
+doxygen would not make anyway:
+
+- a `@param` list has to match the signature in both directions, not just
+  cover it;
+- a `@return` has to name every status the body can produce, and no
+  status it cannot.
+
+The second found the defect it was written for. The four `smath` families
+share one template, so the unsigned ones had inherited the signed text and
+promised an `SH_UNDERFLOW` that an unsigned addition cannot produce.
+
+```bash
+python tools/doxcheck.py            # this repository, exits non zero on a finding
+python tools/doxcheck.py <dir>      # somewhere else, for testing the checker
+```
+
+It is a blocking CI job. Before trusting a clean run, remember that a
+checker which passes on its first run has not been shown to check
+anything: point it at a copy of a module with one deliberate defect and
+confirm it goes red.

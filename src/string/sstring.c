@@ -4,7 +4,7 @@
   * @file      sstring.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
   * @version   0.3.0
-  * @date      01/08/2026
+  * @date      05/08/2026
   *
   * @brief     Safe string handling function library file.
   *
@@ -28,6 +28,9 @@
   * 02/08/2026 Number conversion added, replacing atoi and strtoul. @n
   *            Overflow is detected before the multiply that would @n
   *            cause it. @n
+  * 05/08/2026 sourceLength now lists the status it passes through, and @n
+  *            the trim family says why a substring cannot go out of @n
+  *            range. Banner date brought up to the history. @n
   *
   * @note
   * Six invariants hold for every function in this file.
@@ -161,13 +164,17 @@ static uint32_t smallerOf ( uint32_t a, uint32_t b )
  * @param[in]  destSpace  Bytes available in the destination, terminator
  *                        included.
  * @param[out] srcLen     Set to the character count of src.
- * @return  SS_OK when src terminates and the result fits, SS_UNTERMINATED
- *          when src holds no terminator inside its own capacity,
- *          SS_OVERFLOW when src terminates only beyond the space available.
+ * @return  SS_OK when src terminates and the result fits, SS_NULLPTR when
+ *          src or srcLen is NULL, SS_UNTERMINATED when src holds no
+ *          terminator inside its own capacity, SS_OVERFLOW when src
+ *          terminates only beyond the space available.
  * @note    Two failures that used to be indistinguishable are separated
  *          here, because src now carries its own capacity. A scan that runs
  *          out at srcSize means the source is malformed; one that runs out
  *          at destSpace means the destination is too small.
+ * @note    sstringLength can also report SS_INVALIDSIZE, and that one never
+ *          leaves this function: a scan bound of zero is turned into
+ *          whichever of the two failures above the sizes say it is.
  */
 static uint8_t sourceLength ( const char* src, uint32_t srcSize, uint32_t destSpace, uint32_t* srcLen )
 {
@@ -1668,6 +1675,11 @@ uint8_t sstringSubstring ( char* dest, uint32_t destSize, const char* src, uint3
  *          SS_INVALIDSIZE when a capacity is zero, SS_UNTERMINATED when src
  *          holds no terminator, SS_OVERFLOW when the result does not fit,
  *          SS_OVERLAP when the buffers partially intersect.
+ * @note    sstringSubstring can also report SS_OUTOFRANGE, and no call made
+ *          here can provoke it. The start handed over is never past the
+ *          measured length, and a string that is nothing but whitespace
+ *          asks for a count of zero at the end rather than a start beyond
+ *          it.
  */
 uint8_t sstringTrimLeft ( char* dest, uint32_t destSize, const char* src, uint32_t srcSize )
 {
@@ -1727,6 +1739,11 @@ uint8_t sstringTrimLeft ( char* dest, uint32_t destSize, const char* src, uint32
  *          SS_INVALIDSIZE when a capacity is zero, SS_UNTERMINATED when src
  *          holds no terminator, SS_OVERFLOW when the result does not fit,
  *          SS_OVERLAP when the buffers partially intersect.
+ * @note    sstringSubstring can also report SS_OUTOFRANGE, and no call made
+ *          here can provoke it. The start handed over is never past the
+ *          measured length, and a string that is nothing but whitespace
+ *          asks for a count of zero at the end rather than a start beyond
+ *          it.
  */
 uint8_t sstringTrimRight ( char* dest, uint32_t destSize, const char* src, uint32_t srcSize )
 {
@@ -1783,6 +1800,11 @@ uint8_t sstringTrimRight ( char* dest, uint32_t destSize, const char* src, uint3
  *          holds no terminator, SS_OVERFLOW when the result does not fit,
  *          SS_OVERLAP when the buffers partially intersect.
  * @note    A string made entirely of whitespace trims to an empty string.
+ * @note    sstringSubstring can also report SS_OUTOFRANGE, and no call made
+ *          here can provoke it. The start handed over is never past the
+ *          measured length, and a string that is nothing but whitespace
+ *          asks for a count of zero at the end rather than a start beyond
+ *          it.
  */
 uint8_t sstringTrim ( char* dest, uint32_t destSize, const char* src, uint32_t srcSize )
 {

@@ -177,6 +177,17 @@ arm-none-eabi-gcc -c -Wall $(for d in inc/*/; do echo -n " -I$d"; done) /tmp/all
 
 Doxygen is not installed here, so `Doxyfile` ships unverified; `WARN_NO_PARAMDOC = YES` is what turns the comment convention into a tool enforced rule when the owner runs it.
 
+`tools/doxcheck.py` covers the gap in the meantime, and covers more than doxygen would. It checks every `.c` in the tree — 488 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, and unknown tags. It is a blocking CI job because it runs clean here.
+
+**Its most useful rule is one doxygen has no concept of: a `@return` must name every status the body can set, and no status it cannot.** That is what found the only real defect the first full audit turned up. The four `smath` families share one template, so the unsigned ones had inherited the signed text and promised an `SH_UNDERFLOW` that an unsigned addition cannot produce and an `SH_OVERFLOW` that an unsigned subtraction cannot — a caller testing for either was writing a branch that never runs.
+
+Two patterns it accepts on purpose, because both are better documentation than the alternative:
+
+- **`"otherwise the status sarrayCopyNu8 reports"`** documents the delegate's statuses. Copying the list would drift.
+- **A status the body can form but can never produce may be explained in a `@note`** rather than listed in `@return`. `sfixedFloor` calls a range check that can say `SX_OVERFLOW`, and rounding down cannot reach it. The audit added those notes rather than removing the checks.
+
+The same rule applies to it as to the test suites: a checker that passes on its first run has been shown to check nothing. It was developed against a control file carrying one deliberate defect per rule, and every rule fired. Do that again before trusting a change to it.
+
 ## Layout and module contract
 
 ```
