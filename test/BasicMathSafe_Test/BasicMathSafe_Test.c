@@ -283,10 +283,6 @@ static void sweepu8 ( void )
             {
                 if ( out != ( uint8_t ) 0xFFu ) { ++addSatBad; }
             }
-            else if ( truth < ( uint32_t ) 0u )
-            {
-                if ( out != ( uint8_t ) 0u ) { ++addSatBad; }
-            }
             else
             {
                 if ( out != ( uint8_t ) truth ) { ++addSatBad; }
@@ -319,10 +315,6 @@ static void sweepu8 ( void )
             else if ( truth > ( uint32_t ) 0xFFu )
             {
                 if ( out != ( uint8_t ) 0xFFu ) { ++mulSatBad; }
-            }
-            else if ( truth < ( uint32_t ) 0u )
-            {
-                if ( out != ( uint8_t ) 0u ) { ++mulSatBad; }
             }
             else
             {
@@ -688,10 +680,6 @@ static void sweepu16 ( void )
             {
                 if ( out != ( uint16_t ) 0xFFFFu ) { ++addSatBad; }
             }
-            else if ( truth < ( uint32_t ) 0u )
-            {
-                if ( out != ( uint16_t ) 0u ) { ++addSatBad; }
-            }
             else
             {
                 if ( out != ( uint16_t ) truth ) { ++addSatBad; }
@@ -724,10 +712,6 @@ static void sweepu16 ( void )
             else if ( truth > ( uint32_t ) 0xFFFFu )
             {
                 if ( out != ( uint16_t ) 0xFFFFu ) { ++mulSatBad; }
-            }
-            else if ( truth < ( uint32_t ) 0u )
-            {
-                if ( out != ( uint16_t ) 0u ) { ++mulSatBad; }
             }
             else
             {
@@ -1093,10 +1077,6 @@ static void sweepu32 ( void )
             {
                 if ( out != ( uint32_t ) 0xFFFFFFFFu ) { ++addSatBad; }
             }
-            else if ( truth < ( uint64_t ) 0u )
-            {
-                if ( out != ( uint32_t ) 0u ) { ++addSatBad; }
-            }
             else
             {
                 if ( out != ( uint32_t ) truth ) { ++addSatBad; }
@@ -1129,10 +1109,6 @@ static void sweepu32 ( void )
             else if ( truth > ( uint64_t ) 0xFFFFFFFFu )
             {
                 if ( out != ( uint32_t ) 0xFFFFFFFFu ) { ++mulSatBad; }
-            }
-            else if ( truth < ( uint64_t ) 0u )
-            {
-                if ( out != ( uint32_t ) 0u ) { ++mulSatBad; }
             }
             else
             {

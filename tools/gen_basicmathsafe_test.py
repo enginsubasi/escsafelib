@@ -349,11 +349,7 @@ ${MODSPECIAL}            else
             {
                 if ( out != ( ${T} ) ${MAX} ) { ++addSatBad; }
             }
-            else if ( truth < ( ${WIDE} ) ${MIN} )
-            {
-                if ( out != ( ${T} ) ${MIN} ) { ++addSatBad; }
-            }
-            else
+${ADDSATLOW}            else
             {
                 if ( out != ( ${T} ) truth ) { ++addSatBad; }
             }
@@ -373,11 +369,7 @@ ${SUBSATORACLE}
             {
                 if ( out != ( ${T} ) ${MAX} ) { ++mulSatBad; }
             }
-            else if ( truth < ( ${WIDE} ) ${MIN} )
-            {
-                if ( out != ( ${T} ) ${MIN} ) { ++mulSatBad; }
-            }
-            else
+${MULSATLOW}            else
             {
                 if ( out != ( ${T} ) truth ) { ++mulSatBad; }
             }
@@ -594,6 +586,17 @@ SUBSATORACLE_UNSIGNED = """            out = sentinel;
 
                 if ( out != ( ${T} ) truth ) { ++subSatBad; }
             }"""
+
+# The "below the smallest value" arm of every oracle only exists for a signed
+# family. For an unsigned one the wide type is unsigned too, so the test reads
+# truth < 0u, which is always false and which gcc reports under -Wtype-limits.
+# clang does not, which is why the two compilers both run in CI.
+
+SATLOW_SIGNED = """            else if ( truth < ( ${WIDE} ) ${MIN} )
+            {
+                if ( out != ( ${T} ) ${MIN} ) { ++${COUNTER}; }
+            }
+"""
 
 ADDLOW_SIGNED = """            else if ( truth < ( ${WIDE} ) ${MIN} )
             {
@@ -813,6 +816,10 @@ def main():
                "MAX": t["MAX"], "MIN": t["MIN"]}
 
         if t["signed"]:
+            subst["ADDSATLOW"] = Template(SATLOW_SIGNED).substitute(
+                WIDE=wide, MIN=mn, T=t["T"], COUNTER="addSatBad")
+            subst["MULSATLOW"] = Template(SATLOW_SIGNED).substitute(
+                WIDE=wide, MIN=mn, T=t["T"], COUNTER="mulSatBad")
             subst["SUBORACLE"] = Template(SUBORACLE_SIGNED).substitute(sub)
             subst["SUBSATORACLE"] = Template(SUBSATORACLE_SIGNED).substitute(sub)
             subst["ADDLOW"] = Template(ADDLOW_SIGNED).substitute(WIDE=wide, MIN=mn)
@@ -823,6 +830,8 @@ def main():
             subst["TARGETEDEXTRA"] = EXTRA_SIGNED.substitute(
                 S=t["S"], T=t["T"], MIN=t["MIN"], MAX=t["MAX"])
         else:
+            subst["ADDSATLOW"] = ""
+            subst["MULSATLOW"] = ""
             subst["SUBORACLE"] = Template(SUBORACLE_UNSIGNED).substitute(sub)
             subst["SUBSATORACLE"] = Template(SUBSATORACLE_UNSIGNED).substitute(sub)
             subst["ADDLOW"] = ""
