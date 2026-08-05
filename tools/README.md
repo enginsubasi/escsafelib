@@ -1,7 +1,45 @@
 # tools
 
-Generators for the two modules that repeat one set of operations across
-several numeric types.
+Developer conveniences. **Nothing here is part of a build.** The C in `inc/`
+and `src/` is the source of truth, is what ships, and is what a consumer
+copies into a project. No target toolchain runs any of this.
+
+## run_all.sh
+
+Builds and runs all six test suites, then the checks that are worth running
+but belong to no single build.
+
+```bash
+bash tools/run_all.sh                        # gcc
+bash tools/run_all.sh clang
+bash tools/run_all.sh "python -m ziglang cc"
+```
+
+It exits non zero if anything fails. Five sections:
+
+1. Every suite at `-Wall -Wextra -Wpedantic`, with any warning treated as a
+   failure.
+2. Every module under a much stricter set — `-Wconversion -Wsign-conversion
+   -Wcast-qual -Wcast-align -Wshadow -Wstrict-prototypes -Wmissing-prototypes
+   -Wredundant-decls -Wundef -Wwrite-strings`. All six are currently clean.
+3. Whether AddressSanitizer is actually armed.
+4. Every suite under UBSan in trap mode, which needs no runtime.
+5. Whether the generated modules still match their generators.
+
+**Section 3 is the one to understand.** It builds a control program that
+reads past an allocation and must fault. Only if the control faults are any
+ASan results believed; otherwise the whole section is skipped. That is not
+caution for its own sake: under zig on Windows, `-fsanitize=address` alone
+fails to link honestly, but `-fsanitize=address,undefined` links cleanly and
+then detects nothing at all, so a suite built that way reports a confident
+pass having been checked by nothing. Neither host compiler on the
+development machine has a working ASan. The Ubuntu CI runner is the only
+place it works.
+
+## Generators
+
+For the two modules that repeat one set of operations across several numeric
+types.
 
 These are **not** part of any build. The generated C in `inc/` and `src/` is
 the source of truth, is what ships, and is what a consumer copies into a

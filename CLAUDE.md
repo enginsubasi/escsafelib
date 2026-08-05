@@ -53,7 +53,17 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/ring   test/SRing_Test/SRin
 
 Run the tests before claiming anything passes. Compiling is not passing.
 
-All six modules are clean under a much stricter warning set than the project normally uses, verified with clang 21 via zig:
+A second host compiler is available: **MinGW-W64 gcc 14.2.0**, bundled with Code::Blocks at `C:\Program Files\CodeBlocks\MinGW\bin`. It is not on `PATH`; prefix the command instead:
+
+```bash
+PATH="/c/Program Files/CodeBlocks/MinGW/bin:$PATH" gcc --version
+```
+
+Use it. gcc and clang do not warn about the same things — gcc's `-Wextra` includes `-Wtype-limits`, which clang does not implement the same way, and that difference has already caught dead code in a generated test that clang passed silently. (There is a second `gcc.exe` at `C:\Program Files (x86)\STMicroelectronics\...\MinGW`; it is version 4.5.0 from 2010 and does not support C99. Ignore it.)
+
+**gcc has no AddressSanitizer either.** MinGW-W64 ships no ASan runtime, so the control does not link. Neither host compiler on this machine can run ASan; the Ubuntu CI runner is still the only place it works, and the guard-page harnesses are still how out-of-bounds reads get proven here.
+
+All six modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
 
 ```bash
 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wcast-qual \
