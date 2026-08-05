@@ -114,6 +114,16 @@ jobs:
       - name: Run the sfixed test program
         run: ./sfixed_test
 
+      - name: Build the sscale test program
+        run: |
+          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
+            -Iinc/scale \
+            test/SScale_Test/SScale_Test.c src/scale/sscale.c \
+            -o sscale_test
+
+      - name: Run the sscale test program
+        run: ./sscale_test
+
       # The generated modules must still be exactly what their generator
       # produces. A non empty diff means somebody edited the output by hand
       # and the next generator run would silently revert it.
@@ -232,6 +242,18 @@ jobs:
       - name: Run sfixed under sanitizers
         run: ./sfixed_san
 
+      - name: Build sscale with sanitizers
+        run: |
+          clang -Wall -Wextra -std=c99 -g \
+            -fsanitize=address,undefined -fno-sanitize-recover=all \
+            -fno-omit-frame-pointer \
+            -Iinc/scale \
+            test/SScale_Test/SScale_Test.c src/scale/sscale.c \
+            -o sscale_san
+
+      - name: Run sscale under sanitizers
+        run: ./sscale_san
+
   cross-compile:
     name: Cross compile for ARM
     runs-on: ubuntu-latest
@@ -297,6 +319,7 @@ jobs:
             --suppress=checkersReport \
             -Iinc/string -Iinc/array -Iinc/memory -Iinc/math \
             -Iinc/ring -Iinc/filter -Iinc/fixed -Iinc/diag \
+            -Iinc/scale \
             src/ 2>&1 | tee cppcheck.log
 
       # The MISRA addon reports rule numbers only. The rule texts are
@@ -330,6 +353,9 @@ jobs:
           cppcheck --addon=misra --std=c99 --platform=unix32 \
             --suppress=missingIncludeSystem \
             -Iinc/fixed src/fixed/sfixed.c 2>&1 | tee -a misra.log
+          cppcheck --addon=misra --std=c99 --platform=unix32 \
+            --suppress=missingIncludeSystem \
+            -Iinc/scale src/scale/sscale.c 2>&1 | tee -a misra.log
 
       - uses: actions/upload-artifact@v4
         if: always()

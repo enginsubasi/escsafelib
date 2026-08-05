@@ -22,6 +22,7 @@ fails leaves its destination untouched.
 | `inc/ring/sring.h` | 12 functions. Single producer single consumer byte ring buffer. Lock free for an interrupt filling it while the main loop drains it. |
 | `inc/filter/sfilter.h` | 19 functions. Moving average, exponential average, debounce, slew limit, hysteresis and median. |
 | `inc/fixed/sfixed.h` | 19 functions. Q16.16 fixed point: conversion, checked arithmetic, rounding, interpolation and square root. No floating point. |
+| `inc/scale/sscale.h` | 12 functions. Piecewise linear scaling: a validated breakpoint table in either direction, its inverse, and the two point map that needs no table. |
 | `inc/diag/sdiag.h` | 16 functions. CRC and checksum, March memory tests, stack usage measurement, control flow monitoring and redundant storage. No hardware dependency. |
 
 `sarray` and `smemory` split the same territory along one line. Operations
@@ -167,6 +168,9 @@ gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/filter \
 
 gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/fixed \
   test/SFixed_Test/SFixed_Test.c src/fixed/sfixed.c -o sfixed_test && ./sfixed_test
+
+gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/scale \
+  test/SScale_Test/SScale_Test.c src/scale/sscale.c -o sscale_test && ./sscale_test
 ```
 
 ## Generated modules

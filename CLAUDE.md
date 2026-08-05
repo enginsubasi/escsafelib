@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All eight modules are implemented — 284 functions and 2217 self-checking test cases.
+All nine modules are implemented — 296 functions and 2440 self-checking test cases.
 
 ## Working language
 
@@ -56,6 +56,9 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/filter \
 
 python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/fixed \
   test/SFixed_Test/SFixed_Test.c src/fixed/sfixed.c -o sfixed_test && ./sfixed_test
+
+python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/scale \
+  test/SScale_Test/SScale_Test.c src/scale/sscale.c -o sscale_test && ./sscale_test
 ```
 
 Run the tests before claiming anything passes. Compiling is not passing.
@@ -70,7 +73,7 @@ Use it. gcc and clang do not warn about the same things — gcc's `-Wextra` incl
 
 **gcc has no AddressSanitizer either.** MinGW-W64 ships no ASan runtime, so the control does not link. Neither host compiler on this machine can run ASan; the Ubuntu CI runner is still the only place it works, and the guard-page harnesses are still how out-of-bounds reads get proven here.
 
-All eight modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
+All nine modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
 
 ```bash
 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wcast-qual \
@@ -78,15 +81,23 @@ All eight modules are clean under a much stricter warning set than the project n
 -Wundef -Wwrite-strings
 ```
 
-Zero warnings across all eight. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
+Zero warnings across all nine. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
 
-A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `smath` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `sdiag` against 10 of 12.
+A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `smath` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `sscale` against 16 of 17, `sdiag` against 10 of 12.
 
 The `sring` run is the one that shows mutation testing paying for itself directly. A mutant that made `sringPutBlocku8` compute one byte too much free space passed the whole suite, because no case put *exactly* the usable size through the block form. That mutant is a real bug: it fills the buffer completely, which makes the two indices equal, which is the encoding for empty — so the ring would report holding nothing straight after being handed a full load. The boundary cases that kill it were written because the mutant survived, not the other way round.
 
 Two results from those runs are worth keeping in mind:
 
 - Masking `smemoryEqualSecure` down to the low bit of each difference still passes every naive equality case. Only the deliberate high-bit-only case catches it.
+- **One `sscale` mutant survives and is provably equivalent.** Removing
+  the up-front refusal of a flat first pair and widening the direction
+  test from `>` to `>=` changes nothing observable: the only table it
+  affects is one where `x[1] == x[0]`, and the validation loop's first
+  iteration refuses that in either direction, leaving the same status
+  and an equally untouched driver. That is a proof, not a hole, and it
+  is the reason the explicit `==` check is in the source anyway — the
+  code should say what it means rather than be right by accident.
 - **Two `sdiag` mutants survive and are known to.** Disabling the zero-read checks of March element two, or the address uniqueness pass, changes nothing that any harness on this machine can observe: healthy host memory always reads back what was written, and the aliasing harness's fault is caught redundantly by a later March element. See "Untestable here" below.
 
 When writing a sweep against a wider-type oracle, **the oracle is where the bug will be.** The first `smath` run reported 32640 failures in unsigned subtract; the module was right and the oracle wrong, because `(uint32_t) a - b` wraps inside the oracle's own type and reads as an overflow when the truth is an underflow. 32640 is exactly the number of pairs with `a < b`. A failure count that equals a recognisable combinatorial quantity is a sign the oracle is broken, not the module.
@@ -172,7 +183,7 @@ test/<Name>_Test/<Name>_Test.c                        self-checking test main
 template/inc/generic.h, template/src/generic.c        copy these to start a new module
 ```
 
-Domains: `array`, `diag`, `filter`, `fixed`, `math`, `memory`, `ring`, `string`.
+Domains: `array`, `diag`, `filter`, `fixed`, `math`, `memory`, `ring`, `scale`, `string`.
 
 **A module is named after its domain directory with an `s` in front, without
 exception.** `array`/`sarray`, `diag`/`sdiag`, `math`/`smath`, and so on. Two
@@ -200,7 +211,7 @@ mat**h** because `smemory` already held `SM_`. `SM_` was deliberately left
 with `smemory` rather than moved: renaming a shipped module's prefix to free
 a letter is churn paid by every existing call site.
 
-All eight modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
+All nine modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
 
 `sarray` is 92 functions: twenty three operations repeated across four element families, `uint8_t`, `uint16_t`, `uint32_t` and `int32_t`. Two things about it differ from `sstring` and will bite if forgotten:
 
@@ -232,6 +243,21 @@ Three rules hold it together:
 `sfixedToParts` splits a value into sign, whole part and thousandths so a caller can print it without this module knowing about strings. The sign is separate from the whole part deliberately: -0.5 has a whole part of zero, and a caller reading only the sign of that would print it as positive.
 
 Its test suite contains **no floating point at all** — checking a fixed-point module against float would check it against the very thing it exists to avoid. Expected values are written as integers in the format, and the sweeps assert properties (multiplying by one is the identity, floor never exceeds the input, a root squared never exceeds the input) rather than comparing against a second implementation.
+
+`sscale` is 12 functions of piecewise linear scaling — a breakpoint table from a datasheet, and everything between the breakpoints taken to be a straight line. Thermistor counts to degrees, load cell counts to newtons.
+
+It is the second module built around the driver struct, and unlike `sring` the reason is safety rather than state. **`sscaleInit` is the only function that validates the table, and no other function can be reached without it having succeeded.** A caller cannot interpolate through an unchecked table, cannot swap the two arrays by accident, and cannot pass a count that disagrees with the one the table was validated against. That is worth more here than the parameter list it saves.
+
+Four things in it are easy to get wrong:
+
+- **Both directions of table are accepted.** A thermistor's resistance falls as its temperature rises, so its table descends. Forcing the caller to reverse the array by hand would put the one error this module exists to prevent back in the caller's code. Direction is taken from the first pair and every remaining pair must agree, so a table that turns round half way is refused rather than searched.
+- **Interpolation rounds to nearest, halves away from zero**, where `sfixed` truncates. The difference is deliberate: truncation biases every reading toward zero by up to one count, always in the same direction, and on a calibration curve a bias is a systematic error rather than noise.
+- **The overflow check lives in `Init`, not in `Apply`.** One segment's spans can multiply past `int64_t` — the boundary is an input span of 2^32-1 against an output span of 2^31, which fits, and one count more, which does not. Checking it once at startup makes a bad table a configuration error rather than a runtime failure found by whichever reading first happened to reach it, and it makes the arithmetic in `Apply` total.
+- **The rounding is written with a remainder, not by adding half the denominator.** That addition would itself overflow when the numerator is near the top of the type. Twice a remainder cannot.
+
+The `y` array is deliberately *not* required to be monotonic — a calibration curve may fold back and still be a function of its input. That is also why `sscaleInvert`, which builds the reverse map by exchanging the two arrays, can fail: the inverse of a folded curve is not a function. It is one call into `sscaleInit`, so the requirement is enforced by the same code that enforces it for a forward table.
+
+Its test suite contains **no floating point**, for the same reason `sfixed`'s does not. The rounding rule is verified by cross multiplication in `int64_t`: a result is correct to nearest when twice its error has a magnitude no greater than the denominator.
 
 `smemory` is 17 functions, the untyped half of the library: bounded replacements for the `mem` family of `<string.h>`. **The line between it and `sarray` is whether the operation has to know what the bytes mean.** Copy, move, set, compare and search do not, so they take a `void*` and live here. A sum, a minimum or an ordering by magnitude does, so it lives in `sarray`. When adding a function, that question decides the module — do not add a typed operation to `smemory` or a byte-blind one to `sarray`.
 

@@ -44,6 +44,7 @@ MODULES=(
   "math     smath         SMath"
   "ring     sring         SRing"
   "diag     sdiag         SDiag"
+  "scale    sscale        SScale"
 )
 
 fail=0
