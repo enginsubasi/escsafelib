@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-`escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, safe arithmetic, self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
+`escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-The library is currently at skeleton stage — module file pairs exist, most contain a banner and section markers only. That is by design, not a defect.
+All six modules are implemented — 246 functions and 1936 self-checking test cases.
 
 ## Working language
 
@@ -24,7 +24,7 @@ Commit messages are terse and prefixed: `+` for additions, `*` for fixes/updates
 
 ## Build / test
 
-There is **no build system** — no Makefile, no CMake, no CI. The library is consumed by copying the module pair into a target project, which supplies its own toolchain. Do not add a build system without being asked.
+There is **no build system** — no Makefile, no CMake. The library is consumed by copying the module pair into a target project, which supplies its own toolchain. Do not add a build system without being asked. There *is* CI (see below), and there are code generators in `tools/`, but neither is something a consumer runs.
 
 `test/<Name>_Test/` holds one standalone `main()` per module. Unlike `esclib`, whose tests print and are compared by eye against a stored `output.txt`, these tests check their own results and return a non-zero exit code when a case fails — the interesting cases here are failure paths, and "the destination was not modified" is not something a printed transcript shows.
 
@@ -47,11 +47,15 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/math \
 python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/selfdiag \
   test/SelfDiagSafe_Test/SelfDiagSafe_Test.c src/selfdiag/selfdiagsafe.c \
   -o selfdiagsafe_test && ./selfdiagsafe_test
+
+python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/ring   test/SRing_Test/SRing_Test.c src/ring/sring.c -o sring_test && ./sring_test
 ```
 
 Run the tests before claiming anything passes. Compiling is not passing.
 
-A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `basicmathsafe` against 11, `selfdiagsafe` against 10 of 12.
+A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `basicmathsafe` against 11, `sring` against 11, `selfdiagsafe` against 10 of 12.
+
+The `sring` run is the one that shows mutation testing paying for itself directly. A mutant that made `sringPutBlocku8` compute one byte too much free space passed the whole suite, because no case put *exactly* the usable size through the block form. That mutant is a real bug: it fills the buffer completely, which makes the two indices equal, which is the encoding for empty — so the ring would report holding nothing straight after being handed a full load. The boundary cases that kill it were written because the mutant survived, not the other way round.
 
 Two results from those runs are worth keeping in mind:
 
@@ -130,9 +134,9 @@ test/<Name>_Test/<Name>_Test.c                        self-checking test main
 template/inc/generic.h, template/src/generic.c        copy these to start a new module
 ```
 
-Domains: `array` (`sarray`), `math` (`basicmathsafe`), `memory` (`smemory`), `selfdiag` (`selfdiagsafe`), `string` (`sstring`).
+Domains: `array` (`sarray`), `math` (`basicmathsafe`), `memory` (`smemory`), `ring` (`sring`), `selfdiag` (`selfdiagsafe`), `string` (`sstring`).
 
-All five modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
+All six modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
 
 `sarray` is 92 functions: twenty three operations repeated across four element families, `uint8_t`, `uint16_t`, `uint32_t` and `int32_t`. Two things about it differ from `sstring` and will bite if forgotten:
 
@@ -157,6 +161,17 @@ The checked and saturating forms of add, subtract and multiply share one status 
 `selfdiagsafe` is 16 functions and is the only module with state, held in caller-owned structs (`selfdiagsafeflow_t`, `selfdiagsafeshadow_t`) so the functions stay reentrant. Its banner has claimed "without hardware dependencies" since 2022 and that is the scope: CRC and checksum, March memory tests, stack usage measurement, control-flow signatures, redundant storage. **A CPU register test, a program counter test and an instruction set test are deliberately absent** — they cannot be written in C at all, and a complete IEC 61508 / ISO 26262 self test needs assembly for them. Do not add a HAL or a linker symbol to this module to close that gap; it belongs in a separate, non-portable one.
 
 `selfdiagsafe` has one deliberate inversion of the library-wide rule that outputs are written only on success: the `failIndex` of both memory tests is written **only** on `SD_FAILED`. On a memory test the failing address is the entire result and there is nothing to report when nothing failed.
+
+`sring` is 12 functions and is the **reference for the driver-struct pattern** — the first module built around it rather than merely holding a struct. A single-producer single-consumer byte ring, lock-free for the case it exists for: an interrupt filling it while the main loop drains it.
+
+Its whole safety argument rests on one property, and any change has to preserve it: **the producer writes only `writeIndex`, the consumer writes only `readIndex`, and neither index is ever written by both sides.** `sringPut`/`sringPutBlock` are the producer; `sringGet`/`sringGetBlock`/`sringClear` are the consumer. `sringClear` moves `readIndex` up to `writeIndex` rather than zeroing both, precisely so it stays on the consumer side. The test suite checks this structurally, because every functional case still passes when it is broken.
+
+Two things follow from that design and are not negotiable:
+
+- **One byte of the buffer is never used.** Full and empty are otherwise the same state, and telling them apart with a count needs a field both sides write — which is exactly what makes a ring need a lock. A 64-byte buffer holds 63. Do not "fix" this.
+- **`volatile` is not a memory barrier.** It stops the compiler caching an index; it does not stop the processor completing the two stores out of order, and the byte must land before the index that publishes it. Enough on Cortex-M0/M0+/M3/M4, not enough on M7 or anything multi-core. The barrier cannot be issued from library code (it is an intrinsic, and this library includes no vendor header), so it is **injected at `Init` as a function pointer** — the driver-struct rule applied literally. It fires after the data moves and before the index does, and never on a refused operation.
+
+Two producers, or two consumers, are unsafe and documented as such.
 
 Modules are **fully independent**: every `.c` includes only its own header plus freestanding standard headers (`<stdint.h>`, `<stddef.h>`). No module includes another module's header. That independence is what makes single-module copy-out work.
 
@@ -185,7 +200,9 @@ For stateful modules (from esclib, applies here as new modules gain state):
 - Type-suffixed names when a module is width-specific (`xxxAddu32`).
 - Hardware and I/O are injected as function pointers stored in the struct at `Init`. Never call a HAL directly from library code.
 
-Stateless helpers (the string module, for now) take their buffers and capacities directly instead.
+`sring` is the worked example of all of it: `sringu8_t` holds every field, `driver` is the first parameter of all twelve functions, the buffer is handed to `sringInitu8`, the names are `sringInitu8` / `sringPutu8` / `sringGetu8` / `sringCountu8`, the type suffix is there because the module is width-specific, and the memory barrier — the one piece of processor behaviour it needs — is a function pointer stored at `Init` instead of a call into a HAL. Copy its shape when adding a stateful module.
+
+The other five modules are stateless and take their buffers and capacities directly instead.
 
 ## Header contract
 

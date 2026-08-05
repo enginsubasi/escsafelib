@@ -19,6 +19,7 @@ fails leaves its destination untouched.
 | `inc/array/sarray.h` | 92 functions. Twenty three bounded array operations in four element families, `uint8_t`, `uint16_t`, `uint32_t` and `int32_t`. |
 | `inc/memory/smemory.h` | 17 functions. Bounded replacements for the `mem` family of `<string.h>`, plus a constant time comparison and an erase the compiler may not remove. |
 | `inc/math/basicmathsafe.h` | 68 functions. Checked and saturating arithmetic, safe division, scaling, clamping and range tests in the same four numeric families. |
+| `inc/ring/sring.h` | 12 functions. Single producer single consumer byte ring buffer. Lock free for an interrupt filling it while the main loop drains it. |
 | `inc/selfdiag/selfdiagsafe.h` | 16 functions. CRC and checksum, March memory tests, stack usage measurement, control flow monitoring and redundant storage. No hardware dependency. |
 
 `sarray` and `smemory` split the same territory along one line. Operations
@@ -56,6 +57,8 @@ gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/math \
 gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/selfdiag \
   test/SelfDiagSafe_Test/SelfDiagSafe_Test.c src/selfdiag/selfdiagsafe.c \
   -o selfdiagsafe_test && ./selfdiagsafe_test
+
+gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/ring   test/SRing_Test/SRing_Test.c src/ring/sring.c -o sring_test && ./sring_test
 ```
 
 ## Generated modules
