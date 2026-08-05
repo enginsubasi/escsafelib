@@ -124,6 +124,16 @@ jobs:
       - name: Run the sscale test program
         run: ./sscale_test
 
+      - name: Build the svote test program
+        run: |
+          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
+            -Iinc/vote \
+            test/SVote_Test/SVote_Test.c src/vote/svote.c \
+            -o svote_test
+
+      - name: Run the svote test program
+        run: ./svote_test
+
       # The generated modules must still be exactly what their generator
       # produces. A non empty diff means somebody edited the output by hand
       # and the next generator run would silently revert it.
@@ -254,6 +264,18 @@ jobs:
       - name: Run sscale under sanitizers
         run: ./sscale_san
 
+      - name: Build svote with sanitizers
+        run: |
+          clang -Wall -Wextra -std=c99 -g \
+            -fsanitize=address,undefined -fno-sanitize-recover=all \
+            -fno-omit-frame-pointer \
+            -Iinc/vote \
+            test/SVote_Test/SVote_Test.c src/vote/svote.c \
+            -o svote_san
+
+      - name: Run svote under sanitizers
+        run: ./svote_san
+
   cross-compile:
     name: Cross compile for ARM
     runs-on: ubuntu-latest
@@ -382,7 +404,7 @@ jobs:
             --suppress=checkersReport \
             -Iinc/string -Iinc/array -Iinc/memory -Iinc/math \
             -Iinc/ring -Iinc/filter -Iinc/fixed -Iinc/diag \
-            -Iinc/scale \
+            -Iinc/scale -Iinc/vote \
             src/ 2>&1 | tee cppcheck.log
 
       # The MISRA addon reports rule numbers only. The rule texts are
@@ -419,6 +441,9 @@ jobs:
           cppcheck --addon=misra --std=c99 --platform=unix32 \
             --suppress=missingIncludeSystem \
             -Iinc/scale src/scale/sscale.c 2>&1 | tee -a misra.log
+          cppcheck --addon=misra --std=c99 --platform=unix32 \
+            --suppress=missingIncludeSystem \
+            -Iinc/vote src/vote/svote.c 2>&1 | tee -a misra.log
 
       - uses: actions/upload-artifact@v4
         if: always()

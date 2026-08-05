@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All nine modules are implemented — 296 functions and 2929 self-checking test cases.
+All ten modules are implemented — 308 functions and 3096 self-checking test cases.
 
 ## Working language
 
@@ -59,6 +59,9 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/fixed \
 
 python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/scale \
   test/SScale_Test/SScale_Test.c src/scale/sscale.c -o sscale_test && ./sscale_test
+
+python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/vote \
+  test/SVote_Test/SVote_Test.c src/vote/svote.c -o svote_test && ./svote_test
 ```
 
 Run the tests before claiming anything passes. Compiling is not passing.
@@ -73,7 +76,7 @@ Use it. gcc and clang do not warn about the same things — gcc's `-Wextra` incl
 
 **gcc has no AddressSanitizer either.** MinGW-W64 ships no ASan runtime, so the control does not link. Neither host compiler on this machine can run ASan; the Ubuntu CI runner is still the only place it works, and the guard-page harnesses are still how out-of-bounds reads get proven here.
 
-All nine modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
+All ten modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
 
 ```bash
 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wcast-qual \
@@ -81,9 +84,11 @@ All nine modules are clean under a much stricter warning set than the project no
 -Wundef -Wwrite-strings
 ```
 
-Zero warnings across all nine. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
+Zero warnings across all ten. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
 
-A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `smath` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `sscale` against 16 of 17, `sdiag` against 10 of 12.
+A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `smath` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `sscale` against 16 of 17, `svote` against 16 of 16, `sdiag` against 10 of 12.
+
+One `svote` mutant is worth knowing about because of *how* it dies. Forming the channel spread as `highest - lowest` in 32 bits rather than 64 produces the same bits on this host, so every assertion still passes — but it is signed overflow, and **UBSan traps it**. The suite is run under `-fsanitize=undefined -fsanitize-trap=undefined` by `tools/run_all.sh` and by CI, so the sanitizer is part of the kill criterion and not an extra. A mutant that only the sanitizer catches is still killed; one that nothing catches is a hole.
 
 `sring` counts 12 because the unready-driver guard was added after the first eleven. Only three of those eleven were re-run against the new source, and that is enough: the guard adds one early branch that returns TRUE for every driver a successful `Init` produced, so for the cases those mutants exercise the control flow is bit-identical.
 
@@ -258,7 +263,7 @@ test/<Name>_Test/<Name>_Test.c                        self-checking test main
 template/inc/generic.h, template/src/generic.c        copy these to start a new module
 ```
 
-Domains: `array`, `diag`, `filter`, `fixed`, `math`, `memory`, `ring`, `scale`, `string`.
+Domains: `array`, `diag`, `filter`, `fixed`, `math`, `memory`, `ring`, `scale`, `string`, `vote`.
 
 **A module is named after its domain directory with an `s` in front, without
 exception.** `array`/`sarray`, `diag`/`sdiag`, `math`/`smath`, and so on. Two
@@ -278,7 +283,7 @@ to compile in one translation unit and CI checks it:
 | `SC_` | `sscale` | `SS_` | `sstring` |
 | `SD_` | `sdiag` | `SX_` | `sfixed` (`SF_` was taken) |
 | `SF_` | `sfilter` | `SH_` | `smath` (`SM_` was taken) |
-| `SM_` | `smemory` | | |
+| `SM_` | `smemory` | `SV_` | `svote` |
 
 Two prefixes could not be the obvious abbreviation. `sfixed` takes the `X` of
 fi**x**ed because `sfilter` already held `SF_`, and `smath` takes the `H` of
@@ -286,7 +291,7 @@ mat**h** because `smemory` already held `SM_`. `SM_` was deliberately left
 with `smemory` rather than moved: renaming a shipped module's prefix to free
 a letter is churn paid by every existing call site.
 
-All nine modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
+All ten modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
 
 `sarray` is 92 functions: twenty three operations repeated across four element families, `uint8_t`, `uint16_t`, `uint32_t` and `int32_t`. Two things about it differ from `sstring` and will bite if forgotten:
 
@@ -333,6 +338,21 @@ Four things in it are easy to get wrong:
 The `y` array is deliberately *not* required to be monotonic — a calibration curve may fold back and still be a function of its input. That is also why `sscaleInvert`, which builds the reverse map by exchanging the two arrays, can fail: the inverse of a folded curve is not a function. It is one call into `sscaleInit`, so the requirement is enforced by the same code that enforces it for a forward table.
 
 Its test suite contains **no floating point**, for the same reason `sfixed`'s does not. The rounding rule is verified by cross multiplication in `int64_t`: a result is correct to nearest when twice its error has a magnitude no greater than the denominator.
+
+`svote` is 12 functions of redundant channel voting — the software side of the redundancy IEC 61508 counts as hardware fault tolerance and ISO 26262 asks for as a dual channel comparison. Agreement within a tolerance, majority with a caller-chosen quorum, median, mean, spread, an outlier bitmask and fail-safe selection.
+
+**It is entirely stateless, and that line is the design.** A vote is a function of the readings in front of it. Deciding that a channel has disagreed often enough to be excluded is a different job with its own memory and belongs in a fault qualifier, not here. Keeping the vote pure is what makes it callable from any context and testable exhaustively.
+
+Four things in it are easy to get wrong:
+
+- **Every difference is formed in 64 bits.** Two channels at opposite ends of `int32_t` have a difference no `int32_t` can hold, and that pair is exactly what a voter exists to catch: one channel stuck at each rail. In 32 bits that subtraction wraps to a difference of one and reads as *perfect agreement*. The suite compares `INT32_MIN` against `INT32_MAX` for precisely this.
+- **Agreement is not transitive.** With a tolerance of 10, readings of 0, 10 and 20 have both outer readings agreeing with the middle one and not with each other. `svoteAllAgree` compares every pair, not every reading against the first; the cheaper test reports agreement that is not there.
+- **`svoteMajority` answers with one of the readings**, never an average of the agreeing group. A voted value no channel measured cannot be traced back to an input. A caller wanting the smoothed value takes the mean itself, having been told which channels agreed.
+- **Nothing is sorted.** The readings are `const` and belong to the caller, so the median is found by rank — for each reading, how many lie below it and how many equal it. That removes both the scratch buffer and any question about whether the caller's array came back the way it went in. With an even count the *lower* middle is reported, because every answer the median gives is a reading some channel actually produced.
+
+The tolerance is a distance and a negative one is refused rather than clamped to zero: it means the caller computed it and the computation went wrong. `SVOTE_MAXCHANNELS` is 32 because the outlier report is a bitmask in a `uint32_t`, and it is enforced by every function rather than only the one that needs it.
+
+`svoteSelectLow` and `svoteSelectHigh` duplicate `sarrayMini32` and `sarrayMaxi32` on purpose. The boundary in this library is meaning, not code: picking the reading that errs in the safe direction is a policy decision, not a query about data, and a module is meant to be copied out on its own.
 
 `smemory` is 17 functions, the untyped half of the library: bounded replacements for the `mem` family of `<string.h>`. **The line between it and `sarray` is whether the operation has to know what the bytes mean.** Copy, move, set, compare and search do not, so they take a `void*` and live here. A sum, a minimum or an ordering by magnitude does, so it lives in `sarray`. When adding a function, that question decides the module — do not add a typed operation to `smemory` or a byte-blind one to `sarray`.
 

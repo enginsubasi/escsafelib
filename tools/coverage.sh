@@ -45,6 +45,7 @@ MODULES=(
   "ring     sring         SRing"
   "scale    sscale        SScale"
   "string   sstring       SString"
+  "vote     svote         SVote"
 )
 
 fail=0
