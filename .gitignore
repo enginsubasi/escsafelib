@@ -56,9 +56,14 @@ doc/
 
 # Test programs built by hand from the commands in README.md. On Linux they
 # have no extension, so the *.exe and *.out rules above do not catch them.
-*_test
-*_san
-*_ubsan
+#
+# Anchored to the repository root with a leading slash, and they must stay
+# that way. Unanchored, *_test also matches the test/<Name>_Test directories,
+# because git sets core.ignoreCase on Windows and _Test then matches _test.
+# That silently kept a whole new test suite out of a commit once.
+/*_test
+/*_san
+/*_ubsan
 
 # Windows leaves this behind when a compiler is told to write to /dev/null.
 # It is a reserved device name, so git cannot even read it: staging it fails
