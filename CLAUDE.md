@@ -53,6 +53,16 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/ring   test/SRing_Test/SRin
 
 Run the tests before claiming anything passes. Compiling is not passing.
 
+All six modules are clean under a much stricter warning set than the project normally uses, verified with clang 21 via zig:
+
+```bash
+-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wcast-qual \
+-Wcast-align -Wstrict-prototypes -Wmissing-prototypes -Wredundant-decls \
+-Wundef -Wwrite-strings
+```
+
+Zero warnings across all six. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
+
 A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `basicmathsafe` against 11, `sring` against 11, `selfdiagsafe` against 10 of 12.
 
 The `sring` run is the one that shows mutation testing paying for itself directly. A mutant that made `sringPutBlocku8` compute one byte too much free space passed the whole suite, because no case put *exactly* the usable size through the block form. That mutant is a real bug: it fills the buffer completely, which makes the two indices equal, which is the encoding for empty — so the ring would report holding nothing straight after being handed a full load. The boundary cases that kill it were written because the mutant survived, not the other way round.
@@ -71,7 +81,14 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -fsanitize=undefined -fsanitize-t
   -Iinc/string test/SString_Test/SString_Test.c src/string/sstring.c -o sstring_ubsan && ./sstring_ubsan
 ```
 
-**AddressSanitizer does not link** under zig on this Windows target — the `__asan_*` runtime symbols are missing. For an out-of-bounds *read*, which ASan would normally catch, use a guard page instead: place the buffer at the end of a `VirtualAlloc` page and mark the next page `PAGE_NOACCESS`, so an over-read faults. That is how the source-scan overrun in `sstringCopy` was proven before it was fixed.
+**AddressSanitizer is unusable under zig on this Windows target, and it fails in the more dangerous of the two possible ways.**
+
+- `-fsanitize=address` alone fails honestly: `lld-link: error: undefined symbol: __asan_report_store4`, and no binary is produced.
+- `-fsanitize=address,undefined` **links cleanly and then detects nothing.** A control program that reads seven elements past a four element `malloc` runs to completion, prints garbage and exits 0. Only the UBSan runtime is really there.
+
+So a suite built with `address,undefined` will report a confident pass having been checked by nothing at all. **Never report an ASan result without first running a control that must fault**; `scratchpad/run_gcc.sh` does this and skips the whole section when the control survives. The same trap already produced one false "ASan clean" claim in this repo's history.
+
+`-fsanitize=undefined -fsanitize-trap=undefined` needs no runtime and genuinely works. It is the only sanitizer worth running here. For an out-of-bounds *read*, which ASan would normally catch, use a guard page instead: place the buffer at the end of a `VirtualAlloc` page and mark the next page `PAGE_NOACCESS`, so an over-read faults. That is how the source-scan overrun in `sstringCopy` was proven before it was fixed.
 
 Always pair it with a negative control: declare a capacity one element larger than the buffer really is and confirm that call faults. Without it, "no fault" may only mean the guard page was never armed. The `sarray` harness reports `EXIT=0` on the honest capacities and `EXIT=139` on the over-declared one.
 
@@ -158,7 +175,7 @@ Two `smemory` functions have no `<string.h>` counterpart and exist for reasons t
 
 The checked and saturating forms of add, subtract and multiply share one status helper each, so `basicmathsafeAddSat` saturates exactly where `basicmathsafeAdd` reports `BM_OVERFLOW`. Keep it that way: two independent boundary tests will disagree eventually.
 
-`selfdiagsafe` is 16 functions and is the only module with state, held in caller-owned structs (`selfdiagsafeflow_t`, `selfdiagsafeshadow_t`) so the functions stay reentrant. Its banner has claimed "without hardware dependencies" since 2022 and that is the scope: CRC and checksum, March memory tests, stack usage measurement, control-flow signatures, redundant storage. **A CPU register test, a program counter test and an instruction set test are deliberately absent** — they cannot be written in C at all, and a complete IEC 61508 / ISO 26262 self test needs assembly for them. Do not add a HAL or a linker symbol to this module to close that gap; it belongs in a separate, non-portable one.
+`selfdiagsafe` is 16 functions. Two of its features hold state, in caller-owned structs (`selfdiagsafeflow_t`, `selfdiagsafeshadow_t`) so the functions stay reentrant; the rest are stateless. `sring` is the module actually built around the driver-struct pattern. Its banner has claimed "without hardware dependencies" since 2022 and that is the scope: CRC and checksum, March memory tests, stack usage measurement, control-flow signatures, redundant storage. **A CPU register test, a program counter test and an instruction set test are deliberately absent** — they cannot be written in C at all, and a complete IEC 61508 / ISO 26262 self test needs assembly for them. Do not add a HAL or a linker symbol to this module to close that gap; it belongs in a separate, non-portable one.
 
 `selfdiagsafe` has one deliberate inversion of the library-wide rule that outputs are written only on success: the `failIndex` of both memory tests is written **only** on `SD_FAILED`. On a memory test the failing address is the entire result and there is nothing to report when nothing failed.
 

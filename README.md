@@ -30,6 +30,105 @@ ordering by magnitude, need the element type and live in `sarray`.
 Every size in `sstring` and `smemory` is a byte count. Every size in
 `sarray` is an element count.
 
+## What it looks like
+
+Every function returns a status, and on any status other than success the
+output is left exactly as the caller had it. That is the whole idea: a
+caller that ignores the return value reads its own variable rather than a
+wrong answer that looks like a right one.
+
+```c
+#include <stddef.h>     /* for NULL; the library headers pull in stdint.h only */
+#include <stdint.h>
+
+#include "sring.h"
+#include "sstring.h"
+#include "basicmathsafe.h"
+
+static uint8_t      rxStorage[ 128 ];
+static sringu8_t    rxRing;
+static uint32_t     overruns = 0;
+
+void uartSetup ( void )
+{
+    /* A NULL barrier is correct on a Cortex-M0 to M4 and wrong on an M7.
+       See the note in sring.c before choosing. */
+    ( void ) sringInitu8 ( &rxRing, rxStorage, ( uint32_t ) sizeof ( rxStorage ), NULL );
+}
+
+/* In the UART interrupt. A full ring is an event worth counting, not a
+   detail to swallow: the link is arriving faster than the loop drains it. */
+void uartOnByte ( uint8_t byte )
+{
+    if ( sringPutu8 ( &rxRing, byte ) == SR_FULL )
+    {
+        ++overruns;
+    }
+    else
+    {
+        // Intentionally blank.
+    }
+}
+
+/* In the main loop. Every step is checked, and *rpm is written only if all
+   of them succeed. */
+uint8_t readTargetRpm ( uint32_t* rpm )
+{
+    uint8_t retVal = FALSE;
+    uint8_t text[ 8 ];
+    uint32_t waiting = 0;
+    uint32_t raw = 0;
+    uint32_t scaled = 0;
+    uint8_t inRange = FALSE;
+
+    if ( sringCountu8 ( &rxRing, &waiting ) != SR_OK )
+    {
+        retVal = FALSE;
+    }
+    else if ( waiting < 4u )
+    {
+        retVal = FALSE;
+    }
+    /* All four bytes or none, so a half arrived message is never parsed. */
+    else if ( sringGetBlocku8 ( &rxRing, text, ( uint32_t ) sizeof ( text ), 4u ) != SR_OK )
+    {
+        retVal = FALSE;
+    }
+    else
+    {
+        text[ 4 ] = '\0';
+
+        /* Bounded: an unterminated or malformed field is a status, not a
+           runaway scan. Overflow is caught before the multiply causes it. */
+        if ( sstringToU32 ( ( const char* ) text, 5u, &raw ) != SS_OK )
+        {
+            retVal = FALSE;
+        }
+        /* raw * 3000 overflows a uint32_t long before the divide brings it
+           back. Written out by hand this line is silently wrong. */
+        else if ( basicmathsafeScaleu32 ( raw, 3000u, 1000u, &scaled ) != BM_OK )
+        {
+            retVal = FALSE;
+        }
+        else if ( basicmathsafeInRangeu32 ( scaled, 500u, 6000u, &inRange ) != BM_OK )
+        {
+            retVal = FALSE;
+        }
+        else if ( inRange == FALSE )
+        {
+            retVal = FALSE;
+        }
+        else
+        {
+            *rpm = scaled;
+            retVal = TRUE;
+        }
+    }
+
+    return ( retVal );
+}
+```
+
 ## Building
 
 There is no build system. Copy the header and source pair of the module

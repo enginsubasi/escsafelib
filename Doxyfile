@@ -1,4 +1,5 @@
 PROJECT_NAME          = escsafelib
+PROJECT_NUMBER        = 0.1.0
 PROJECT_BRIEF         = Generic C library for safety related applications
 OUTPUT_DIRECTORY      = doc
 INPUT                 = inc src

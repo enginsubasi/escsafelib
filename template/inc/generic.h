@@ -23,14 +23,21 @@
 
 /* STRUCTURES */
 
+typedef struct
+{
+    uint8_t field;
+} generic_t;
+
 /* ENUMS */
 
 /* EXTERNS */
 
 /* FUNCTION PROTOTYPES */
 
+uint8_t genericFunction ( generic_t* driver, uint8_t value );
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* GENERIC_H_ */   
+#endif /* GENERIC_H_ */
