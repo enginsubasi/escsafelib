@@ -38,6 +38,7 @@ mkdir -p "$OUT"
 MODULES=(
   "array    sarray        SArray"
   "diag     sdiag         SDiag"
+  "fault    sfault        SFault"
   "filter   sfilter       SFilter"
   "fixed    sfixed        SFixed"
   "math     smath         SMath"

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All ten modules are implemented — 308 functions and 3096 self-checking test cases.
+All eleven modules are implemented — 320 functions and 3231 self-checking test cases.
 
 ## Working language
 
@@ -62,6 +62,9 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/scale \
 
 python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/vote \
   test/SVote_Test/SVote_Test.c src/vote/svote.c -o svote_test && ./svote_test
+
+python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/fault \
+  test/SFault_Test/SFault_Test.c src/fault/sfault.c -o sfault_test && ./sfault_test
 ```
 
 Run the tests before claiming anything passes. Compiling is not passing.
@@ -76,7 +79,7 @@ Use it. gcc and clang do not warn about the same things — gcc's `-Wextra` incl
 
 **gcc has no AddressSanitizer either.** MinGW-W64 ships no ASan runtime, so the control does not link. Neither host compiler on this machine can run ASan; the Ubuntu CI runner is still the only place it works, and the guard-page harnesses are still how out-of-bounds reads get proven here.
 
-All ten modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
+All eleven modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
 
 ```bash
 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wcast-qual \
@@ -84,9 +87,9 @@ All ten modules are clean under a much stricter warning set than the project nor
 -Wundef -Wwrite-strings
 ```
 
-Zero warnings across all ten. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
+Zero warnings across all eleven. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
 
-A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `smath` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `sscale` against 16 of 17, `svote` against 16 of 16, `sdiag` against 10 of 12.
+A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `smath` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `sscale` against 16 of 17, `svote` against 16 of 16, `sfault` against 16 of 17, `sdiag` against 10 of 12.
 
 One `svote` mutant is worth knowing about because of *how* it dies. Forming the channel spread as `highest - lowest` in 32 bits rather than 64 produces the same bits on this host, so every assertion still passes — but it is signed overflow, and **UBSan traps it**. The suite is run under `-fsanitize=undefined -fsanitize-trap=undefined` by `tools/run_all.sh` and by CI, so the sanitizer is part of the kill criterion and not an extra. A mutant that only the sanitizer catches is still killed; one that nothing catches is a hole.
 
@@ -105,6 +108,7 @@ Two results from those runs are worth keeping in mind:
   and an equally untouched driver. That is a proof, not a hole, and it
   is the reason the explicit `==` check is in the source anyway — the
   code should say what it means rather than be right by accident.
+- **One `sfault` mutant survives and is the same equivalent class as `sring` and `sscale`.** Its `isReady` tests both limits for zero, and either test alone catches a zeroed driver, so dropping one changes nothing reachable through the API. A driver with one limit set and the other zero can only be built by writing the struct by hand.
 - **Two `sdiag` mutants survive and are known to.** Disabling the zero-read checks of March element two, or the address uniqueness pass, changes nothing that any harness on this machine can observe: healthy host memory always reads back what was written, and the aliasing harness's fault is caught redundantly by a later March element. See "Untestable here" below.
 
 `tools/coverage.sh` measures statement and branch coverage with gcc's
@@ -263,7 +267,7 @@ test/<Name>_Test/<Name>_Test.c                        self-checking test main
 template/inc/generic.h, template/src/generic.c        copy these to start a new module
 ```
 
-Domains: `array`, `diag`, `filter`, `fixed`, `math`, `memory`, `ring`, `scale`, `string`, `vote`.
+Domains: `array`, `diag`, `fault`, `filter`, `fixed`, `math`, `memory`, `ring`, `scale`, `string`, `vote`.
 
 **A module is named after its domain directory with an `s` in front, without
 exception.** `array`/`sarray`, `diag`/`sdiag`, `math`/`smath`, and so on. Two
@@ -284,6 +288,7 @@ to compile in one translation unit and CI checks it:
 | `SD_` | `sdiag` | `SX_` | `sfixed` (`SF_` was taken) |
 | `SF_` | `sfilter` | `SH_` | `smath` (`SM_` was taken) |
 | `SM_` | `smemory` | `SV_` | `svote` |
+| `SU_` | `sfault` (`SF_` was taken) | | |
 
 Two prefixes could not be the obvious abbreviation. `sfixed` takes the `X` of
 fi**x**ed because `sfilter` already held `SF_`, and `smath` takes the `H` of
@@ -291,7 +296,7 @@ mat**h** because `smemory` already held `SM_`. `SM_` was deliberately left
 with `smemory` rather than moved: renaming a shipped module's prefix to free
 a letter is churn paid by every existing call site.
 
-All ten modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
+All eleven modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
 
 `sarray` is 92 functions: twenty three operations repeated across four element families, `uint8_t`, `uint16_t`, `uint32_t` and `int32_t`. Two things about it differ from `sstring` and will bite if forgotten:
 
@@ -353,6 +358,21 @@ Four things in it are easy to get wrong:
 The tolerance is a distance and a negative one is refused rather than clamped to zero: it means the caller computed it and the computation went wrong. `SVOTE_MAXCHANNELS` is 32 because the outlier report is a bitmask in a `uint32_t`, and it is enforced by every function rather than only the one that needs it.
 
 `svoteSelectLow` and `svoteSelectHigh` duplicate `sarrayMini32` and `sarrayMaxi32` on purpose. The boundary in this library is meaning, not code: picking the reading that errs in the safe direction is a policy decision, not a query about data, and a module is meant to be copied out on its own.
+
+`sfault` is 12 functions of fault qualification — the diagnostic state machine that decides when a condition has been observed often enough to be called a fault, and when it has been absent long enough to be withdrawn. ISO 26262-7 asks for it; every safety ECU has one; it is the kind of thing that gets rewritten badly per project.
+
+It counts cycles, not time, and the cycle is whatever the caller calls `Update` on. This library includes no vendor header and calls no HAL, so there is nothing here that could read a clock, and making the caller convert keeps the conversion in the code that knows the period.
+
+Four things hold it together:
+
+- **The counter is discarded the moment the verdict changes, not counted down.** A condition present two cycles in three must never accumulate toward confirmation — that is the difference between qualification and an average, and it is what stops a bad connector reading as a failed part. Note that the *observable* difference is only visible through `sfaultGetCounter` while the fault is absent, because the next present cycle would clear a stale count anyway. A mutant that dropped the reset survived until a case read the counter in exactly that window.
+- **Latching is a separate decision from qualification**, fixed at Init. A latched fault never enters HEALING at all, so the state it reports cannot depend on how long ago the condition went away.
+- **`sfaultClear` and `sfaultReset` are not the same thing.** Clear withdraws the fault and keeps the occurrence count, for the service action that acknowledges it. Reset returns the driver to what Init left, count included, for restarting a diagnostic. Offering only one would force a caller to lose the history in order to clear a fault.
+- **Every counter saturates.** A qualification counter that wrapped would un-confirm a fault that had been present continuously, which is the one behaviour a fault qualifier must never have.
+
+The four states matter and collapsing them to a flag loses the point. PENDING is *observed but not yet earned*; HEALING is *withdrawn is pending, the fault still stands*. `sfaultIsConfirmed` counts HEALING as confirmed, because the fault has not been withdrawn, only stopped being observed; `sfaultIsActive` does not, because it reports the raw observation. Anything that acts on a fault asks the first.
+
+A presence flag has to be `TRUE` or `FALSE` and anything else is refused. Every C comparison already yields one of those two, so a third value means the caller passed something that was not a verdict, and guessing either way would be wrong.
 
 `smemory` is 17 functions, the untyped half of the library: bounded replacements for the `mem` family of `<string.h>`. **The line between it and `sarray` is whether the operation has to know what the bytes mean.** Copy, move, set, compare and search do not, so they take a `void*` and live here. A sum, a minimum or an ordering by magnitude does, so it lives in `sarray`. When adding a function, that question decides the module — do not add a typed operation to `smemory` or a byte-blind one to `sarray`.
 

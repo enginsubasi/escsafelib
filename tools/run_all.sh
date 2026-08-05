@@ -53,6 +53,7 @@ MODULES=(
   "math     smath         SMath"
   "ring     sring         SRing"
   "diag     sdiag         SDiag"
+  "fault    sfault        SFault"
   "scale    sscale        SScale"
   "vote     svote         SVote"
 )
