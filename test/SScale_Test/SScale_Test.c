@@ -1097,6 +1097,38 @@ static void testNoWriteOnFailure ( void )
 }
 
 /**
+ * @brief   Covers the branches that branch coverage found had never run.
+ * @note    A flat output segment, where two neighbouring outputs are equal,
+ *          takes the early answer in the span product check that no earlier
+ *          case reached. It is also a real shape for a calibration curve:
+ *          a sensor that saturates has one.
+ */
+static void testUncoveredBranches ( void )
+{
+    sscale_t driver;
+    const int32_t flatX[ 4 ] = { 0, 10, 20, 30 };
+    const int32_t flatY[ 4 ] = { 5, 40, 40, 90 };
+    int32_t out = 0;
+
+    expectStatus ( "uncovered: a table with a flat output segment is accepted",
+                   sscaleInit ( &driver, flatX, 4u, flatY, 4u, 4u ), SC_OK );
+
+    expectStatus ( "uncovered: inside the flat segment",
+                   sscaleApply ( &driver, 15, &out ), SC_OK );
+    expectI32 ( "uncovered: a flat segment gives its own value", out, 40 );
+
+    expectStatus ( "uncovered: at the start of the flat segment",
+                   sscaleApply ( &driver, 10, &out ), SC_OK );
+    expectI32 ( "uncovered: which is also the breakpoint", out, 40 );
+
+    /* The clamped two point map has to refuse the same widest pair the
+       plain one does, and nothing had asked it to. */
+    expectStatus ( "uncovered: clampedLinear with two full width ranges",
+                   sscaleLinearClamped ( 0, INT32_MIN, INT32_MAX, INT32_MIN, INT32_MAX, &out ),
+                   SC_OVERFLOW );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -1117,6 +1149,7 @@ int main ( void )
     testSweepDescending ( );
     testSweepLinear ( );
     testNoWriteOnFailure ( );
+    testUncoveredBranches ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

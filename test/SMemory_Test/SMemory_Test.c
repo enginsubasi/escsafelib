@@ -658,6 +658,83 @@ static void testTypedBuffer ( void )
 }
 
 /**
+ * @brief   Covers the branches that branch coverage found had never run.
+ * @note    The one worth naming is the comparison. Only the "a sorts first"
+ *          side of both Compare and CompareN had ever been asked for, so a
+ *          version that answered -1 for every difference would have passed.
+ *          The rest are the NULL and zero size guards, which in a library
+ *          whose first rule is that every pointer is checked have to be run
+ *          rather than assumed.
+ */
+static void testUncoveredBranches ( void )
+{
+    unsigned char a[ 8 ];
+    unsigned char b[ 8 ];
+    int32_t result = 0;
+    uint32_t index = 0;
+    uint32_t hits = 0;
+    uint32_t i = 0;
+
+    for ( i = 0; i < 8u; ++i )
+    {
+        a[ i ] = ( unsigned char ) ( 10u + i );
+        b[ i ] = ( unsigned char ) ( 10u + i );
+    }
+
+    /* ---- the other side of both comparisons ---- */
+
+    b[ 4 ] = 0;
+    expectStatus ( "uncovered: compare where a sorts after b",
+                   smemoryCompare ( a, 8u, b, 8u, &result ), SM_OK );
+    expectI32 ( "uncovered: compare says a sorts after b", result, 1 );
+
+    expectStatus ( "uncovered: compareN where a sorts after b",
+                   smemoryCompareN ( a, 8u, b, 8u, 8u, &result ), SM_OK );
+    expectI32 ( "uncovered: compareN says a sorts after b", result, 1 );
+
+    b[ 4 ] = 14;
+
+    /* A shorter second operand, so that the smaller of the two sizes is the
+       second one. Every earlier case had them equal or the first shorter. */
+    expectStatus ( "uncovered: compare against a shorter second operand",
+                   smemoryCompare ( a, 8u, b, 4u, &result ), SM_OK );
+    expectI32 ( "uncovered: the longer operand sorts second", result, 1 );
+
+    /* ---- NULL and zero size, one call each ---- */
+
+    expectStatus ( "uncovered: move zero dest size",
+                   smemoryMove ( a, 0u, b, 8u, 4u ), SM_INVALIDSIZE );
+
+    expectStatus ( "uncovered: swap NULL first", smemorySwap ( NULL, 8u, b, 8u, 4u ), SM_NULLPTR );
+    expectStatus ( "uncovered: swap NULL second", smemorySwap ( a, 8u, NULL, 8u, 4u ), SM_NULLPTR );
+    expectStatus ( "uncovered: swap zero size", smemorySwap ( a, 0u, b, 8u, 4u ), SM_INVALIDSIZE );
+
+    expectStatus ( "uncovered: reverse NULL dest", smemoryReverse ( NULL, 8u, b, 8u ), SM_NULLPTR );
+    expectStatus ( "uncovered: reverse NULL src", smemoryReverse ( a, 8u, NULL, 8u ), SM_NULLPTR );
+    expectStatus ( "uncovered: reverse zero dest size", smemoryReverse ( a, 0u, b, 8u ), SM_INVALIDSIZE );
+
+    expectStatus ( "uncovered: findLast NULL buffer",
+                   smemoryFindLast ( NULL, 8u, 1u, &index ), SM_NULLPTR );
+    expectStatus ( "uncovered: findLast NULL output",
+                   smemoryFindLast ( a, 8u, 1u, NULL ), SM_NULLPTR );
+    expectStatus ( "uncovered: findLast zero size",
+                   smemoryFindLast ( a, 0u, 1u, &index ), SM_INVALIDSIZE );
+
+    expectStatus ( "uncovered: count NULL buffer", smemoryCount ( NULL, 8u, 1u, &hits ), SM_NULLPTR );
+    expectStatus ( "uncovered: count NULL output", smemoryCount ( a, 8u, 1u, NULL ), SM_NULLPTR );
+    expectStatus ( "uncovered: count zero size", smemoryCount ( a, 0u, 1u, &hits ), SM_INVALIDSIZE );
+
+    expectStatus ( "uncovered: compareN NULL first",
+                   smemoryCompareN ( NULL, 8u, b, 8u, 4u, &result ), SM_NULLPTR );
+    expectStatus ( "uncovered: compareN NULL second",
+                   smemoryCompareN ( a, 8u, NULL, 8u, 4u, &result ), SM_NULLPTR );
+    expectStatus ( "uncovered: compareN NULL output",
+                   smemoryCompareN ( a, 8u, b, 8u, 4u, NULL ), SM_NULLPTR );
+    expectStatus ( "uncovered: compareN zero first size",
+                   smemoryCompareN ( a, 0u, b, 8u, 4u, &result ), SM_INVALIDSIZE );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -668,6 +745,7 @@ int main ( void )
     testCompare ( );
     testSearch ( );
     testTypedBuffer ( );
+    testUncoveredBranches ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

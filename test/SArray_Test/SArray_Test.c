@@ -374,6 +374,12 @@ static void testu8 ( void )
     expectStatus ( "u8 compare: shorter prefix", sarrayCompareu8 ( a, 4, b, 8, &result ), SA_OK );
     expectI32 ( "u8 compare: the shorter array sorts first", result, -1 );
 
+    /* The other side of the same tie break. Without it a Compare that
+       answered -1 whichever array was longer would pass, because nothing
+       ever asked it about a first argument that outlives the second. */
+    expectStatus ( "u8 compare: longer prefix", sarrayCompareu8 ( a, 8, b, 4, &result ), SA_OK );
+    expectI32 ( "u8 compare: the longer array sorts second", result, 1 );
+
     expectStatus ( "u8 compare: NULL output", sarrayCompareu8 ( a, 8, b, 8, NULL ), SA_NULLPTR );
     expectStatus ( "u8 compare: zero capacity", sarrayCompareu8 ( a, 0, b, 8, &result ), SA_INVALIDSIZE );
 
@@ -469,8 +475,29 @@ static void testu8 ( void )
     expectElemu8 ( "u8 max: value", value, 50 );
     expectU32 ( "u8 max: index", index, 0 );
 
+    /* With the largest element first, the branch that replaces the running
+       best is never taken, and a Max that read only arr[0] would pass. The
+       i32 family had such a case and the three unsigned ones did not. */
+    setSequ8 ( a, 8, 10 );
+    a[ 5 ] = 60;
+
+    expectStatus ( "u8 max: largest away from the start",
+                   sarrayMaxu8 ( a, 8, &value, &index ), SA_OK );
+    expectElemu8 ( "u8 max: its value", value, 60 );
+    expectU32 ( "u8 max: its index", index, 5 );
+
+    setSequ8 ( a, 8, 10 );
+    a[ 0 ] = 50;
+    a[ 6 ] = 3;
+
     expectStatus ( "u8 min: zero capacity", sarrayMinu8 ( a, 0, &value, &index ), SA_INVALIDSIZE );
     expectStatus ( "u8 max: NULL index output", sarrayMaxu8 ( a, 8, &value, NULL ), SA_NULLPTR );
+    expectStatus ( "u8 max: zero capacity", sarrayMaxu8 ( a, 0, &value, &index ), SA_INVALIDSIZE );
+    expectStatus ( "u8 min: NULL value output", sarrayMinu8 ( a, 8, NULL, &index ), SA_NULLPTR );
+    expectStatus ( "u8 min: NULL index output", sarrayMinu8 ( a, 8, &value, NULL ), SA_NULLPTR );
+    expectStatus ( "u8 max: NULL value output", sarrayMaxu8 ( a, 8, NULL, &index ), SA_NULLPTR );
+    expectStatus ( "u8 min: NULL array", sarrayMinu8 ( NULL, 8, &value, &index ), SA_NULLPTR );
+    expectStatus ( "u8 max: NULL array", sarrayMaxu8 ( NULL, 8, &value, &index ), SA_NULLPTR );
 
     /* ---- Sum ---- */
 
@@ -626,6 +653,119 @@ static void testu8 ( void )
     n = 3;
     expectStatus ( "u8 remove: NULL output", sarrayRemoveu8 ( a, 8, &n, 0, NULL ), SA_NULLPTR );
     expectArrayu8 ( "u8 remove: array untouched after a NULL output", a, snap, 8 );
+
+    /* ---- Every guard, once each ----
+
+       Branch coverage found that most of these had never been taken. A
+       library whose first rule is that every pointer parameter is checked
+       before use has to exercise every one of those checks: a NULL branch
+       that is wrong is not a wrong answer, it is a crash, and nothing else
+       in the suite would ever reach it.
+
+       These say only which status comes back. What the destination looks
+       like after a refusal is checked where each operation is tested. */
+
+    setSequ8 ( a, 8, 10 );
+    setSequ8 ( b, 8, 10 );
+    n = 4;
+
+    expectStatus ( "u8 guard: get NULL array", sarrayGetu8 ( NULL, 8, 0, &value ), SA_NULLPTR );
+    expectStatus ( "u8 guard: get NULL value", sarrayGetu8 ( a, 8, 0, NULL ), SA_NULLPTR );
+    expectStatus ( "u8 guard: get zero capacity", sarrayGetu8 ( a, 0, 0, &value ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: set NULL array", sarraySetu8 ( NULL, 8, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: set zero capacity", sarraySetu8 ( a, 0, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: fill NULL array", sarrayFillu8 ( NULL, 8, 1 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: fill zero capacity", sarrayFillu8 ( a, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: clearSecure NULL array", sarrayClearSecureu8 ( NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: clearSecure zero capacity", sarrayClearSecureu8 ( a, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: copy NULL dest", sarrayCopyu8 ( NULL, 8, b, 8 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: copy NULL src", sarrayCopyu8 ( a, 8, NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: copy zero dest capacity", sarrayCopyu8 ( a, 0, b, 8 ), SA_INVALIDSIZE );
+    expectStatus ( "u8 guard: copy zero src capacity", sarrayCopyu8 ( a, 8, b, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: copyN NULL dest", sarrayCopyNu8 ( NULL, 8, b, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: copyN NULL src", sarrayCopyNu8 ( a, 8, NULL, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: copyN zero dest capacity", sarrayCopyNu8 ( a, 0, b, 8, 4 ), SA_INVALIDSIZE );
+    expectStatus ( "u8 guard: copyN zero src capacity", sarrayCopyNu8 ( a, 8, b, 0, 4 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: move NULL dest", sarrayMoveu8 ( NULL, 8, b, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: move NULL src", sarrayMoveu8 ( a, 8, NULL, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: move zero dest capacity", sarrayMoveu8 ( a, 0, b, 8, 4 ), SA_INVALIDSIZE );
+    expectStatus ( "u8 guard: move zero src capacity", sarrayMoveu8 ( a, 8, b, 0, 4 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: swap NULL array", sarraySwapu8 ( NULL, 8, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: swap zero capacity", sarraySwapu8 ( a, 0, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: compare NULL a", sarrayCompareu8 ( NULL, 8, b, 8, &result ), SA_NULLPTR );
+    expectStatus ( "u8 guard: compare NULL b", sarrayCompareu8 ( a, 8, NULL, 8, &result ), SA_NULLPTR );
+    expectStatus ( "u8 guard: compare zero b capacity", sarrayCompareu8 ( a, 8, b, 0, &result ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: compareN NULL a", sarrayCompareNu8 ( NULL, 8, b, 8, 4, &result ), SA_NULLPTR );
+    expectStatus ( "u8 guard: compareN NULL b", sarrayCompareNu8 ( a, 8, NULL, 8, 4, &result ), SA_NULLPTR );
+    expectStatus ( "u8 guard: compareN NULL output", sarrayCompareNu8 ( a, 8, b, 8, 4, NULL ), SA_NULLPTR );
+    expectStatus ( "u8 guard: compareN zero a capacity", sarrayCompareNu8 ( a, 0, b, 8, 4, &result ), SA_INVALIDSIZE );
+    expectStatus ( "u8 guard: compareN zero b capacity", sarrayCompareNu8 ( a, 8, b, 0, 4, &result ), SA_INVALIDSIZE );
+
+    /* The element wise greater than branch of the counted form, which the
+       whole array form reaches but this one never did. */
+    b[ 2 ] = 1;
+    expectStatus ( "u8 compareN: a sorts after b", sarrayCompareNu8 ( a, 8, b, 8, 8, &result ), SA_OK );
+    expectI32 ( "u8 compareN: a sorts after b result", result, 1 );
+    setSequ8 ( b, 8, 10 );
+
+    expectStatus ( "u8 guard: find NULL array", sarrayFindu8 ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "u8 guard: find NULL output", sarrayFindu8 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "u8 guard: find zero capacity", sarrayFindu8 ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: findLast NULL array", sarrayFindLastu8 ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "u8 guard: findLast NULL output", sarrayFindLastu8 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "u8 guard: findLast zero capacity", sarrayFindLastu8 ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: count NULL array", sarrayCountu8 ( NULL, 8, 1, &hits ), SA_NULLPTR );
+    expectStatus ( "u8 guard: count NULL output", sarrayCountu8 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "u8 guard: count zero capacity", sarrayCountu8 ( a, 0, 1, &hits ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: isSorted NULL array", sarrayIsSortedu8 ( NULL, 8, &flag ), SA_NULLPTR );
+    expectStatus ( "u8 guard: isSorted NULL output", sarrayIsSortedu8 ( a, 8, NULL ), SA_NULLPTR );
+    expectStatus ( "u8 guard: isSorted zero capacity", sarrayIsSortedu8 ( a, 0, &flag ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: binarySearch NULL array", sarrayBinarySearchu8 ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "u8 guard: binarySearch NULL output", sarrayBinarySearchu8 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "u8 guard: binarySearch zero capacity", sarrayBinarySearchu8 ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: sum NULL array", sarraySumu8 ( NULL, 8, &sum ), SA_NULLPTR );
+
+    expectStatus ( "u8 guard: reverse NULL dest", sarrayReverseu8 ( NULL, 8, b, 8 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: reverse NULL src", sarrayReverseu8 ( a, 8, NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: reverse zero dest capacity", sarrayReverseu8 ( a, 0, b, 8 ), SA_INVALIDSIZE );
+    expectStatus ( "u8 guard: reverse zero src capacity", sarrayReverseu8 ( a, 8, b, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: rotate NULL array", sarrayRotateu8 ( NULL, 8, 1 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: rotate zero capacity", sarrayRotateu8 ( a, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: sort NULL array", sarraySortu8 ( NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: sort zero capacity", sarraySortu8 ( a, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: insert NULL array", sarrayInsertu8 ( NULL, 8, &n, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: insert NULL count", sarrayInsertu8 ( a, 8, NULL, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "u8 guard: insert zero capacity", sarrayInsertu8 ( a, 0, &n, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u8 guard: remove NULL array", sarrayRemoveu8 ( NULL, 8, &n, 0, &removed ), SA_NULLPTR );
+    expectStatus ( "u8 guard: remove NULL count", sarrayRemoveu8 ( a, 8, NULL, 0, &removed ), SA_NULLPTR );
+    expectStatus ( "u8 guard: remove zero capacity", sarrayRemoveu8 ( a, 0, &n, 0, &removed ), SA_INVALIDSIZE );
+
+    /* A live count above the capacity it lives in. The caller's bookkeeping
+       is broken and the operation has to refuse rather than trust it. */
+    n = 9;
+    expectStatus ( "u8 guard: remove with a live count above the capacity",
+                   sarrayRemoveu8 ( a, 8, &n, 0, &removed ), SA_INVALIDSIZE );
+    expectStatus ( "u8 guard: insert with a live count above the capacity",
+                   sarrayInsertu8 ( a, 8, &n, 0, 1 ), SA_INVALIDSIZE );
+    n = 4;
 }
 
 /* ---------------------------------------------------------------------------
@@ -884,6 +1024,12 @@ static void testu16 ( void )
     expectStatus ( "u16 compare: shorter prefix", sarrayCompareu16 ( a, 4, b, 8, &result ), SA_OK );
     expectI32 ( "u16 compare: the shorter array sorts first", result, -1 );
 
+    /* The other side of the same tie break. Without it a Compare that
+       answered -1 whichever array was longer would pass, because nothing
+       ever asked it about a first argument that outlives the second. */
+    expectStatus ( "u16 compare: longer prefix", sarrayCompareu16 ( a, 8, b, 4, &result ), SA_OK );
+    expectI32 ( "u16 compare: the longer array sorts second", result, 1 );
+
     expectStatus ( "u16 compare: NULL output", sarrayCompareu16 ( a, 8, b, 8, NULL ), SA_NULLPTR );
     expectStatus ( "u16 compare: zero capacity", sarrayCompareu16 ( a, 0, b, 8, &result ), SA_INVALIDSIZE );
 
@@ -979,8 +1125,29 @@ static void testu16 ( void )
     expectElemu16 ( "u16 max: value", value, 50 );
     expectU32 ( "u16 max: index", index, 0 );
 
+    /* With the largest element first, the branch that replaces the running
+       best is never taken, and a Max that read only arr[0] would pass. The
+       i32 family had such a case and the three unsigned ones did not. */
+    setSequ16 ( a, 8, 10 );
+    a[ 5 ] = 60;
+
+    expectStatus ( "u16 max: largest away from the start",
+                   sarrayMaxu16 ( a, 8, &value, &index ), SA_OK );
+    expectElemu16 ( "u16 max: its value", value, 60 );
+    expectU32 ( "u16 max: its index", index, 5 );
+
+    setSequ16 ( a, 8, 10 );
+    a[ 0 ] = 50;
+    a[ 6 ] = 3;
+
     expectStatus ( "u16 min: zero capacity", sarrayMinu16 ( a, 0, &value, &index ), SA_INVALIDSIZE );
     expectStatus ( "u16 max: NULL index output", sarrayMaxu16 ( a, 8, &value, NULL ), SA_NULLPTR );
+    expectStatus ( "u16 max: zero capacity", sarrayMaxu16 ( a, 0, &value, &index ), SA_INVALIDSIZE );
+    expectStatus ( "u16 min: NULL value output", sarrayMinu16 ( a, 8, NULL, &index ), SA_NULLPTR );
+    expectStatus ( "u16 min: NULL index output", sarrayMinu16 ( a, 8, &value, NULL ), SA_NULLPTR );
+    expectStatus ( "u16 max: NULL value output", sarrayMaxu16 ( a, 8, NULL, &index ), SA_NULLPTR );
+    expectStatus ( "u16 min: NULL array", sarrayMinu16 ( NULL, 8, &value, &index ), SA_NULLPTR );
+    expectStatus ( "u16 max: NULL array", sarrayMaxu16 ( NULL, 8, &value, &index ), SA_NULLPTR );
 
     /* ---- Sum ---- */
 
@@ -1136,6 +1303,119 @@ static void testu16 ( void )
     n = 3;
     expectStatus ( "u16 remove: NULL output", sarrayRemoveu16 ( a, 8, &n, 0, NULL ), SA_NULLPTR );
     expectArrayu16 ( "u16 remove: array untouched after a NULL output", a, snap, 8 );
+
+    /* ---- Every guard, once each ----
+
+       Branch coverage found that most of these had never been taken. A
+       library whose first rule is that every pointer parameter is checked
+       before use has to exercise every one of those checks: a NULL branch
+       that is wrong is not a wrong answer, it is a crash, and nothing else
+       in the suite would ever reach it.
+
+       These say only which status comes back. What the destination looks
+       like after a refusal is checked where each operation is tested. */
+
+    setSequ16 ( a, 8, 10 );
+    setSequ16 ( b, 8, 10 );
+    n = 4;
+
+    expectStatus ( "u16 guard: get NULL array", sarrayGetu16 ( NULL, 8, 0, &value ), SA_NULLPTR );
+    expectStatus ( "u16 guard: get NULL value", sarrayGetu16 ( a, 8, 0, NULL ), SA_NULLPTR );
+    expectStatus ( "u16 guard: get zero capacity", sarrayGetu16 ( a, 0, 0, &value ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: set NULL array", sarraySetu16 ( NULL, 8, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: set zero capacity", sarraySetu16 ( a, 0, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: fill NULL array", sarrayFillu16 ( NULL, 8, 1 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: fill zero capacity", sarrayFillu16 ( a, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: clearSecure NULL array", sarrayClearSecureu16 ( NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: clearSecure zero capacity", sarrayClearSecureu16 ( a, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: copy NULL dest", sarrayCopyu16 ( NULL, 8, b, 8 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: copy NULL src", sarrayCopyu16 ( a, 8, NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: copy zero dest capacity", sarrayCopyu16 ( a, 0, b, 8 ), SA_INVALIDSIZE );
+    expectStatus ( "u16 guard: copy zero src capacity", sarrayCopyu16 ( a, 8, b, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: copyN NULL dest", sarrayCopyNu16 ( NULL, 8, b, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: copyN NULL src", sarrayCopyNu16 ( a, 8, NULL, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: copyN zero dest capacity", sarrayCopyNu16 ( a, 0, b, 8, 4 ), SA_INVALIDSIZE );
+    expectStatus ( "u16 guard: copyN zero src capacity", sarrayCopyNu16 ( a, 8, b, 0, 4 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: move NULL dest", sarrayMoveu16 ( NULL, 8, b, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: move NULL src", sarrayMoveu16 ( a, 8, NULL, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: move zero dest capacity", sarrayMoveu16 ( a, 0, b, 8, 4 ), SA_INVALIDSIZE );
+    expectStatus ( "u16 guard: move zero src capacity", sarrayMoveu16 ( a, 8, b, 0, 4 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: swap NULL array", sarraySwapu16 ( NULL, 8, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: swap zero capacity", sarraySwapu16 ( a, 0, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: compare NULL a", sarrayCompareu16 ( NULL, 8, b, 8, &result ), SA_NULLPTR );
+    expectStatus ( "u16 guard: compare NULL b", sarrayCompareu16 ( a, 8, NULL, 8, &result ), SA_NULLPTR );
+    expectStatus ( "u16 guard: compare zero b capacity", sarrayCompareu16 ( a, 8, b, 0, &result ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: compareN NULL a", sarrayCompareNu16 ( NULL, 8, b, 8, 4, &result ), SA_NULLPTR );
+    expectStatus ( "u16 guard: compareN NULL b", sarrayCompareNu16 ( a, 8, NULL, 8, 4, &result ), SA_NULLPTR );
+    expectStatus ( "u16 guard: compareN NULL output", sarrayCompareNu16 ( a, 8, b, 8, 4, NULL ), SA_NULLPTR );
+    expectStatus ( "u16 guard: compareN zero a capacity", sarrayCompareNu16 ( a, 0, b, 8, 4, &result ), SA_INVALIDSIZE );
+    expectStatus ( "u16 guard: compareN zero b capacity", sarrayCompareNu16 ( a, 8, b, 0, 4, &result ), SA_INVALIDSIZE );
+
+    /* The element wise greater than branch of the counted form, which the
+       whole array form reaches but this one never did. */
+    b[ 2 ] = 1;
+    expectStatus ( "u16 compareN: a sorts after b", sarrayCompareNu16 ( a, 8, b, 8, 8, &result ), SA_OK );
+    expectI32 ( "u16 compareN: a sorts after b result", result, 1 );
+    setSequ16 ( b, 8, 10 );
+
+    expectStatus ( "u16 guard: find NULL array", sarrayFindu16 ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "u16 guard: find NULL output", sarrayFindu16 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "u16 guard: find zero capacity", sarrayFindu16 ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: findLast NULL array", sarrayFindLastu16 ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "u16 guard: findLast NULL output", sarrayFindLastu16 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "u16 guard: findLast zero capacity", sarrayFindLastu16 ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: count NULL array", sarrayCountu16 ( NULL, 8, 1, &hits ), SA_NULLPTR );
+    expectStatus ( "u16 guard: count NULL output", sarrayCountu16 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "u16 guard: count zero capacity", sarrayCountu16 ( a, 0, 1, &hits ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: isSorted NULL array", sarrayIsSortedu16 ( NULL, 8, &flag ), SA_NULLPTR );
+    expectStatus ( "u16 guard: isSorted NULL output", sarrayIsSortedu16 ( a, 8, NULL ), SA_NULLPTR );
+    expectStatus ( "u16 guard: isSorted zero capacity", sarrayIsSortedu16 ( a, 0, &flag ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: binarySearch NULL array", sarrayBinarySearchu16 ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "u16 guard: binarySearch NULL output", sarrayBinarySearchu16 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "u16 guard: binarySearch zero capacity", sarrayBinarySearchu16 ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: sum NULL array", sarraySumu16 ( NULL, 8, &sum ), SA_NULLPTR );
+
+    expectStatus ( "u16 guard: reverse NULL dest", sarrayReverseu16 ( NULL, 8, b, 8 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: reverse NULL src", sarrayReverseu16 ( a, 8, NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: reverse zero dest capacity", sarrayReverseu16 ( a, 0, b, 8 ), SA_INVALIDSIZE );
+    expectStatus ( "u16 guard: reverse zero src capacity", sarrayReverseu16 ( a, 8, b, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: rotate NULL array", sarrayRotateu16 ( NULL, 8, 1 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: rotate zero capacity", sarrayRotateu16 ( a, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: sort NULL array", sarraySortu16 ( NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: sort zero capacity", sarraySortu16 ( a, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: insert NULL array", sarrayInsertu16 ( NULL, 8, &n, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: insert NULL count", sarrayInsertu16 ( a, 8, NULL, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "u16 guard: insert zero capacity", sarrayInsertu16 ( a, 0, &n, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u16 guard: remove NULL array", sarrayRemoveu16 ( NULL, 8, &n, 0, &removed ), SA_NULLPTR );
+    expectStatus ( "u16 guard: remove NULL count", sarrayRemoveu16 ( a, 8, NULL, 0, &removed ), SA_NULLPTR );
+    expectStatus ( "u16 guard: remove zero capacity", sarrayRemoveu16 ( a, 0, &n, 0, &removed ), SA_INVALIDSIZE );
+
+    /* A live count above the capacity it lives in. The caller's bookkeeping
+       is broken and the operation has to refuse rather than trust it. */
+    n = 9;
+    expectStatus ( "u16 guard: remove with a live count above the capacity",
+                   sarrayRemoveu16 ( a, 8, &n, 0, &removed ), SA_INVALIDSIZE );
+    expectStatus ( "u16 guard: insert with a live count above the capacity",
+                   sarrayInsertu16 ( a, 8, &n, 0, 1 ), SA_INVALIDSIZE );
+    n = 4;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1394,6 +1674,12 @@ static void testu32 ( void )
     expectStatus ( "u32 compare: shorter prefix", sarrayCompareu32 ( a, 4, b, 8, &result ), SA_OK );
     expectI32 ( "u32 compare: the shorter array sorts first", result, -1 );
 
+    /* The other side of the same tie break. Without it a Compare that
+       answered -1 whichever array was longer would pass, because nothing
+       ever asked it about a first argument that outlives the second. */
+    expectStatus ( "u32 compare: longer prefix", sarrayCompareu32 ( a, 8, b, 4, &result ), SA_OK );
+    expectI32 ( "u32 compare: the longer array sorts second", result, 1 );
+
     expectStatus ( "u32 compare: NULL output", sarrayCompareu32 ( a, 8, b, 8, NULL ), SA_NULLPTR );
     expectStatus ( "u32 compare: zero capacity", sarrayCompareu32 ( a, 0, b, 8, &result ), SA_INVALIDSIZE );
 
@@ -1489,8 +1775,29 @@ static void testu32 ( void )
     expectElemu32 ( "u32 max: value", value, 50 );
     expectU32 ( "u32 max: index", index, 0 );
 
+    /* With the largest element first, the branch that replaces the running
+       best is never taken, and a Max that read only arr[0] would pass. The
+       i32 family had such a case and the three unsigned ones did not. */
+    setSequ32 ( a, 8, 10 );
+    a[ 5 ] = 60;
+
+    expectStatus ( "u32 max: largest away from the start",
+                   sarrayMaxu32 ( a, 8, &value, &index ), SA_OK );
+    expectElemu32 ( "u32 max: its value", value, 60 );
+    expectU32 ( "u32 max: its index", index, 5 );
+
+    setSequ32 ( a, 8, 10 );
+    a[ 0 ] = 50;
+    a[ 6 ] = 3;
+
     expectStatus ( "u32 min: zero capacity", sarrayMinu32 ( a, 0, &value, &index ), SA_INVALIDSIZE );
     expectStatus ( "u32 max: NULL index output", sarrayMaxu32 ( a, 8, &value, NULL ), SA_NULLPTR );
+    expectStatus ( "u32 max: zero capacity", sarrayMaxu32 ( a, 0, &value, &index ), SA_INVALIDSIZE );
+    expectStatus ( "u32 min: NULL value output", sarrayMinu32 ( a, 8, NULL, &index ), SA_NULLPTR );
+    expectStatus ( "u32 min: NULL index output", sarrayMinu32 ( a, 8, &value, NULL ), SA_NULLPTR );
+    expectStatus ( "u32 max: NULL value output", sarrayMaxu32 ( a, 8, NULL, &index ), SA_NULLPTR );
+    expectStatus ( "u32 min: NULL array", sarrayMinu32 ( NULL, 8, &value, &index ), SA_NULLPTR );
+    expectStatus ( "u32 max: NULL array", sarrayMaxu32 ( NULL, 8, &value, &index ), SA_NULLPTR );
 
     /* ---- Sum ---- */
 
@@ -1659,6 +1966,119 @@ static void testu32 ( void )
     n = 3;
     expectStatus ( "u32 remove: NULL output", sarrayRemoveu32 ( a, 8, &n, 0, NULL ), SA_NULLPTR );
     expectArrayu32 ( "u32 remove: array untouched after a NULL output", a, snap, 8 );
+
+    /* ---- Every guard, once each ----
+
+       Branch coverage found that most of these had never been taken. A
+       library whose first rule is that every pointer parameter is checked
+       before use has to exercise every one of those checks: a NULL branch
+       that is wrong is not a wrong answer, it is a crash, and nothing else
+       in the suite would ever reach it.
+
+       These say only which status comes back. What the destination looks
+       like after a refusal is checked where each operation is tested. */
+
+    setSequ32 ( a, 8, 10 );
+    setSequ32 ( b, 8, 10 );
+    n = 4;
+
+    expectStatus ( "u32 guard: get NULL array", sarrayGetu32 ( NULL, 8, 0, &value ), SA_NULLPTR );
+    expectStatus ( "u32 guard: get NULL value", sarrayGetu32 ( a, 8, 0, NULL ), SA_NULLPTR );
+    expectStatus ( "u32 guard: get zero capacity", sarrayGetu32 ( a, 0, 0, &value ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: set NULL array", sarraySetu32 ( NULL, 8, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: set zero capacity", sarraySetu32 ( a, 0, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: fill NULL array", sarrayFillu32 ( NULL, 8, 1 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: fill zero capacity", sarrayFillu32 ( a, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: clearSecure NULL array", sarrayClearSecureu32 ( NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: clearSecure zero capacity", sarrayClearSecureu32 ( a, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: copy NULL dest", sarrayCopyu32 ( NULL, 8, b, 8 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: copy NULL src", sarrayCopyu32 ( a, 8, NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: copy zero dest capacity", sarrayCopyu32 ( a, 0, b, 8 ), SA_INVALIDSIZE );
+    expectStatus ( "u32 guard: copy zero src capacity", sarrayCopyu32 ( a, 8, b, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: copyN NULL dest", sarrayCopyNu32 ( NULL, 8, b, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: copyN NULL src", sarrayCopyNu32 ( a, 8, NULL, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: copyN zero dest capacity", sarrayCopyNu32 ( a, 0, b, 8, 4 ), SA_INVALIDSIZE );
+    expectStatus ( "u32 guard: copyN zero src capacity", sarrayCopyNu32 ( a, 8, b, 0, 4 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: move NULL dest", sarrayMoveu32 ( NULL, 8, b, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: move NULL src", sarrayMoveu32 ( a, 8, NULL, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: move zero dest capacity", sarrayMoveu32 ( a, 0, b, 8, 4 ), SA_INVALIDSIZE );
+    expectStatus ( "u32 guard: move zero src capacity", sarrayMoveu32 ( a, 8, b, 0, 4 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: swap NULL array", sarraySwapu32 ( NULL, 8, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: swap zero capacity", sarraySwapu32 ( a, 0, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: compare NULL a", sarrayCompareu32 ( NULL, 8, b, 8, &result ), SA_NULLPTR );
+    expectStatus ( "u32 guard: compare NULL b", sarrayCompareu32 ( a, 8, NULL, 8, &result ), SA_NULLPTR );
+    expectStatus ( "u32 guard: compare zero b capacity", sarrayCompareu32 ( a, 8, b, 0, &result ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: compareN NULL a", sarrayCompareNu32 ( NULL, 8, b, 8, 4, &result ), SA_NULLPTR );
+    expectStatus ( "u32 guard: compareN NULL b", sarrayCompareNu32 ( a, 8, NULL, 8, 4, &result ), SA_NULLPTR );
+    expectStatus ( "u32 guard: compareN NULL output", sarrayCompareNu32 ( a, 8, b, 8, 4, NULL ), SA_NULLPTR );
+    expectStatus ( "u32 guard: compareN zero a capacity", sarrayCompareNu32 ( a, 0, b, 8, 4, &result ), SA_INVALIDSIZE );
+    expectStatus ( "u32 guard: compareN zero b capacity", sarrayCompareNu32 ( a, 8, b, 0, 4, &result ), SA_INVALIDSIZE );
+
+    /* The element wise greater than branch of the counted form, which the
+       whole array form reaches but this one never did. */
+    b[ 2 ] = 1;
+    expectStatus ( "u32 compareN: a sorts after b", sarrayCompareNu32 ( a, 8, b, 8, 8, &result ), SA_OK );
+    expectI32 ( "u32 compareN: a sorts after b result", result, 1 );
+    setSequ32 ( b, 8, 10 );
+
+    expectStatus ( "u32 guard: find NULL array", sarrayFindu32 ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "u32 guard: find NULL output", sarrayFindu32 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "u32 guard: find zero capacity", sarrayFindu32 ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: findLast NULL array", sarrayFindLastu32 ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "u32 guard: findLast NULL output", sarrayFindLastu32 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "u32 guard: findLast zero capacity", sarrayFindLastu32 ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: count NULL array", sarrayCountu32 ( NULL, 8, 1, &hits ), SA_NULLPTR );
+    expectStatus ( "u32 guard: count NULL output", sarrayCountu32 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "u32 guard: count zero capacity", sarrayCountu32 ( a, 0, 1, &hits ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: isSorted NULL array", sarrayIsSortedu32 ( NULL, 8, &flag ), SA_NULLPTR );
+    expectStatus ( "u32 guard: isSorted NULL output", sarrayIsSortedu32 ( a, 8, NULL ), SA_NULLPTR );
+    expectStatus ( "u32 guard: isSorted zero capacity", sarrayIsSortedu32 ( a, 0, &flag ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: binarySearch NULL array", sarrayBinarySearchu32 ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "u32 guard: binarySearch NULL output", sarrayBinarySearchu32 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "u32 guard: binarySearch zero capacity", sarrayBinarySearchu32 ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: sum NULL array", sarraySumu32 ( NULL, 8, &sum ), SA_NULLPTR );
+
+    expectStatus ( "u32 guard: reverse NULL dest", sarrayReverseu32 ( NULL, 8, b, 8 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: reverse NULL src", sarrayReverseu32 ( a, 8, NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: reverse zero dest capacity", sarrayReverseu32 ( a, 0, b, 8 ), SA_INVALIDSIZE );
+    expectStatus ( "u32 guard: reverse zero src capacity", sarrayReverseu32 ( a, 8, b, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: rotate NULL array", sarrayRotateu32 ( NULL, 8, 1 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: rotate zero capacity", sarrayRotateu32 ( a, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: sort NULL array", sarraySortu32 ( NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: sort zero capacity", sarraySortu32 ( a, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: insert NULL array", sarrayInsertu32 ( NULL, 8, &n, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: insert NULL count", sarrayInsertu32 ( a, 8, NULL, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "u32 guard: insert zero capacity", sarrayInsertu32 ( a, 0, &n, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "u32 guard: remove NULL array", sarrayRemoveu32 ( NULL, 8, &n, 0, &removed ), SA_NULLPTR );
+    expectStatus ( "u32 guard: remove NULL count", sarrayRemoveu32 ( a, 8, NULL, 0, &removed ), SA_NULLPTR );
+    expectStatus ( "u32 guard: remove zero capacity", sarrayRemoveu32 ( a, 0, &n, 0, &removed ), SA_INVALIDSIZE );
+
+    /* A live count above the capacity it lives in. The caller's bookkeeping
+       is broken and the operation has to refuse rather than trust it. */
+    n = 9;
+    expectStatus ( "u32 guard: remove with a live count above the capacity",
+                   sarrayRemoveu32 ( a, 8, &n, 0, &removed ), SA_INVALIDSIZE );
+    expectStatus ( "u32 guard: insert with a live count above the capacity",
+                   sarrayInsertu32 ( a, 8, &n, 0, 1 ), SA_INVALIDSIZE );
+    n = 4;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1917,6 +2337,12 @@ static void testi32 ( void )
     expectStatus ( "i32 compare: shorter prefix", sarrayComparei32 ( a, 4, b, 8, &result ), SA_OK );
     expectI32 ( "i32 compare: the shorter array sorts first", result, -1 );
 
+    /* The other side of the same tie break. Without it a Compare that
+       answered -1 whichever array was longer would pass, because nothing
+       ever asked it about a first argument that outlives the second. */
+    expectStatus ( "i32 compare: longer prefix", sarrayComparei32 ( a, 8, b, 4, &result ), SA_OK );
+    expectI32 ( "i32 compare: the longer array sorts second", result, 1 );
+
     expectStatus ( "i32 compare: NULL output", sarrayComparei32 ( a, 8, b, 8, NULL ), SA_NULLPTR );
     expectStatus ( "i32 compare: zero capacity", sarrayComparei32 ( a, 0, b, 8, &result ), SA_INVALIDSIZE );
 
@@ -2012,8 +2438,29 @@ static void testi32 ( void )
     expectElemi32 ( "i32 max: value", value, 50 );
     expectU32 ( "i32 max: index", index, 0 );
 
+    /* With the largest element first, the branch that replaces the running
+       best is never taken, and a Max that read only arr[0] would pass. The
+       i32 family had such a case and the three unsigned ones did not. */
+    setSeqi32 ( a, 8, 10 );
+    a[ 5 ] = 60;
+
+    expectStatus ( "i32 max: largest away from the start",
+                   sarrayMaxi32 ( a, 8, &value, &index ), SA_OK );
+    expectElemi32 ( "i32 max: its value", value, 60 );
+    expectU32 ( "i32 max: its index", index, 5 );
+
+    setSeqi32 ( a, 8, 10 );
+    a[ 0 ] = 50;
+    a[ 6 ] = 3;
+
     expectStatus ( "i32 min: zero capacity", sarrayMini32 ( a, 0, &value, &index ), SA_INVALIDSIZE );
     expectStatus ( "i32 max: NULL index output", sarrayMaxi32 ( a, 8, &value, NULL ), SA_NULLPTR );
+    expectStatus ( "i32 max: zero capacity", sarrayMaxi32 ( a, 0, &value, &index ), SA_INVALIDSIZE );
+    expectStatus ( "i32 min: NULL value output", sarrayMini32 ( a, 8, NULL, &index ), SA_NULLPTR );
+    expectStatus ( "i32 min: NULL index output", sarrayMini32 ( a, 8, &value, NULL ), SA_NULLPTR );
+    expectStatus ( "i32 max: NULL value output", sarrayMaxi32 ( a, 8, NULL, &index ), SA_NULLPTR );
+    expectStatus ( "i32 min: NULL array", sarrayMini32 ( NULL, 8, &value, &index ), SA_NULLPTR );
+    expectStatus ( "i32 max: NULL array", sarrayMaxi32 ( NULL, 8, &value, &index ), SA_NULLPTR );
 
     /* ---- Sum ---- */
 
@@ -2186,6 +2633,119 @@ static void testi32 ( void )
     n = 3;
     expectStatus ( "i32 remove: NULL output", sarrayRemovei32 ( a, 8, &n, 0, NULL ), SA_NULLPTR );
     expectArrayi32 ( "i32 remove: array untouched after a NULL output", a, snap, 8 );
+
+    /* ---- Every guard, once each ----
+
+       Branch coverage found that most of these had never been taken. A
+       library whose first rule is that every pointer parameter is checked
+       before use has to exercise every one of those checks: a NULL branch
+       that is wrong is not a wrong answer, it is a crash, and nothing else
+       in the suite would ever reach it.
+
+       These say only which status comes back. What the destination looks
+       like after a refusal is checked where each operation is tested. */
+
+    setSeqi32 ( a, 8, 10 );
+    setSeqi32 ( b, 8, 10 );
+    n = 4;
+
+    expectStatus ( "i32 guard: get NULL array", sarrayGeti32 ( NULL, 8, 0, &value ), SA_NULLPTR );
+    expectStatus ( "i32 guard: get NULL value", sarrayGeti32 ( a, 8, 0, NULL ), SA_NULLPTR );
+    expectStatus ( "i32 guard: get zero capacity", sarrayGeti32 ( a, 0, 0, &value ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: set NULL array", sarraySeti32 ( NULL, 8, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: set zero capacity", sarraySeti32 ( a, 0, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: fill NULL array", sarrayFilli32 ( NULL, 8, 1 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: fill zero capacity", sarrayFilli32 ( a, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: clearSecure NULL array", sarrayClearSecurei32 ( NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: clearSecure zero capacity", sarrayClearSecurei32 ( a, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: copy NULL dest", sarrayCopyi32 ( NULL, 8, b, 8 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: copy NULL src", sarrayCopyi32 ( a, 8, NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: copy zero dest capacity", sarrayCopyi32 ( a, 0, b, 8 ), SA_INVALIDSIZE );
+    expectStatus ( "i32 guard: copy zero src capacity", sarrayCopyi32 ( a, 8, b, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: copyN NULL dest", sarrayCopyNi32 ( NULL, 8, b, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: copyN NULL src", sarrayCopyNi32 ( a, 8, NULL, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: copyN zero dest capacity", sarrayCopyNi32 ( a, 0, b, 8, 4 ), SA_INVALIDSIZE );
+    expectStatus ( "i32 guard: copyN zero src capacity", sarrayCopyNi32 ( a, 8, b, 0, 4 ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: move NULL dest", sarrayMovei32 ( NULL, 8, b, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: move NULL src", sarrayMovei32 ( a, 8, NULL, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: move zero dest capacity", sarrayMovei32 ( a, 0, b, 8, 4 ), SA_INVALIDSIZE );
+    expectStatus ( "i32 guard: move zero src capacity", sarrayMovei32 ( a, 8, b, 0, 4 ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: swap NULL array", sarraySwapi32 ( NULL, 8, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: swap zero capacity", sarraySwapi32 ( a, 0, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: compare NULL a", sarrayComparei32 ( NULL, 8, b, 8, &result ), SA_NULLPTR );
+    expectStatus ( "i32 guard: compare NULL b", sarrayComparei32 ( a, 8, NULL, 8, &result ), SA_NULLPTR );
+    expectStatus ( "i32 guard: compare zero b capacity", sarrayComparei32 ( a, 8, b, 0, &result ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: compareN NULL a", sarrayCompareNi32 ( NULL, 8, b, 8, 4, &result ), SA_NULLPTR );
+    expectStatus ( "i32 guard: compareN NULL b", sarrayCompareNi32 ( a, 8, NULL, 8, 4, &result ), SA_NULLPTR );
+    expectStatus ( "i32 guard: compareN NULL output", sarrayCompareNi32 ( a, 8, b, 8, 4, NULL ), SA_NULLPTR );
+    expectStatus ( "i32 guard: compareN zero a capacity", sarrayCompareNi32 ( a, 0, b, 8, 4, &result ), SA_INVALIDSIZE );
+    expectStatus ( "i32 guard: compareN zero b capacity", sarrayCompareNi32 ( a, 8, b, 0, 4, &result ), SA_INVALIDSIZE );
+
+    /* The element wise greater than branch of the counted form, which the
+       whole array form reaches but this one never did. */
+    b[ 2 ] = 1;
+    expectStatus ( "i32 compareN: a sorts after b", sarrayCompareNi32 ( a, 8, b, 8, 8, &result ), SA_OK );
+    expectI32 ( "i32 compareN: a sorts after b result", result, 1 );
+    setSeqi32 ( b, 8, 10 );
+
+    expectStatus ( "i32 guard: find NULL array", sarrayFindi32 ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "i32 guard: find NULL output", sarrayFindi32 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "i32 guard: find zero capacity", sarrayFindi32 ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: findLast NULL array", sarrayFindLasti32 ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "i32 guard: findLast NULL output", sarrayFindLasti32 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "i32 guard: findLast zero capacity", sarrayFindLasti32 ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: count NULL array", sarrayCounti32 ( NULL, 8, 1, &hits ), SA_NULLPTR );
+    expectStatus ( "i32 guard: count NULL output", sarrayCounti32 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "i32 guard: count zero capacity", sarrayCounti32 ( a, 0, 1, &hits ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: isSorted NULL array", sarrayIsSortedi32 ( NULL, 8, &flag ), SA_NULLPTR );
+    expectStatus ( "i32 guard: isSorted NULL output", sarrayIsSortedi32 ( a, 8, NULL ), SA_NULLPTR );
+    expectStatus ( "i32 guard: isSorted zero capacity", sarrayIsSortedi32 ( a, 0, &flag ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: binarySearch NULL array", sarrayBinarySearchi32 ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "i32 guard: binarySearch NULL output", sarrayBinarySearchi32 ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "i32 guard: binarySearch zero capacity", sarrayBinarySearchi32 ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: sum NULL array", sarraySumi32 ( NULL, 8, &sum ), SA_NULLPTR );
+
+    expectStatus ( "i32 guard: reverse NULL dest", sarrayReversei32 ( NULL, 8, b, 8 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: reverse NULL src", sarrayReversei32 ( a, 8, NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: reverse zero dest capacity", sarrayReversei32 ( a, 0, b, 8 ), SA_INVALIDSIZE );
+    expectStatus ( "i32 guard: reverse zero src capacity", sarrayReversei32 ( a, 8, b, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: rotate NULL array", sarrayRotatei32 ( NULL, 8, 1 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: rotate zero capacity", sarrayRotatei32 ( a, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: sort NULL array", sarraySorti32 ( NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: sort zero capacity", sarraySorti32 ( a, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: insert NULL array", sarrayInserti32 ( NULL, 8, &n, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: insert NULL count", sarrayInserti32 ( a, 8, NULL, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "i32 guard: insert zero capacity", sarrayInserti32 ( a, 0, &n, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "i32 guard: remove NULL array", sarrayRemovei32 ( NULL, 8, &n, 0, &removed ), SA_NULLPTR );
+    expectStatus ( "i32 guard: remove NULL count", sarrayRemovei32 ( a, 8, NULL, 0, &removed ), SA_NULLPTR );
+    expectStatus ( "i32 guard: remove zero capacity", sarrayRemovei32 ( a, 0, &n, 0, &removed ), SA_INVALIDSIZE );
+
+    /* A live count above the capacity it lives in. The caller's bookkeeping
+       is broken and the operation has to refuse rather than trust it. */
+    n = 9;
+    expectStatus ( "i32 guard: remove with a live count above the capacity",
+                   sarrayRemovei32 ( a, 8, &n, 0, &removed ), SA_INVALIDSIZE );
+    expectStatus ( "i32 guard: insert with a live count above the capacity",
+                   sarrayInserti32 ( a, 8, &n, 0, 1 ), SA_INVALIDSIZE );
+    n = 4;
 
     /* ---- Signed specific ---- */
 

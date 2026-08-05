@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All nine modules are implemented — 296 functions and 2462 self-checking test cases.
+All nine modules are implemented — 296 functions and 2929 self-checking test cases.
 
 ## Working language
 
@@ -101,6 +101,68 @@ Two results from those runs are worth keeping in mind:
   is the reason the explicit `==` check is in the source anyway — the
   code should say what it means rather than be right by accident.
 - **Two `sdiag` mutants survive and are known to.** Disabling the zero-read checks of March element two, or the address uniqueness pass, changes nothing that any harness on this machine can observe: healthy host memory always reads back what was written, and the aliasing harness's fault is caught redundantly by a later March element. See "Untestable here" below.
+
+`tools/coverage.sh` measures statement and branch coverage with gcc's
+`--coverage` and gcov. Mutation testing samples; coverage counts, and the two
+answer different questions. The first run said so plainly: `sscale`, at the
+time the most heavily tested module in the library — 223 cases and 17 mutants
+— had never taken ten percent of its own branches.
+
+```bash
+PATH="/c/Program Files/CodeBlocks/MinGW/bin:$PATH" bash tools/coverage.sh gcc
+```
+
+What that first run found, and what closing it cost:
+
+| module | branches taken, before | after |
+|---|---|---|
+| `sarray` | 79.4% | 97.2% |
+| `smemory` | 81.7% | 90.4% |
+| `sdiag` | 82.2% | 84.2% |
+| `sstring` | 83.0% | 88.3% |
+| `sfixed` | 86.0% | 94.7% |
+| `sscale` | 89.9% | 90.8% |
+| `smath` | 91.3% | 97.0% |
+| `sring` | 91.5% | 91.5% |
+| `sfilter` | 92.3% | 94.6% |
+
+Four of the holes were ones a broken module would have survived, and they are
+the reason to measure rather than assume:
+
+- **`sarrayMax` never took the branch that replaces the running best**, for
+  three of the four families. The shared template put the largest element at
+  index zero, so a Max that read only `arr[0]` would have passed. The `i32`
+  family had a case with the maximum elsewhere and the unsigned ones did not.
+- **`sarrayCompare` and `smemoryCompare` only ever answered "a sorts first".**
+  Both the element comparison and the length tie break had one arm untaken, so
+  a Compare that answered −1 to every difference would have passed.
+- **`sstringIsAlpha`, `sstringIsAlphaNumeric` and `sstringIsHex` had only been
+  asked about strings that satisfy them.** A version answering TRUE to
+  everything would have passed. Their empty-string branch was a second,
+  separate hole.
+- **`sfilterDebounceInit` and `sfilterHystInit` had only ever been given a
+  starting state of FALSE**, so a version that ignored the argument and always
+  started low would have passed.
+
+**A percentage is not the result.** Every uncovered line is either a case
+nobody wrote, which is a hole, or a defensive branch the API cannot reach,
+which is a comment. What remains is all of the second kind:
+
+- `sarray`, `smemory`, `sstring`: `isOverlapping`'s address-wrap guards, which
+  need a buffer at the very top of the address space; `spanBytes`, which needs
+  an element count whose byte span passes 2^32.
+- `sarray`: the sum overflow in the `u8` and `u16` families. The accumulator is
+  a `uint32_t`, so `u8` needs 16.8 million elements and `u16` needs 65537. The
+  identical guard is exercised in the `u32` and `i32` families.
+- `smath`: the unsigned saturating forms saturating toward the end they cannot
+  reach — the same impossibility recorded in their `@return` blocks.
+- `sring`, `sscale`: the redundant half of `isReady`. Either condition alone
+  catches a zeroed driver, which is why both survive mutation.
+- `sscale`: `SC_INVALIDTABLE` out of `Apply` and `FindSegment`, and the
+  degenerate-segment guard in `interpolate`. A validated table cannot produce
+  any of them.
+- `sdiag`: the March test failure paths. That is the stuck-at fault limit
+  recorded under "Untestable here", not a gap in the suite.
 
 When writing a sweep against a wider-type oracle, **the oracle is where the bug will be.** The first `smath` run reported 32640 failures in unsigned subtract; the module was right and the oracle wrong, because `(uint32_t) a - b` wraps inside the oracle's own type and reads as an overflow when the truth is an underflow. 32640 is exactly the number of pairs with `a < b`. A failure count that equals a recognisable combinatorial quantity is a sign the oracle is broken, not the module.
 

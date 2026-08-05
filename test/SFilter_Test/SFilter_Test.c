@@ -833,6 +833,50 @@ static void testMedian ( void )
 }
 
 /**
+ * @brief   Covers the branches that branch coverage found had never run.
+ * @note    Both Init functions that take a starting state had only ever been
+ *          given FALSE, so the arm that stores TRUE was never taken. A
+ *          version that ignored the argument and always started low would
+ *          have passed.
+ */
+static void testUncoveredBranches ( void )
+{
+    sfilterdebounce_t debounce;
+    sfilterhyst_t hyst;
+    sfilteravg_t avg;
+    static sfilteravg_t unready;
+    int32_t window[ 4 ];
+    int32_t out = 0;
+    uint8_t level = FALSE;
+
+    expectStatus ( "uncovered: debounce starting high",
+                   sfilterDebounceInit ( &debounce, 3u, TRUE ), SF_OK );
+    expectStatus ( "uncovered: debounce reports its starting state",
+                   sfilterDebounceGet ( &debounce, &level ), SF_OK );
+    expectU32 ( "uncovered: it started high", ( uint32_t ) level, ( uint32_t ) TRUE );
+
+    expectStatus ( "uncovered: hysteresis starting high",
+                   sfilterHystInit ( &hyst, 10, 20, TRUE ), SF_OK );
+    expectStatus ( "uncovered: hysteresis reports its starting state",
+                   sfilterHystGet ( &hyst, &level ), SF_OK );
+    expectU32 ( "uncovered: it started high too", ( uint32_t ) level, ( uint32_t ) TRUE );
+
+    /* A moving average that never went through Init. sfilter reports that as
+       SF_INVALIDSIZE rather than SF_NULLPTR, because a zeroed driver has
+       both a NULL buffer and a capacity of zero and the size is the more
+       useful of the two things to name. */
+    expectStatus ( "uncovered: average add on a driver that never went through Init",
+                   sfilterAvgAdd ( &unready, 0 ), SF_INVALIDSIZE );
+
+    expectStatus ( "uncovered: average init", sfilterAvgInit ( &avg, window, 4u ), SF_OK );
+    expectStatus ( "uncovered: average add on a ready driver",
+                   sfilterAvgAdd ( &avg, 7 ), SF_OK );
+    expectStatus ( "uncovered: and it reports the value",
+                   sfilterAvgGet ( &avg, &out ), SF_OK );
+    expectI32 ( "uncovered: one sample averages to itself", out, 7 );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -845,6 +889,7 @@ int main ( void )
     testSlew ( );
     testHysteresis ( );
     testMedian ( );
+    testUncoveredBranches ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

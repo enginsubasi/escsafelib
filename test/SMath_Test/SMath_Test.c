@@ -356,6 +356,9 @@ static void targetedu8 ( void )
     expectStatus ( "u8 average: NULL output", smathAverageu8 ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "u8 addSat: NULL output", smathAddSatu8 ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "u8 min: NULL output", smathMinu8 ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "u8 max: NULL output", smathMaxu8 ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "u8 subSat: NULL output", smathSubSatu8 ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "u8 mulSat: NULL output", smathMulSatu8 ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "u8 clamp: NULL output", smathClampu8 ( 1, 0, 2, NULL ), SH_NULLPTR );
     expectStatus ( "u8 inRange: NULL output", smathInRangeu8 ( 1, 0, 2, NULL ), SH_NULLPTR );
 
@@ -436,6 +439,18 @@ static void targetedu8 ( void )
     expectStatus ( "u8 max: picks the larger", smathMaxu8 ( 7, 3, &out ), SH_OK );
     expectu8 ( "u8 max: picks the larger result", out, 7 );
 
+    /* The same two with the operands the other way round. With only one
+       ordering tested, one arm of each comparison is never taken and a Min
+       that always answered with its second argument would pass. */
+    expectStatus ( "u8 min: smaller on the left", smathMinu8 ( 3, 7, &out ), SH_OK );
+    expectu8 ( "u8 min: smaller on the left result", out, 3 );
+    expectStatus ( "u8 max: larger on the left", smathMaxu8 ( 3, 7, &out ), SH_OK );
+    expectu8 ( "u8 max: larger on the left result", out, 7 );
+    expectStatus ( "u8 min: equal operands", smathMinu8 ( 5, 5, &out ), SH_OK );
+    expectu8 ( "u8 min: equal operands result", out, 5 );
+    expectStatus ( "u8 max: equal operands", smathMaxu8 ( 5, 5, &out ), SH_OK );
+    expectu8 ( "u8 max: equal operands result", out, 5 );
+
     expectStatus ( "u8 clamp: below the range", smathClampu8 ( 1, 5, 10, &out ), SH_OK );
     expectu8 ( "u8 clamp: below the range result", out, 5 );
     expectStatus ( "u8 clamp: inside the range", smathClampu8 ( 7, 5, 10, &out ), SH_OK );
@@ -491,6 +506,7 @@ static void targetedu8 ( void )
 
     expectStatus ( "u8 log2Floor: zero has no logarithm",
                    smathLog2Flooru8 ( 0, &flag ), SH_DOMAIN );
+    expectStatus ( "u8 log2Floor: NULL output", smathLog2Flooru8 ( 1, NULL ), SH_NULLPTR );
     expectStatus ( "u8 log2Floor: one", smathLog2Flooru8 ( 1, &flag ), SH_OK );
     expectU32 ( "u8 log2Floor: one result", ( uint32_t ) flag, 0 );
     expectStatus ( "u8 log2Floor: seven floors to two", smathLog2Flooru8 ( 7, &flag ), SH_OK );
@@ -753,6 +769,9 @@ static void targetedu16 ( void )
     expectStatus ( "u16 average: NULL output", smathAverageu16 ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "u16 addSat: NULL output", smathAddSatu16 ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "u16 min: NULL output", smathMinu16 ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "u16 max: NULL output", smathMaxu16 ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "u16 subSat: NULL output", smathSubSatu16 ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "u16 mulSat: NULL output", smathMulSatu16 ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "u16 clamp: NULL output", smathClampu16 ( 1, 0, 2, NULL ), SH_NULLPTR );
     expectStatus ( "u16 inRange: NULL output", smathInRangeu16 ( 1, 0, 2, NULL ), SH_NULLPTR );
 
@@ -833,6 +852,18 @@ static void targetedu16 ( void )
     expectStatus ( "u16 max: picks the larger", smathMaxu16 ( 7, 3, &out ), SH_OK );
     expectu16 ( "u16 max: picks the larger result", out, 7 );
 
+    /* The same two with the operands the other way round. With only one
+       ordering tested, one arm of each comparison is never taken and a Min
+       that always answered with its second argument would pass. */
+    expectStatus ( "u16 min: smaller on the left", smathMinu16 ( 3, 7, &out ), SH_OK );
+    expectu16 ( "u16 min: smaller on the left result", out, 3 );
+    expectStatus ( "u16 max: larger on the left", smathMaxu16 ( 3, 7, &out ), SH_OK );
+    expectu16 ( "u16 max: larger on the left result", out, 7 );
+    expectStatus ( "u16 min: equal operands", smathMinu16 ( 5, 5, &out ), SH_OK );
+    expectu16 ( "u16 min: equal operands result", out, 5 );
+    expectStatus ( "u16 max: equal operands", smathMaxu16 ( 5, 5, &out ), SH_OK );
+    expectu16 ( "u16 max: equal operands result", out, 5 );
+
     expectStatus ( "u16 clamp: below the range", smathClampu16 ( 1, 5, 10, &out ), SH_OK );
     expectu16 ( "u16 clamp: below the range result", out, 5 );
     expectStatus ( "u16 clamp: inside the range", smathClampu16 ( 7, 5, 10, &out ), SH_OK );
@@ -888,6 +919,7 @@ static void targetedu16 ( void )
 
     expectStatus ( "u16 log2Floor: zero has no logarithm",
                    smathLog2Flooru16 ( 0, &flag ), SH_DOMAIN );
+    expectStatus ( "u16 log2Floor: NULL output", smathLog2Flooru16 ( 1, NULL ), SH_NULLPTR );
     expectStatus ( "u16 log2Floor: one", smathLog2Flooru16 ( 1, &flag ), SH_OK );
     expectU32 ( "u16 log2Floor: one result", ( uint32_t ) flag, 0 );
     expectStatus ( "u16 log2Floor: seven floors to two", smathLog2Flooru16 ( 7, &flag ), SH_OK );
@@ -1150,6 +1182,9 @@ static void targetedu32 ( void )
     expectStatus ( "u32 average: NULL output", smathAverageu32 ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "u32 addSat: NULL output", smathAddSatu32 ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "u32 min: NULL output", smathMinu32 ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "u32 max: NULL output", smathMaxu32 ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "u32 subSat: NULL output", smathSubSatu32 ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "u32 mulSat: NULL output", smathMulSatu32 ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "u32 clamp: NULL output", smathClampu32 ( 1, 0, 2, NULL ), SH_NULLPTR );
     expectStatus ( "u32 inRange: NULL output", smathInRangeu32 ( 1, 0, 2, NULL ), SH_NULLPTR );
 
@@ -1230,6 +1265,18 @@ static void targetedu32 ( void )
     expectStatus ( "u32 max: picks the larger", smathMaxu32 ( 7, 3, &out ), SH_OK );
     expectu32 ( "u32 max: picks the larger result", out, 7 );
 
+    /* The same two with the operands the other way round. With only one
+       ordering tested, one arm of each comparison is never taken and a Min
+       that always answered with its second argument would pass. */
+    expectStatus ( "u32 min: smaller on the left", smathMinu32 ( 3, 7, &out ), SH_OK );
+    expectu32 ( "u32 min: smaller on the left result", out, 3 );
+    expectStatus ( "u32 max: larger on the left", smathMaxu32 ( 3, 7, &out ), SH_OK );
+    expectu32 ( "u32 max: larger on the left result", out, 7 );
+    expectStatus ( "u32 min: equal operands", smathMinu32 ( 5, 5, &out ), SH_OK );
+    expectu32 ( "u32 min: equal operands result", out, 5 );
+    expectStatus ( "u32 max: equal operands", smathMaxu32 ( 5, 5, &out ), SH_OK );
+    expectu32 ( "u32 max: equal operands result", out, 5 );
+
     expectStatus ( "u32 clamp: below the range", smathClampu32 ( 1, 5, 10, &out ), SH_OK );
     expectu32 ( "u32 clamp: below the range result", out, 5 );
     expectStatus ( "u32 clamp: inside the range", smathClampu32 ( 7, 5, 10, &out ), SH_OK );
@@ -1285,6 +1332,7 @@ static void targetedu32 ( void )
 
     expectStatus ( "u32 log2Floor: zero has no logarithm",
                    smathLog2Flooru32 ( 0, &flag ), SH_DOMAIN );
+    expectStatus ( "u32 log2Floor: NULL output", smathLog2Flooru32 ( 1, NULL ), SH_NULLPTR );
     expectStatus ( "u32 log2Floor: one", smathLog2Flooru32 ( 1, &flag ), SH_OK );
     expectU32 ( "u32 log2Floor: one result", ( uint32_t ) flag, 0 );
     expectStatus ( "u32 log2Floor: seven floors to two", smathLog2Flooru32 ( 7, &flag ), SH_OK );
@@ -1582,6 +1630,9 @@ static void targetedi32 ( void )
     expectStatus ( "i32 average: NULL output", smathAveragei32 ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "i32 addSat: NULL output", smathAddSati32 ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "i32 min: NULL output", smathMini32 ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "i32 max: NULL output", smathMaxi32 ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "i32 subSat: NULL output", smathSubSati32 ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "i32 mulSat: NULL output", smathMulSati32 ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "i32 clamp: NULL output", smathClampi32 ( 1, 0, 2, NULL ), SH_NULLPTR );
     expectStatus ( "i32 inRange: NULL output", smathInRangei32 ( 1, 0, 2, NULL ), SH_NULLPTR );
 
@@ -1661,6 +1712,18 @@ static void targetedi32 ( void )
     expecti32 ( "i32 min: picks the smaller result", out, 3 );
     expectStatus ( "i32 max: picks the larger", smathMaxi32 ( 7, 3, &out ), SH_OK );
     expecti32 ( "i32 max: picks the larger result", out, 7 );
+
+    /* The same two with the operands the other way round. With only one
+       ordering tested, one arm of each comparison is never taken and a Min
+       that always answered with its second argument would pass. */
+    expectStatus ( "i32 min: smaller on the left", smathMini32 ( 3, 7, &out ), SH_OK );
+    expecti32 ( "i32 min: smaller on the left result", out, 3 );
+    expectStatus ( "i32 max: larger on the left", smathMaxi32 ( 3, 7, &out ), SH_OK );
+    expecti32 ( "i32 max: larger on the left result", out, 7 );
+    expectStatus ( "i32 min: equal operands", smathMini32 ( 5, 5, &out ), SH_OK );
+    expecti32 ( "i32 min: equal operands result", out, 5 );
+    expectStatus ( "i32 max: equal operands", smathMaxi32 ( 5, 5, &out ), SH_OK );
+    expecti32 ( "i32 max: equal operands result", out, 5 );
 
     expectStatus ( "i32 clamp: below the range", smathClampi32 ( 1, 5, 10, &out ), SH_OK );
     expecti32 ( "i32 clamp: below the range result", out, 5 );
@@ -1751,6 +1814,7 @@ static void targetedi32 ( void )
                    smathAbsi32 ( INT32_MIN, &out ), SH_OVERFLOW );
     expecti32 ( "i32 abs: output untouched after overflow", out, 88 );
     expectStatus ( "i32 abs: NULL output", smathAbsi32 ( 5, NULL ), SH_NULLPTR );
+    expectStatus ( "i32 neg: NULL output", smathNegi32 ( 5, NULL ), SH_NULLPTR );
 
     expectStatus ( "i32 neg: a positive value", smathNegi32 ( 5, &out ), SH_OK );
     expecti32 ( "i32 neg: a positive value result", out, -5 );

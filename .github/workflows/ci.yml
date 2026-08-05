@@ -298,6 +298,28 @@ jobs:
 
   # --------------------------------------------------------------- reporting
 
+  readme-example:
+    name: The README example still compiles
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Blocking. It is the only thing in the repository that uses more
+      # than one module at once: every test suite covers a single module,
+      # so nothing else would notice the example drifting out of step with
+      # the library, and it is the first code a reader meets.
+      - name: Extract it from README.md and build it
+        run: |
+          awk '/^```c$/{f=1;next} /^```$/{f=0} f' README.md > example.c
+          test -s example.c
+          printf 'int main(void){return 0;}\n' > examplemain.c
+          gcc -Wall -Wextra -Wpedantic -std=c99 \
+            -Iinc/ring -Iinc/string -Iinc/math \
+            example.c examplemain.c \
+            src/ring/sring.c src/string/sstring.c src/math/smath.c \
+            -o readme_example
+
   doxygen-convention:
     name: Doxygen comment convention
     runs-on: ubuntu-latest
@@ -313,6 +335,31 @@ jobs:
       # real regression.
       - name: Check the comments against the convention
         run: python3 tools/doxcheck.py
+
+  coverage:
+    name: Statement and branch coverage (reporting)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reporting rather than blocking, and deliberately without a
+      # threshold. What is left uncovered is defensive code the API
+      # cannot reach -- an address wrap guard, a sum that would need
+      # sixteen million elements, a March test failure no portable code
+      # can provoke -- so any number chosen as a gate would be arbitrary.
+      # The table is here to be read when it moves. CLAUDE.md lists what
+      # the residue is and why each piece of it cannot be reached.
+      - name: Measure it
+        run: bash tools/coverage.sh gcc
+
+      - name: Upload the annotated listings
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: /tmp/escsafelib-coverage/**/*.gcov
 
   cppcheck:
     name: cppcheck (reporting)

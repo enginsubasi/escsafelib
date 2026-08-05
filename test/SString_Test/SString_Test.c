@@ -1424,6 +1424,168 @@ static void testConversion ( void )
 }
 
 /**
+ * @brief   Covers the branches that branch coverage found had never run.
+ * @note    Three of these are worth naming, because a broken module would
+ *          have survived the whole suite without them. sstringIsAlpha,
+ *          sstringIsAlphaNumeric and sstringIsHex had only ever been asked
+ *          about strings that satisfy them, so a version that answered TRUE
+ *          to everything would have passed. sstringEndsWith had only been
+ *          asked about suffixes that match. sstringToI32 had never been
+ *          driven past the end of its type.
+ * @note    The rest are the NULL and zero capacity guards. A library whose
+ *          first rule is that every pointer parameter is checked before use
+ *          has to run every one of those checks at least once: a wrong NULL
+ *          branch is a crash rather than a wrong answer.
+ */
+static void testUncoveredBranches ( void )
+{
+    char dest[ 32 ];
+    uint32_t value = 0;
+    int32_t signedValue = 0;
+    uint8_t flag = 0;
+    uint32_t index = 0;
+
+    /* ---- predicates asked about strings that do not satisfy them ---- */
+
+    expectStatus ( "predicate: isAlpha on a string with a digit",
+                   sstringIsAlpha ( "abc1", 5u, &flag ), SS_OK );
+    expectValue ( "predicate: isAlpha says no", ( uint32_t ) flag, FALSE );
+
+    expectStatus ( "predicate: isAlphaNumeric on a string with a dash",
+                   sstringIsAlphaNumeric ( "ab-1", 5u, &flag ), SS_OK );
+    expectValue ( "predicate: isAlphaNumeric says no", ( uint32_t ) flag, FALSE );
+
+    expectStatus ( "predicate: isHex on a string with a g",
+                   sstringIsHex ( "12ag", 5u, &flag ), SS_OK );
+    expectValue ( "predicate: isHex says no", ( uint32_t ) flag, FALSE );
+
+    expectStatus ( "predicate: endsWith a suffix that does not match",
+                   sstringEndsWith ( "hello", 6u, "xyz", 4u, &flag ), SS_OK );
+    expectValue ( "predicate: endsWith says no", ( uint32_t ) flag, FALSE );
+
+    expectStatus ( "predicate: endsWith a suffix longer than the string",
+                   sstringEndsWith ( "hi", 3u, "hello", 6u, &flag ), SS_OK );
+    expectValue ( "predicate: a longer suffix cannot match", ( uint32_t ) flag, FALSE );
+
+    /* An empty string satisfies none of the three, and that is a separate
+       branch from a string whose characters fail. Only the second had been
+       tested, so the first still answered nothing anybody had checked. */
+
+    expectStatus ( "predicate: isAlpha on an empty string",
+                   sstringIsAlpha ( "", 1u, &flag ), SS_OK );
+    expectValue ( "predicate: an empty string is not alphabetic", ( uint32_t ) flag, FALSE );
+
+    expectStatus ( "predicate: isAlphaNumeric on an empty string",
+                   sstringIsAlphaNumeric ( "", 1u, &flag ), SS_OK );
+    expectValue ( "predicate: an empty string is not alphanumeric", ( uint32_t ) flag, FALSE );
+
+    expectStatus ( "predicate: isHex on an empty string",
+                   sstringIsHex ( "", 1u, &flag ), SS_OK );
+    expectValue ( "predicate: an empty string is not hexadecimal", ( uint32_t ) flag, FALSE );
+
+    /* ---- a signed conversion driven past the end of its type ---- */
+
+    /* Two different guards, and they are reached by different inputs. This
+       one runs the accumulator itself past a uint32_t, before anything has
+       looked at the range of an int32_t. */
+    expectStatus ( "conversion: toI32 with more digits than a uint32_t holds",
+                   sstringToI32 ( "99999999999", 12u, &signedValue ), SS_OVERFLOW );
+
+    expectStatus ( "conversion: toI32 past the top of the type",
+                   sstringToI32 ( "2147483648", 11u, &signedValue ), SS_OVERFLOW );
+    expectStatus ( "conversion: toI32 past the bottom of the type",
+                   sstringToI32 ( "-2147483649", 12u, &signedValue ), SS_OVERFLOW );
+    expectStatus ( "conversion: toI32 at the top of the type",
+                   sstringToI32 ( "2147483647", 11u, &signedValue ), SS_OK );
+    expectSign ( "conversion: toI32 at the top of the type result", signedValue, 1 );
+
+    /* ---- NULL and zero capacity, one call each ---- */
+
+    expectStatus ( "guard: span NULL string", sstringSpan ( NULL, 8u, "ab", 3u, &value ), SS_NULLPTR );
+    expectStatus ( "guard: spanNot NULL string", sstringSpanNot ( NULL, 8u, "ab", 3u, &value ), SS_NULLPTR );
+    expectStatus ( "guard: countChar NULL string", sstringCountChar ( NULL, 8u, 'a', &value ), SS_NULLPTR );
+    expectStatus ( "guard: startsWith NULL string", sstringStartsWith ( NULL, 8u, "ab", 3u, &flag ), SS_NULLPTR );
+    expectStatus ( "guard: isPrintableAscii NULL string", sstringIsPrintableAscii ( NULL, 8u, &flag ), SS_NULLPTR );
+    expectStatus ( "guard: isNumeric NULL string", sstringIsNumeric ( NULL, 8u, &flag ), SS_NULLPTR );
+    expectStatus ( "guard: isAlpha NULL string", sstringIsAlpha ( NULL, 8u, &flag ), SS_NULLPTR );
+    expectStatus ( "guard: isAlphaNumeric NULL string", sstringIsAlphaNumeric ( NULL, 8u, &flag ), SS_NULLPTR );
+    expectStatus ( "guard: toU32Hex NULL string", sstringToU32Hex ( NULL, 8u, &value ), SS_NULLPTR );
+    expectStatus ( "guard: toI32 NULL string", sstringToI32 ( NULL, 8u, &signedValue ), SS_NULLPTR );
+
+    expectStatus ( "guard: substring zero dest capacity",
+                   sstringSubstring ( dest, 0u, "hello", 6u, 0u, 2u ), SS_INVALIDSIZE );
+    expectStatus ( "guard: compareCI zero capacity",
+                   sstringCompareCI ( "a", 0u, "a", 2u, &signedValue ), SS_INVALIDSIZE );
+    expectStatus ( "guard: fromU32 zero capacity",
+                   sstringFromU32 ( dest, 0u, 5u ), SS_INVALIDSIZE );
+    expectStatus ( "guard: fromI32 zero capacity",
+                   sstringFromI32 ( dest, 0u, -5 ), SS_INVALIDSIZE );
+    expectStatus ( "guard: fromI32 NULL dest", sstringFromI32 ( NULL, 8u, -5 ), SS_NULLPTR );
+    expectStatus ( "guard: fromU32Hex zero capacity",
+                   sstringFromU32Hex ( dest, 0u, 5u, 4u ), SS_INVALIDSIZE );
+    expectStatus ( "guard: fromU32Hex NULL dest", sstringFromU32Hex ( NULL, 8u, 5u, 4u ), SS_NULLPTR );
+
+    expectStatus ( "guard: trimLeft NULL dest", sstringTrimLeft ( NULL, 8u, " a", 3u ), SS_NULLPTR );
+    expectStatus ( "guard: trimLeft zero capacity", sstringTrimLeft ( dest, 0u, " a", 3u ), SS_INVALIDSIZE );
+    expectStatus ( "guard: trimRight NULL dest", sstringTrimRight ( NULL, 8u, "a ", 3u ), SS_NULLPTR );
+    expectStatus ( "guard: trimRight zero capacity", sstringTrimRight ( dest, 0u, "a ", 3u ), SS_INVALIDSIZE );
+
+    expectStatus ( "guard: toUpper NULL dest", sstringToUpper ( NULL, 8u, "a", 2u ), SS_NULLPTR );
+    expectStatus ( "guard: toUpper zero capacity", sstringToUpper ( dest, 0u, "a", 2u ), SS_INVALIDSIZE );
+    expectStatus ( "guard: toLower NULL dest", sstringToLower ( NULL, 8u, "A", 2u ), SS_NULLPTR );
+    expectStatus ( "guard: toLower zero capacity", sstringToLower ( dest, 0u, "A", 2u ), SS_INVALIDSIZE );
+    expectStatus ( "guard: reverse NULL dest", sstringReverse ( NULL, 8u, "ab", 3u ), SS_NULLPTR );
+    expectStatus ( "guard: reverse zero capacity", sstringReverse ( dest, 0u, "ab", 3u ), SS_INVALIDSIZE );
+    expectStatus ( "guard: replaceChar NULL dest",
+                   sstringReplaceChar ( NULL, 8u, "ab", 3u, 'a', 'b' ), SS_NULLPTR );
+    expectStatus ( "guard: replaceChar zero capacity",
+                   sstringReplaceChar ( dest, 0u, "ab", 3u, 'a', 'b' ), SS_INVALIDSIZE );
+
+    /* ---- transforms refuse a destination that overlaps their source ----
+
+       Only in one direction, and the asymmetry is deliberate rather than an
+       oversight. isUnsafeOverlap answers FALSE whenever the destination is
+       at or below the source, because a forward loop then reads every byte
+       before it writes over it. Moving the destination up past the source
+       is what breaks, and only that is refused. A first attempt at these
+       cases put the destination below the source and got SS_OK, which is
+       the right answer. */
+
+    ( void ) sstringCopy ( dest, sizeof ( dest ), "hello", 6u );
+
+    expectStatus ( "overlap: toLower into a destination above its source",
+                   sstringToLower ( &dest[ 2 ], sizeof ( dest ) - 2u, dest, 6u ), SS_OVERLAP );
+    expectStatus ( "overlap: replaceChar into a destination above its source",
+                   sstringReplaceChar ( &dest[ 2 ], sizeof ( dest ) - 2u, dest, 6u, 'l', 'L' ),
+                   SS_OVERLAP );
+    expectString ( "overlap: the buffer is unchanged after both",
+                   dest, "hello", sizeof ( dest ) );
+
+    /* Concat checks a different range from the transforms, and this case has
+       to be built to match it: what it writes starts after the string
+       already in the destination, so a source below that point does not
+       overlap it at all. The source has to sit inside the range about to be
+       appended to. */
+    dest[ 6 ] = 'x';
+    dest[ 7 ] = 'y';
+    dest[ 8 ] = '\0';
+
+    expectStatus ( "overlap: concatN reading the bytes it is about to write",
+                   sstringConcatN ( dest, sizeof ( dest ), &dest[ 6 ], 3u, 2u ), SS_OVERLAP );
+    expectString ( "overlap: the destination string is unchanged",
+                   dest, "hello", sizeof ( dest ) );
+
+    /* The same three with the destination below the source, which is safe
+       and must be allowed. */
+    ( void ) sstringCopy ( dest, sizeof ( dest ), "HELLO", 6u );
+    expectStatus ( "overlap: toLower into a destination below its source",
+                   sstringToLower ( dest, sizeof ( dest ), &dest[ 1 ], 5u ), SS_OK );
+    expectString ( "overlap: it shifted down as it lowered", dest, "ello", sizeof ( dest ) );
+
+    ( void ) index;
+}
+
+/**
  * @brief   Runs every test group and reports the totals.
  * @return  0 when every case passed, 1 otherwise.
  */
@@ -1447,6 +1609,7 @@ int main ( void )
     testTransform ( );
     testPredicates ( );
     testConversion ( );
+    testUncoveredBranches ( );
 
     printf ( "\n%lu cases, %lu failed\n",
              ( unsigned long ) casesRun, ( unsigned long ) casesFailed );

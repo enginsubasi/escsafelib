@@ -92,6 +92,21 @@ lost.
 are single implementations with no repetition, are written by hand, and
 have no generator.
 
+## coverage.sh
+
+Statement and branch coverage of every module against its own suite, using
+gcc's `--coverage` and gcov.
+
+```bash
+PATH="/c/Program Files/CodeBlocks/MinGW/bin:$PATH" bash tools/coverage.sh gcc
+```
+
+It leaves the annotated listings behind on purpose. **Read them; the
+percentage is not the result.** Every uncovered line is either a case nobody
+wrote, which wants a test, or a defensive branch the API cannot reach, which
+wants a comment saying why. Telling the two apart is the whole exercise, and
+it is what turned the first run into four real holes rather than a number.
+
 ## doxcheck.py
 
 Not a generator. It checks the Doxygen comments in every `.c` against the

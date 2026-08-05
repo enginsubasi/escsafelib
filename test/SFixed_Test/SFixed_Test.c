@@ -709,6 +709,45 @@ static void testRoundTrip ( void )
 }
 
 /**
+ * @brief   Covers the branches that branch coverage found had never run.
+ * @note    sfixedMax had only ever been given its larger operand second, so
+ *          the arm that answers with the first was never taken. The rest
+ *          are the NULL guards, one per function that still had one
+ *          unexercised.
+ */
+static void testUncoveredBranches ( void )
+{
+    sfixed_t out = 0;
+
+    expectStatus ( "uncovered: max with the larger operand first",
+                   sfixedMax ( SFIXED_ONE * 3, SFIXED_ONE, &out ), SX_OK );
+    expectI32 ( "uncovered: max answers with the first", out, SFIXED_ONE * 3 );
+
+    expectStatus ( "uncovered: min with the smaller operand first",
+                   sfixedMin ( SFIXED_ONE, SFIXED_ONE * 3, &out ), SX_OK );
+    expectI32 ( "uncovered: min answers with the first", out, SFIXED_ONE );
+
+    expectStatus ( "uncovered: fromRatio NULL output",
+                   sfixedFromRatio ( 1, 2, NULL ), SX_NULLPTR );
+    expectStatus ( "uncovered: toIntRound NULL output",
+                   sfixedToIntRound ( SFIXED_ONE, NULL ), SX_NULLPTR );
+    expectStatus ( "uncovered: add NULL output",
+                   sfixedAdd ( SFIXED_ONE, SFIXED_ONE, NULL ), SX_NULLPTR );
+    expectStatus ( "uncovered: sub NULL output",
+                   sfixedSub ( SFIXED_ONE, SFIXED_ONE, NULL ), SX_NULLPTR );
+    expectStatus ( "uncovered: neg NULL output",
+                   sfixedNeg ( SFIXED_ONE, NULL ), SX_NULLPTR );
+    expectStatus ( "uncovered: abs NULL output",
+                   sfixedAbs ( -SFIXED_ONE, NULL ), SX_NULLPTR );
+    expectStatus ( "uncovered: min NULL output",
+                   sfixedMin ( SFIXED_ONE, SFIXED_ONE, NULL ), SX_NULLPTR );
+    expectStatus ( "uncovered: max NULL output",
+                   sfixedMax ( SFIXED_ONE, SFIXED_ONE, NULL ), SX_NULLPTR );
+    expectStatus ( "uncovered: clamp NULL output",
+                   sfixedClamp ( SFIXED_ONE, 0, SFIXED_ONE * 2, NULL ), SX_NULLPTR );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -720,6 +759,7 @@ int main ( void )
     testUtility ( );
     testProperties ( );
     testRoundTrip ( );
+    testUncoveredBranches ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

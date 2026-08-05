@@ -391,6 +391,12 @@ static void test${S} ( void )
     expectStatus ( "${S} compare: shorter prefix", sarrayCompare${S} ( a, 4, b, 8, &result ), SA_OK );
     expectI32 ( "${S} compare: the shorter array sorts first", result, -1 );
 
+    /* The other side of the same tie break. Without it a Compare that
+       answered -1 whichever array was longer would pass, because nothing
+       ever asked it about a first argument that outlives the second. */
+    expectStatus ( "${S} compare: longer prefix", sarrayCompare${S} ( a, 8, b, 4, &result ), SA_OK );
+    expectI32 ( "${S} compare: the longer array sorts second", result, 1 );
+
     expectStatus ( "${S} compare: NULL output", sarrayCompare${S} ( a, 8, b, 8, NULL ), SA_NULLPTR );
     expectStatus ( "${S} compare: zero capacity", sarrayCompare${S} ( a, 0, b, 8, &result ), SA_INVALIDSIZE );
 
@@ -486,8 +492,29 @@ static void test${S} ( void )
     expectElem${S} ( "${S} max: value", value, 50 );
     expectU32 ( "${S} max: index", index, 0 );
 
+    /* With the largest element first, the branch that replaces the running
+       best is never taken, and a Max that read only arr[0] would pass. The
+       i32 family had such a case and the three unsigned ones did not. */
+    setSeq${S} ( a, 8, 10 );
+    a[ 5 ] = 60;
+
+    expectStatus ( "${S} max: largest away from the start",
+                   sarrayMax${S} ( a, 8, &value, &index ), SA_OK );
+    expectElem${S} ( "${S} max: its value", value, 60 );
+    expectU32 ( "${S} max: its index", index, 5 );
+
+    setSeq${S} ( a, 8, 10 );
+    a[ 0 ] = 50;
+    a[ 6 ] = 3;
+
     expectStatus ( "${S} min: zero capacity", sarrayMin${S} ( a, 0, &value, &index ), SA_INVALIDSIZE );
     expectStatus ( "${S} max: NULL index output", sarrayMax${S} ( a, 8, &value, NULL ), SA_NULLPTR );
+    expectStatus ( "${S} max: zero capacity", sarrayMax${S} ( a, 0, &value, &index ), SA_INVALIDSIZE );
+    expectStatus ( "${S} min: NULL value output", sarrayMin${S} ( a, 8, NULL, &index ), SA_NULLPTR );
+    expectStatus ( "${S} min: NULL index output", sarrayMin${S} ( a, 8, &value, NULL ), SA_NULLPTR );
+    expectStatus ( "${S} max: NULL value output", sarrayMax${S} ( a, 8, NULL, &index ), SA_NULLPTR );
+    expectStatus ( "${S} min: NULL array", sarrayMin${S} ( NULL, 8, &value, &index ), SA_NULLPTR );
+    expectStatus ( "${S} max: NULL array", sarrayMax${S} ( NULL, 8, &value, &index ), SA_NULLPTR );
 
     /* ---- Sum ---- */
 
@@ -643,6 +670,119 @@ ${SUMOVF}
     n = 3;
     expectStatus ( "${S} remove: NULL output", sarrayRemove${S} ( a, 8, &n, 0, NULL ), SA_NULLPTR );
     expectArray${S} ( "${S} remove: array untouched after a NULL output", a, snap, 8 );
+
+    /* ---- Every guard, once each ----
+
+       Branch coverage found that most of these had never been taken. A
+       library whose first rule is that every pointer parameter is checked
+       before use has to exercise every one of those checks: a NULL branch
+       that is wrong is not a wrong answer, it is a crash, and nothing else
+       in the suite would ever reach it.
+
+       These say only which status comes back. What the destination looks
+       like after a refusal is checked where each operation is tested. */
+
+    setSeq${S} ( a, 8, 10 );
+    setSeq${S} ( b, 8, 10 );
+    n = 4;
+
+    expectStatus ( "${S} guard: get NULL array", sarrayGet${S} ( NULL, 8, 0, &value ), SA_NULLPTR );
+    expectStatus ( "${S} guard: get NULL value", sarrayGet${S} ( a, 8, 0, NULL ), SA_NULLPTR );
+    expectStatus ( "${S} guard: get zero capacity", sarrayGet${S} ( a, 0, 0, &value ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: set NULL array", sarraySet${S} ( NULL, 8, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: set zero capacity", sarraySet${S} ( a, 0, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: fill NULL array", sarrayFill${S} ( NULL, 8, 1 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: fill zero capacity", sarrayFill${S} ( a, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: clearSecure NULL array", sarrayClearSecure${S} ( NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: clearSecure zero capacity", sarrayClearSecure${S} ( a, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: copy NULL dest", sarrayCopy${S} ( NULL, 8, b, 8 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: copy NULL src", sarrayCopy${S} ( a, 8, NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: copy zero dest capacity", sarrayCopy${S} ( a, 0, b, 8 ), SA_INVALIDSIZE );
+    expectStatus ( "${S} guard: copy zero src capacity", sarrayCopy${S} ( a, 8, b, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: copyN NULL dest", sarrayCopyN${S} ( NULL, 8, b, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: copyN NULL src", sarrayCopyN${S} ( a, 8, NULL, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: copyN zero dest capacity", sarrayCopyN${S} ( a, 0, b, 8, 4 ), SA_INVALIDSIZE );
+    expectStatus ( "${S} guard: copyN zero src capacity", sarrayCopyN${S} ( a, 8, b, 0, 4 ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: move NULL dest", sarrayMove${S} ( NULL, 8, b, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: move NULL src", sarrayMove${S} ( a, 8, NULL, 8, 4 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: move zero dest capacity", sarrayMove${S} ( a, 0, b, 8, 4 ), SA_INVALIDSIZE );
+    expectStatus ( "${S} guard: move zero src capacity", sarrayMove${S} ( a, 8, b, 0, 4 ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: swap NULL array", sarraySwap${S} ( NULL, 8, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: swap zero capacity", sarraySwap${S} ( a, 0, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: compare NULL a", sarrayCompare${S} ( NULL, 8, b, 8, &result ), SA_NULLPTR );
+    expectStatus ( "${S} guard: compare NULL b", sarrayCompare${S} ( a, 8, NULL, 8, &result ), SA_NULLPTR );
+    expectStatus ( "${S} guard: compare zero b capacity", sarrayCompare${S} ( a, 8, b, 0, &result ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: compareN NULL a", sarrayCompareN${S} ( NULL, 8, b, 8, 4, &result ), SA_NULLPTR );
+    expectStatus ( "${S} guard: compareN NULL b", sarrayCompareN${S} ( a, 8, NULL, 8, 4, &result ), SA_NULLPTR );
+    expectStatus ( "${S} guard: compareN NULL output", sarrayCompareN${S} ( a, 8, b, 8, 4, NULL ), SA_NULLPTR );
+    expectStatus ( "${S} guard: compareN zero a capacity", sarrayCompareN${S} ( a, 0, b, 8, 4, &result ), SA_INVALIDSIZE );
+    expectStatus ( "${S} guard: compareN zero b capacity", sarrayCompareN${S} ( a, 8, b, 0, 4, &result ), SA_INVALIDSIZE );
+
+    /* The element wise greater than branch of the counted form, which the
+       whole array form reaches but this one never did. */
+    b[ 2 ] = 1;
+    expectStatus ( "${S} compareN: a sorts after b", sarrayCompareN${S} ( a, 8, b, 8, 8, &result ), SA_OK );
+    expectI32 ( "${S} compareN: a sorts after b result", result, 1 );
+    setSeq${S} ( b, 8, 10 );
+
+    expectStatus ( "${S} guard: find NULL array", sarrayFind${S} ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "${S} guard: find NULL output", sarrayFind${S} ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "${S} guard: find zero capacity", sarrayFind${S} ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: findLast NULL array", sarrayFindLast${S} ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "${S} guard: findLast NULL output", sarrayFindLast${S} ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "${S} guard: findLast zero capacity", sarrayFindLast${S} ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: count NULL array", sarrayCount${S} ( NULL, 8, 1, &hits ), SA_NULLPTR );
+    expectStatus ( "${S} guard: count NULL output", sarrayCount${S} ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "${S} guard: count zero capacity", sarrayCount${S} ( a, 0, 1, &hits ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: isSorted NULL array", sarrayIsSorted${S} ( NULL, 8, &flag ), SA_NULLPTR );
+    expectStatus ( "${S} guard: isSorted NULL output", sarrayIsSorted${S} ( a, 8, NULL ), SA_NULLPTR );
+    expectStatus ( "${S} guard: isSorted zero capacity", sarrayIsSorted${S} ( a, 0, &flag ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: binarySearch NULL array", sarrayBinarySearch${S} ( NULL, 8, 1, &index ), SA_NULLPTR );
+    expectStatus ( "${S} guard: binarySearch NULL output", sarrayBinarySearch${S} ( a, 8, 1, NULL ), SA_NULLPTR );
+    expectStatus ( "${S} guard: binarySearch zero capacity", sarrayBinarySearch${S} ( a, 0, 1, &index ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: sum NULL array", sarraySum${S} ( NULL, 8, &sum ), SA_NULLPTR );
+
+    expectStatus ( "${S} guard: reverse NULL dest", sarrayReverse${S} ( NULL, 8, b, 8 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: reverse NULL src", sarrayReverse${S} ( a, 8, NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: reverse zero dest capacity", sarrayReverse${S} ( a, 0, b, 8 ), SA_INVALIDSIZE );
+    expectStatus ( "${S} guard: reverse zero src capacity", sarrayReverse${S} ( a, 8, b, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: rotate NULL array", sarrayRotate${S} ( NULL, 8, 1 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: rotate zero capacity", sarrayRotate${S} ( a, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: sort NULL array", sarraySort${S} ( NULL, 8 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: sort zero capacity", sarraySort${S} ( a, 0 ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: insert NULL array", sarrayInsert${S} ( NULL, 8, &n, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: insert NULL count", sarrayInsert${S} ( a, 8, NULL, 0, 1 ), SA_NULLPTR );
+    expectStatus ( "${S} guard: insert zero capacity", sarrayInsert${S} ( a, 0, &n, 0, 1 ), SA_INVALIDSIZE );
+
+    expectStatus ( "${S} guard: remove NULL array", sarrayRemove${S} ( NULL, 8, &n, 0, &removed ), SA_NULLPTR );
+    expectStatus ( "${S} guard: remove NULL count", sarrayRemove${S} ( a, 8, NULL, 0, &removed ), SA_NULLPTR );
+    expectStatus ( "${S} guard: remove zero capacity", sarrayRemove${S} ( a, 0, &n, 0, &removed ), SA_INVALIDSIZE );
+
+    /* A live count above the capacity it lives in. The caller's bookkeeping
+       is broken and the operation has to refuse rather than trust it. */
+    n = 9;
+    expectStatus ( "${S} guard: remove with a live count above the capacity",
+                   sarrayRemove${S} ( a, 8, &n, 0, &removed ), SA_INVALIDSIZE );
+    expectStatus ( "${S} guard: insert with a live count above the capacity",
+                   sarrayInsert${S} ( a, 8, &n, 0, 1 ), SA_INVALIDSIZE );
+    n = 4;
 ${EXTRA}}
 """)
 

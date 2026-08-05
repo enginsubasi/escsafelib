@@ -604,6 +604,29 @@ static void testShadow ( void )
 }
 
 /**
+ * @brief   Covers the branches that branch coverage found had never run.
+ * @note    The CRC-16 update had both its guards unexercised while the
+ *          CRC-32 one had them tested. The two are written the same way, so
+ *          the untested pair proved nothing until they were run.
+ */
+static void testUncoveredBranches ( void )
+{
+    uint16_t crc = 0;
+    const uint8_t data[ 4 ] = { 1, 2, 3, 4 };
+
+    expectStatus ( "uncovered: crc16Update NULL data",
+                   sdiagCrc16Update ( NULL, 4u, SD_CRC16_SEED, &crc ), SD_NULLPTR );
+    expectStatus ( "uncovered: crc16Update NULL output",
+                   sdiagCrc16Update ( data, 4u, SD_CRC16_SEED, NULL ), SD_NULLPTR );
+    expectStatus ( "uncovered: crc16Update zero size",
+                   sdiagCrc16Update ( data, 0u, SD_CRC16_SEED, &crc ), SD_INVALIDSIZE );
+    expectStatus ( "uncovered: crc16 NULL data",
+                   sdiagCrc16 ( NULL, 4u, &crc ), SD_NULLPTR );
+    expectStatus ( "uncovered: crc16 zero size",
+                   sdiagCrc16 ( data, 0u, &crc ), SD_INVALIDSIZE );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -614,6 +637,7 @@ int main ( void )
     testStack ( );
     testFlow ( );
     testShadow ( );
+    testUncoveredBranches ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

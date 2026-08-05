@@ -409,6 +409,9 @@ ${TARGETEDDECL}
     expectStatus ( "${S} average: NULL output", smathAverage${S} ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "${S} addSat: NULL output", smathAddSat${S} ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "${S} min: NULL output", smathMin${S} ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} max: NULL output", smathMax${S} ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} subSat: NULL output", smathSubSat${S} ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} mulSat: NULL output", smathMulSat${S} ( 1, 1, NULL ), SH_NULLPTR );
     expectStatus ( "${S} clamp: NULL output", smathClamp${S} ( 1, 0, 2, NULL ), SH_NULLPTR );
     expectStatus ( "${S} inRange: NULL output", smathInRange${S} ( 1, 0, 2, NULL ), SH_NULLPTR );
 
@@ -488,6 +491,18 @@ ${TARGETEDDECL}
     expect${S} ( "${S} min: picks the smaller result", out, 3 );
     expectStatus ( "${S} max: picks the larger", smathMax${S} ( 7, 3, &out ), SH_OK );
     expect${S} ( "${S} max: picks the larger result", out, 7 );
+
+    /* The same two with the operands the other way round. With only one
+       ordering tested, one arm of each comparison is never taken and a Min
+       that always answered with its second argument would pass. */
+    expectStatus ( "${S} min: smaller on the left", smathMin${S} ( 3, 7, &out ), SH_OK );
+    expect${S} ( "${S} min: smaller on the left result", out, 3 );
+    expectStatus ( "${S} max: larger on the left", smathMax${S} ( 3, 7, &out ), SH_OK );
+    expect${S} ( "${S} max: larger on the left result", out, 7 );
+    expectStatus ( "${S} min: equal operands", smathMin${S} ( 5, 5, &out ), SH_OK );
+    expect${S} ( "${S} min: equal operands result", out, 5 );
+    expectStatus ( "${S} max: equal operands", smathMax${S} ( 5, 5, &out ), SH_OK );
+    expect${S} ( "${S} max: equal operands result", out, 5 );
 
     expectStatus ( "${S} clamp: below the range", smathClamp${S} ( 1, 5, 10, &out ), SH_OK );
     expect${S} ( "${S} clamp: below the range result", out, 5 );
@@ -659,6 +674,7 @@ EXTRA_UNSIGNED = Template(r"""
 
     expectStatus ( "${S} log2Floor: zero has no logarithm",
                    smathLog2Floor${S} ( 0, &flag ), SH_DOMAIN );
+    expectStatus ( "${S} log2Floor: NULL output", smathLog2Floor${S} ( 1, NULL ), SH_NULLPTR );
     expectStatus ( "${S} log2Floor: one", smathLog2Floor${S} ( 1, &flag ), SH_OK );
     expectU32 ( "${S} log2Floor: one result", ( uint32_t ) flag, 0 );
     expectStatus ( "${S} log2Floor: seven floors to two", smathLog2Floor${S} ( 7, &flag ), SH_OK );
@@ -757,6 +773,7 @@ EXTRA_SIGNED = Template(r"""
                    smathAbs${S} ( ${MIN}, &out ), SH_OVERFLOW );
     expect${S} ( "${S} abs: output untouched after overflow", out, 88 );
     expectStatus ( "${S} abs: NULL output", smathAbs${S} ( 5, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} neg: NULL output", smathNeg${S} ( 5, NULL ), SH_NULLPTR );
 
     expectStatus ( "${S} neg: a positive value", smathNeg${S} ( 5, &out ), SH_OK );
     expect${S} ( "${S} neg: a positive value result", out, -5 );
