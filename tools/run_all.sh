@@ -55,6 +55,7 @@ MODULES=(
   "diag     sdiag         SDiag"
   "fault    sfault        SFault"
   "scale    sscale        SScale"
+  "state    sstate        SState"
   "vote     svote         SVote"
 )
 

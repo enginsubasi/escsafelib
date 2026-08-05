@@ -45,6 +45,7 @@ MODULES=(
   "memory   smemory       SMemory"
   "ring     sring         SRing"
   "scale    sscale        SScale"
+  "state    sstate        SState"
   "string   sstring       SString"
   "vote     svote         SVote"
 )

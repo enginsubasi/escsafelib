@@ -23,6 +23,7 @@ fails leaves its destination untouched.
 | `inc/filter/sfilter.h` | 19 functions. Moving average, exponential average, debounce, slew limit, hysteresis and median. |
 | `inc/fixed/sfixed.h` | 19 functions. Q16.16 fixed point: conversion, checked arithmetic, rounding, interpolation and square root. No floating point. |
 | `inc/scale/sscale.h` | 12 functions. Piecewise linear scaling: a validated breakpoint table in either direction, its inverse, and the two point map that needs no table. |
+| `inc/state/sstate.h` | 12 functions. Guarded state machine: a transition table validated at Init, illegal transitions refused and counted, and reachability queries over the whole table. |
 | `inc/fault/sfault.h` | 12 functions. Fault qualification: a condition must be present for a number of cycles to confirm and absent for a number to heal, with latching and occurrence counting. |
 | `inc/vote/svote.h` | 12 functions. Redundant channel voting: agreement within a tolerance, majority, median, mean, spread, outlier reporting and fail safe selection. |
 | `inc/diag/sdiag.h` | 16 functions. CRC and checksum, March memory tests, stack usage measurement, control flow monitoring and redundant storage. No hardware dependency. |
@@ -179,6 +180,9 @@ gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/vote \
 
 gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/fault \
   test/SFault_Test/SFault_Test.c src/fault/sfault.c -o sfault_test && ./sfault_test
+
+gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/state \
+  test/SState_Test/SState_Test.c src/state/sstate.c -o sstate_test && ./sstate_test
 ```
 
 ## Generated modules

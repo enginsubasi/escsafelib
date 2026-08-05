@@ -144,6 +144,16 @@ jobs:
       - name: Run the sfault test program
         run: ./sfault_test
 
+      - name: Build the sstate test program
+        run: |
+          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
+            -Iinc/state \
+            test/SState_Test/SState_Test.c src/state/sstate.c \
+            -o sstate_test
+
+      - name: Run the sstate test program
+        run: ./sstate_test
+
       # The generated modules must still be exactly what their generator
       # produces. A non empty diff means somebody edited the output by hand
       # and the next generator run would silently revert it.
@@ -298,6 +308,18 @@ jobs:
       - name: Run sfault under sanitizers
         run: ./sfault_san
 
+      - name: Build sstate with sanitizers
+        run: |
+          clang -Wall -Wextra -std=c99 -g \
+            -fsanitize=address,undefined -fno-sanitize-recover=all \
+            -fno-omit-frame-pointer \
+            -Iinc/state \
+            test/SState_Test/SState_Test.c src/state/sstate.c \
+            -o sstate_san
+
+      - name: Run sstate under sanitizers
+        run: ./sstate_san
+
   cross-compile:
     name: Cross compile for ARM
     runs-on: ubuntu-latest
@@ -426,7 +448,7 @@ jobs:
             --suppress=checkersReport \
             -Iinc/string -Iinc/array -Iinc/memory -Iinc/math \
             -Iinc/ring -Iinc/filter -Iinc/fixed -Iinc/diag \
-            -Iinc/scale -Iinc/vote -Iinc/fault \
+            -Iinc/scale -Iinc/vote -Iinc/fault -Iinc/state \
             src/ 2>&1 | tee cppcheck.log
 
       # The MISRA addon reports rule numbers only. The rule texts are
@@ -469,6 +491,9 @@ jobs:
           cppcheck --addon=misra --std=c99 --platform=unix32 \
             --suppress=missingIncludeSystem \
             -Iinc/fault src/fault/sfault.c 2>&1 | tee -a misra.log
+          cppcheck --addon=misra --std=c99 --platform=unix32 \
+            --suppress=missingIncludeSystem \
+            -Iinc/state src/state/sstate.c 2>&1 | tee -a misra.log
 
       - uses: actions/upload-artifact@v4
         if: always()

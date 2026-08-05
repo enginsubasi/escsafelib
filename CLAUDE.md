@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All eleven modules are implemented — 320 functions and 3231 self-checking test cases.
+All twelve modules are implemented — 332 functions and 3372 self-checking test cases.
 
 ## Working language
 
@@ -65,6 +65,9 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/vote \
 
 python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/fault \
   test/SFault_Test/SFault_Test.c src/fault/sfault.c -o sfault_test && ./sfault_test
+
+python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/state \
+  test/SState_Test/SState_Test.c src/state/sstate.c -o sstate_test && ./sstate_test
 ```
 
 Run the tests before claiming anything passes. Compiling is not passing.
@@ -79,7 +82,7 @@ Use it. gcc and clang do not warn about the same things — gcc's `-Wextra` incl
 
 **gcc has no AddressSanitizer either.** MinGW-W64 ships no ASan runtime, so the control does not link. Neither host compiler on this machine can run ASan; the Ubuntu CI runner is still the only place it works, and the guard-page harnesses are still how out-of-bounds reads get proven here.
 
-All eleven modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
+All twelve modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
 
 ```bash
 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wcast-qual \
@@ -87,9 +90,9 @@ All eleven modules are clean under a much stricter warning set than the project 
 -Wundef -Wwrite-strings
 ```
 
-Zero warnings across all eleven. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
+Zero warnings across all twelve. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
 
-A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `smath` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `sscale` against 16 of 17, `svote` against 16 of 16, `sfault` against 16 of 17, `sdiag` against 10 of 12.
+A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `smath` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `sscale` against 16 of 17, `svote` against 16 of 16, `sfault` against 16 of 17, `sstate` against 16 of 18, `sdiag` against 10 of 12.
 
 One `svote` mutant is worth knowing about because of *how* it dies. Forming the channel spread as `highest - lowest` in 32 bits rather than 64 produces the same bits on this host, so every assertion still passes — but it is signed overflow, and **UBSan traps it**. The suite is run under `-fsanitize=undefined -fsanitize-trap=undefined` by `tools/run_all.sh` and by CI, so the sanitizer is part of the kill criterion and not an extra. A mutant that only the sanitizer catches is still killed; one that nothing catches is a hole.
 
@@ -267,7 +270,7 @@ test/<Name>_Test/<Name>_Test.c                        self-checking test main
 template/inc/generic.h, template/src/generic.c        copy these to start a new module
 ```
 
-Domains: `array`, `diag`, `fault`, `filter`, `fixed`, `math`, `memory`, `ring`, `scale`, `string`, `vote`.
+Domains: `array`, `diag`, `fault`, `filter`, `fixed`, `math`, `memory`, `ring`, `scale`, `state`, `string`, `vote`.
 
 **A module is named after its domain directory with an `s` in front, without
 exception.** `array`/`sarray`, `diag`/`sdiag`, `math`/`smath`, and so on. Two
@@ -288,7 +291,7 @@ to compile in one translation unit and CI checks it:
 | `SD_` | `sdiag` | `SX_` | `sfixed` (`SF_` was taken) |
 | `SF_` | `sfilter` | `SH_` | `smath` (`SM_` was taken) |
 | `SM_` | `smemory` | `SV_` | `svote` |
-| `SU_` | `sfault` (`SF_` was taken) | | |
+| `SU_` | `sfault` (`SF_` was taken) | `ST_` | `sstate` |
 
 Two prefixes could not be the obvious abbreviation. `sfixed` takes the `X` of
 fi**x**ed because `sfilter` already held `SF_`, and `smath` takes the `H` of
@@ -296,7 +299,7 @@ mat**h** because `smemory` already held `SM_`. `SM_` was deliberately left
 with `smemory` rather than moved: renaming a shipped module's prefix to free
 a letter is churn paid by every existing call site.
 
-All eleven modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
+All twelve modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
 
 `sarray` is 92 functions: twenty three operations repeated across four element families, `uint8_t`, `uint16_t`, `uint32_t` and `int32_t`. Two things about it differ from `sstring` and will bite if forgotten:
 
@@ -373,6 +376,21 @@ Four things hold it together:
 The four states matter and collapsing them to a flag loses the point. PENDING is *observed but not yet earned*; HEALING is *withdrawn is pending, the fault still stands*. `sfaultIsConfirmed` counts HEALING as confirmed, because the fault has not been withdrawn, only stopped being observed; `sfaultIsActive` does not, because it reports the raw observation. Anything that acts on a fault asks the first.
 
 A presence flag has to be `TRUE` or `FALSE` and anything else is refused. Every C comparison already yields one of those two, so a third value means the caller passed something that was not a verdict, and guessing either way would be wrong.
+
+`sstate` is 12 functions of guarded state machine. The legal transitions are a table, the table is checked once at Init, and every transition the table does not permit is refused and counted.
+
+**It is not the same thing as `sdiag`'s flow signatures and the two do not overlap.** A signature says the path taken was the path expected; a transition table says the path was permitted at all. A program can follow exactly the sequence its signature expects and still have reached somewhere it should never have been able to get to. IEC 61508-3 asks for both kinds of program sequence monitoring.
+
+Four things to know:
+
+- **Every byte of the table is checked to be `TRUE` or `FALSE` at Init.** That one pass buys an unambiguous read on every later transition: `permitted` can test for `TRUE` rather than for anything non-zero, and a table built with the wrong constants is refused instead of being read as a permission set where every stray value means yes. Mutation testing confirms the pair is equivalent *given* the check — remove the check and the mutant lives.
+- **A refused transition increments the refusal count**, which is this module's one deliberate inversion of the rule that outputs are written only on success. It is the record of the failure, not a corrupted output, exactly as `sdiag` writes `failIndex` only on `SD_FAILED`. Asking through `sstateCanGo` never counts, or a caller polling what it may do next would fill the count with questions.
+- **`sstateForceTo` bypasses the table on purpose.** A caller restoring a machine after a reset has to put it back where it was, and a library that refused would have that caller assigning to `driver->state` directly, losing the state index check as well. It still refuses a state that does not exist.
+- **`sstateIsReachable` walks the whole table, not one row.** It is the question a design review asks and a single row cannot answer: once the machine has reached its safe state, is there a path back out. The walk is a breadth first pass over a `uint32_t` bitmask, which is why `SSTATE_MAXSTATES` is 32.
+
+A state is not reachable from itself unless a permitted path leads back to it. Answering `TRUE` by definition would discard a real question.
+
+One comment in it was wrong until mutation testing said so. The pruning of already-expanded rows in the reachability walk was described as what prevents an endless walk; removing it changed no answer, because the pass bound is what guarantees termination and the pruning only saves work. The comment now says that.
 
 `smemory` is 17 functions, the untyped half of the library: bounded replacements for the `mem` family of `<string.h>`. **The line between it and `sarray` is whether the operation has to know what the bytes mean.** Copy, move, set, compare and search do not, so they take a `void*` and live here. A sum, a minimum or an ordering by magnitude does, so it lives in `sarray`. When adding a function, that question decides the module — do not add a typed operation to `smemory` or a byte-blind one to `sarray`.
 
