@@ -41,12 +41,12 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/memory \
   test/SMemory_Test/SMemory_Test.c src/memory/smemory.c -o smemory_test && ./smemory_test
 
 python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/math \
-  test/BasicMathSafe_Test/BasicMathSafe_Test.c src/math/basicmathsafe.c \
-  -o basicmathsafe_test && ./basicmathsafe_test
+  test/SMath_Test/SMath_Test.c src/math/smath.c \
+  -o smath_test && ./smath_test
 
-python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/selfdiag \
-  test/SelfDiagSafe_Test/SelfDiagSafe_Test.c src/selfdiag/selfdiagsafe.c \
-  -o selfdiagsafe_test && ./selfdiagsafe_test
+python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/diag \
+  test/SDiag_Test/SDiag_Test.c src/diag/sdiag.c \
+  -o sdiag_test && ./sdiag_test
 
 python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/ring \
   test/SRing_Test/SRing_Test.c src/ring/sring.c -o sring_test && ./sring_test
@@ -80,16 +80,16 @@ All eight modules are clean under a much stricter warning set than the project n
 
 Zero warnings across all eight. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
 
-A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `basicmathsafe` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `selfdiagsafe` against 10 of 12.
+A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `smath` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `sdiag` against 10 of 12.
 
 The `sring` run is the one that shows mutation testing paying for itself directly. A mutant that made `sringPutBlocku8` compute one byte too much free space passed the whole suite, because no case put *exactly* the usable size through the block form. That mutant is a real bug: it fills the buffer completely, which makes the two indices equal, which is the encoding for empty — so the ring would report holding nothing straight after being handed a full load. The boundary cases that kill it were written because the mutant survived, not the other way round.
 
 Two results from those runs are worth keeping in mind:
 
 - Masking `smemoryEqualSecure` down to the low bit of each difference still passes every naive equality case. Only the deliberate high-bit-only case catches it.
-- **Two `selfdiagsafe` mutants survive and are known to.** Disabling the zero-read checks of March element two, or the address uniqueness pass, changes nothing that any harness on this machine can observe: healthy host memory always reads back what was written, and the aliasing harness's fault is caught redundantly by a later March element. See "Untestable here" below.
+- **Two `sdiag` mutants survive and are known to.** Disabling the zero-read checks of March element two, or the address uniqueness pass, changes nothing that any harness on this machine can observe: healthy host memory always reads back what was written, and the aliasing harness's fault is caught redundantly by a later March element. See "Untestable here" below.
 
-When writing a sweep against a wider-type oracle, **the oracle is where the bug will be.** The first `basicmathsafe` run reported 32640 failures in unsigned subtract; the module was right and the oracle wrong, because `(uint32_t) a - b` wraps inside the oracle's own type and reads as an overflow when the truth is an underflow. 32640 is exactly the number of pairs with `a < b`. A failure count that equals a recognisable combinatorial quantity is a sign the oracle is broken, not the module.
+When writing a sweep against a wider-type oracle, **the oracle is where the bug will be.** The first `smath` run reported 32640 failures in unsigned subtract; the module was right and the oracle wrong, because `(uint32_t) a - b` wraps inside the oracle's own type and reads as an overflow when the truth is an underflow. 32640 is exactly the number of pairs with `a < b`. A failure count that equals a recognisable combinatorial quantity is a sign the oracle is broken, not the module.
 
 Undefined-behaviour sanitizer, in trap mode so it needs no runtime:
 
@@ -109,19 +109,19 @@ So a suite built with `address,undefined` will report a confident pass having be
 
 Always pair it with a negative control: declare a capacity one element larger than the buffer really is and confirm that call faults. Without it, "no fault" may only mean the guard page was never armed. The `sarray` harness reports `EXIT=0` on the honest capacities and `EXIT=139` on the over-declared one.
 
-The same idea covers `selfdiagsafe`'s memory tests, which a portable test cannot reach at all: map one 64 KiB section at two adjacent addresses with `CreateFileMapping` plus two `MapViewOfFileEx` calls, and the second half of the region genuinely *is* the first half. That is a real address decoder fault. `selfdiagsafeRamTestDestructive` reports `SD_FAILED` at the first word of the second view, `selfdiagsafeRamTestNonDestructive` returns `SD_OK` exactly as its documentation says it will, and a healthy region of the same size passes both. Prove the aliasing is real before trusting the result — write two different values and check the first read back as the second.
+The same idea covers `sdiag`'s memory tests, which a portable test cannot reach at all: map one 64 KiB section at two adjacent addresses with `CreateFileMapping` plus two `MapViewOfFileEx` calls, and the second half of the region genuinely *is* the first half. That is a real address decoder fault. `sdiagRamTestDestructive` reports `SD_FAILED` at the first word of the second view, `sdiagRamTestNonDestructive` returns `SD_OK` exactly as its documentation says it will, and a healthy region of the same size passes both. Prove the aliasing is real before trusting the result — write two different values and check the first read back as the second.
 
 ## Untestable here
 
 Three things cannot be verified on this machine, and no claim should be made about them until they are:
 
-- **Stuck-at memory faults.** Nothing portable can produce a cell that accepts a write and returns something else, so the read checks inside the March elements are covered by review only. This is why two `selfdiagsafe` mutants survive.
+- **Stuck-at memory faults.** Nothing portable can produce a cell that accepts a write and returns something else, so the read checks inside the March elements are covered by review only. This is why two `sdiag` mutants survive.
 - **Execution on ARM. This one is permanent, not pending.** There is no target and no emulator, and there will not be one. Every module cross-compiles for `arm-none-eabi` and passes `-fanalyzer`, which says the code builds for the target, not that it behaves there. Everything the test suites prove, they prove on x86-64 hosts.
 
-  What that costs is narrow but real, and it should be stated rather than glossed. The suites cannot see: unaligned access faults (`sarray` and `selfdiagsafe` take typed pointers partly to make this the compiler's problem, but a caller can still hand over a misaligned buffer); anything that depends on the target's actual word size or padding; the memory-ordering assumption in `sring`, whose whole barrier argument is about a processor this code has never run on; and the real timing of `smemoryEqualSecure`, which is constant in comparison count but was never measured on a core with a cache.
+  What that costs is narrow but real, and it should be stated rather than glossed. The suites cannot see: unaligned access faults (`sarray` and `sdiag` take typed pointers partly to make this the compiler's problem, but a caller can still hand over a misaligned buffer); anything that depends on the target's actual word size or padding; the memory-ordering assumption in `sring`, whose whole barrier argument is about a processor this code has never run on; and the real timing of `smemoryEqualSecure`, which is constant in comparison count but was never measured on a core with a cache.
 
   Do not write "verified on ARM" anywhere. An integrator putting this on a target owns that validation, and the honest claim is that the logic is verified on a host and the code builds clean for the target.
-- **cppcheck, MISRA and doxygen.** None of the three is installed, and there is no `gh` to read the CI results back. Two MISRA deviations are recorded by hand (Rule 11.4 in `sstring`/`sarray`/`smemory`, Rule 11.5 in `smemory`/`selfdiagsafe`); no checker has confirmed there are only two.
+- **cppcheck, MISRA and doxygen.** None of the three is installed, and there is no `gh` to read the CI results back. Two MISRA deviations are recorded by hand (Rule 11.4 in `sstring`/`sarray`/`smemory`, Rule 11.5 in `smemory`/`sdiag`); no checker has confirmed there are only two.
 
 Static analysis, using the analyzer built into the ARM compiler:
 
@@ -172,14 +172,40 @@ test/<Name>_Test/<Name>_Test.c                        self-checking test main
 template/inc/generic.h, template/src/generic.c        copy these to start a new module
 ```
 
-Domains: `array` (`sarray`), `filter` (`sfilter`), `fixed` (`sfixed`), `math` (`basicmathsafe`), `memory` (`smemory`), `ring` (`sring`), `selfdiag` (`selfdiagsafe`), `string` (`sstring`).
+Domains: `array`, `diag`, `filter`, `fixed`, `math`, `memory`, `ring`, `string`.
+
+**A module is named after its domain directory with an `s` in front, without
+exception.** `array`/`sarray`, `diag`/`sdiag`, `math`/`smath`, and so on. Two
+modules used to break the rule and were renamed on 05/08/2026:
+`basicmathsafe` became `smath` and `selfdiagsafe` became `sdiag`, whose
+directory `selfdiag` became `diag` at the same time. Nothing outside this
+repository used either name, so the rename cost one commit.
+
+The status enum is a `SCREAMING_CASE` tag from the module name with
+two-letter prefixed members, and **the prefixes are a namespace with no
+allocator, so check this table before adding a module** — every header has
+to compile in one translation unit and CI checks it:
+
+| Prefix | Module | Prefix | Module |
+|---|---|---|---|
+| `SA_` | `sarray` | `SR_` | `sring` |
+| `SC_` | `sscale` | `SS_` | `sstring` |
+| `SD_` | `sdiag` | `SX_` | `sfixed` (`SF_` was taken) |
+| `SF_` | `sfilter` | `SH_` | `smath` (`SM_` was taken) |
+| `SM_` | `smemory` | | |
+
+Two prefixes could not be the obvious abbreviation. `sfixed` takes the `X` of
+fi**x**ed because `sfilter` already held `SF_`, and `smath` takes the `H` of
+mat**h** because `smemory` already held `SM_`. `SM_` was deliberately left
+with `smemory` rather than moved: renaming a shipped module's prefix to free
+a letter is churn paid by every existing call site.
 
 All eight modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
 
 `sarray` is 92 functions: twenty three operations repeated across four element families, `uint8_t`, `uint16_t`, `uint32_t` and `int32_t`. Two things about it differ from `sstring` and will bite if forgotten:
 
 - **Every size and count in `sarray` is an element count, not a byte count.** `arrSize` of 8 on a `uint32_t` array is 32 bytes. Only the two static helpers that feed `isOverlapping` deal in bytes, and `spanBytes` guards that multiply against wrapping.
-- **The four families are mechanically identical modulo the element type.** They are emitted from `tools/gen_sarray.py`, not typed four times. Edit the generator and re-run it; **never edit `src/array/sarray.c` or `inc/array/sarray.h` directly**, because the next generator run silently reverts the change. The same applies to `basicmathsafe` and to both generated test suites. CI runs all four generators and fails on a non-empty `git diff`, so drift is caught rather than discovered later. See `tools/README.md`.
+- **The four families are mechanically identical modulo the element type.** They are emitted from `tools/gen_sarray.py`, not typed four times. Edit the generator and re-run it; **never edit `src/array/sarray.c` or `inc/array/sarray.h` directly**, because the next generator run silently reverts the change. The same applies to `smath` and to both generated test suites. CI runs all four generators and fails on a non-empty `git diff`, so drift is caught rather than discovered later. See `tools/README.md`.
 
 `sarray` has no `Get`/`Set` equivalent in `sstring` because C already has `arr[i]`; `sarrayGet` exists to be the bounds checked form of it. `sarrayBinarySearch` requires a sorted array and does not verify it, because verifying costs the scan the search exists to avoid — `sarrayIsSorted` is the separate precondition check.
 
@@ -216,13 +242,13 @@ Two `smemory` functions have no `<string.h>` counterpart and exist for reasons t
 
 `smemory` carries a second MISRA deviation `sstring` and `sarray` do not: Rule 11.5, `void*` to object pointer. It is confined to `unsigned char*`, the one object type the standard always permits for examining an object's bytes.
 
-`basicmathsafe` is 68 functions across the same four numeric families as `sarray`. Its single rule: **every check happens before the operation, never after.** There is no place in it where a result wraps and is then inspected — for a signed type that inspection is already undefined behaviour, and for an unsigned one the wrapped value carries no evidence that it wrapped. Overflow is detected by division rather than by a wider intermediate, so only `Scale` and `Average` need 64-bit arithmetic.
+`smath` is 68 functions across the same four numeric families as `sarray`. Its single rule: **every check happens before the operation, never after.** There is no place in it where a result wraps and is then inspected — for a signed type that inspection is already undefined behaviour, and for an unsigned one the wrapped value carries no evidence that it wrapped. Overflow is detected by division rather than by a wider intermediate, so only `Scale` and `Average` need 64-bit arithmetic.
 
-The checked and saturating forms of add, subtract and multiply share one status helper each, so `basicmathsafeAddSat` saturates exactly where `basicmathsafeAdd` reports `BM_OVERFLOW`. Keep it that way: two independent boundary tests will disagree eventually.
+The checked and saturating forms of add, subtract and multiply share one status helper each, so `smathAddSat` saturates exactly where `smathAdd` reports `SH_OVERFLOW`. Keep it that way: two independent boundary tests will disagree eventually.
 
-`selfdiagsafe` is 16 functions. Two of its features hold state, in caller-owned structs (`selfdiagsafeflow_t`, `selfdiagsafeshadow_t`) so the functions stay reentrant; the rest are stateless. `sring` is the module actually built around the driver-struct pattern. Its banner has claimed "without hardware dependencies" since 2022 and that is the scope: CRC and checksum, March memory tests, stack usage measurement, control-flow signatures, redundant storage. **A CPU register test, a program counter test and an instruction set test are deliberately absent** — they cannot be written in C at all, and a complete IEC 61508 / ISO 26262 self test needs assembly for them. Do not add a HAL or a linker symbol to this module to close that gap; it belongs in a separate, non-portable one.
+`sdiag` is 16 functions. Two of its features hold state, in caller-owned structs (`sdiagflow_t`, `sdiagshadow_t`) so the functions stay reentrant; the rest are stateless. `sring` is the module actually built around the driver-struct pattern. Its banner has claimed "without hardware dependencies" since 2022 and that is the scope: CRC and checksum, March memory tests, stack usage measurement, control-flow signatures, redundant storage. **A CPU register test, a program counter test and an instruction set test are deliberately absent** — they cannot be written in C at all, and a complete IEC 61508 / ISO 26262 self test needs assembly for them. Do not add a HAL or a linker symbol to this module to close that gap; it belongs in a separate, non-portable one.
 
-`selfdiagsafe` has one deliberate inversion of the library-wide rule that outputs are written only on success: the `failIndex` of both memory tests is written **only** on `SD_FAILED`. On a memory test the failing address is the entire result and there is nothing to report when nothing failed.
+`sdiag` has one deliberate inversion of the library-wide rule that outputs are written only on success: the `failIndex` of both memory tests is written **only** on `SD_FAILED`. On a memory test the failing address is the entire result and there is nothing to report when nothing failed.
 
 `sring` is 12 functions and is the **reference for the driver-struct pattern** — the first module built around it rather than merely holding a struct. A single-producer single-consumer byte ring, lock-free for the case it exists for: an interrupt filling it while the main loop drains it.
 

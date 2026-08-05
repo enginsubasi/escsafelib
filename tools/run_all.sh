@@ -41,9 +41,9 @@ MODULES=(
   "string   sstring       SString"
   "array    sarray        SArray"
   "memory   smemory       SMemory"
-  "math     basicmathsafe BasicMathSafe"
+  "math     smath         SMath"
   "ring     sring         SRing"
-  "selfdiag selfdiagsafe  SelfDiagSafe"
+  "diag     sdiag         SDiag"
 )
 
 fail=0
@@ -160,9 +160,9 @@ echo "== generated modules have not drifted =="
 # uncommitted edit elsewhere in the tree, which makes this report DRIFT during
 # any normal working session and trains the reader to ignore it.
 GENERATED="inc/array src/array test/SArray_Test
-           inc/math src/math test/BasicMathSafe_Test"
+           inc/math src/math test/SMath_Test"
 python tools/gen_sarray.py >/dev/null && python tools/gen_sarray_test.py >/dev/null
-python tools/gen_basicmathsafe.py >/dev/null && python tools/gen_basicmathsafe_test.py >/dev/null
+python tools/gen_smath.py >/dev/null && python tools/gen_smath_test.py >/dev/null
 if git diff --quiet -- $GENERATED; then
   echo "  no drift"
 else

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate inc/math/basicmathsafe.h and src/math/basicmathsafe.c.
+"""Generate inc/math/smath.h and src/math/smath.c.
 
 The four numeric families differ only in the element type and in a handful
 of signed versus unsigned checks, so they are emitted from one template
@@ -7,7 +7,7 @@ rather than typed four times by hand.
 
 Run from the repository root:
 
-    python tools/gen_basicmathsafe.py
+    python tools/gen_smath.py
 
 The generated C is the source of truth and is what ships. This script exists
 so that a change lands in all four families at once; it is not part of any
@@ -29,8 +29,8 @@ TYPES = [
 
 # ---------------------------------------------------------------- header
 
-HEADER_HEAD = """#ifndef BASICMATHSAFE_H_
-#define BASICMATHSAFE_H_
+HEADER_HEAD = """#ifndef SMATH_H_
+#define SMATH_H_
 
 #ifdef __cplusplus
  extern "C" {
@@ -56,15 +56,15 @@ HEADER_HEAD = """#ifndef BASICMATHSAFE_H_
 
 /* ENUMS */
 
-enum BASICMATHSAFESTATUS
+enum SMATHSTATUS
 {
-    BM_OK               = 0,
-    BM_NULLPTR          = 1,
-    BM_OVERFLOW         = 2,
-    BM_UNDERFLOW        = 3,
-    BM_DIVBYZERO        = 4,
-    BM_INVALIDRANGE     = 5,
-    BM_DOMAIN           = 6,
+    SH_OK               = 0,
+    SH_NULLPTR          = 1,
+    SH_OVERFLOW         = 2,
+    SH_UNDERFLOW        = 3,
+    SH_DIVBYZERO        = 4,
+    SH_INVALIDRANGE     = 5,
+    SH_DOMAIN           = 6,
 };
 
 /* EXTERNS */
@@ -77,36 +77,36 @@ HEADER_TAIL = """
 }
 #endif
 
-#endif /* BASICMATHSAFE_H_ */
+#endif /* SMATH_H_ */
 """
 
 PROTOS_COMMON = Template("""
 /* ${HUMAN} */
 
-uint8_t basicmathsafeAdd${S} ( ${T} a, ${T} b, ${T}* result );
-uint8_t basicmathsafeSub${S} ( ${T} a, ${T} b, ${T}* result );
-uint8_t basicmathsafeMul${S} ( ${T} a, ${T} b, ${T}* result );
-uint8_t basicmathsafeDiv${S} ( ${T} a, ${T} b, ${T}* result );
-uint8_t basicmathsafeMod${S} ( ${T} a, ${T} b, ${T}* result );
-uint8_t basicmathsafeScale${S} ( ${T} value, ${T} numerator, ${T} denominator, ${T}* result );
-uint8_t basicmathsafeAverage${S} ( ${T} a, ${T} b, ${T}* result );
-uint8_t basicmathsafeAddSat${S} ( ${T} a, ${T} b, ${T}* result );
-uint8_t basicmathsafeSubSat${S} ( ${T} a, ${T} b, ${T}* result );
-uint8_t basicmathsafeMulSat${S} ( ${T} a, ${T} b, ${T}* result );
-uint8_t basicmathsafeMin${S} ( ${T} a, ${T} b, ${T}* result );
-uint8_t basicmathsafeMax${S} ( ${T} a, ${T} b, ${T}* result );
-uint8_t basicmathsafeClamp${S} ( ${T} value, ${T} low, ${T} high, ${T}* result );
-uint8_t basicmathsafeInRange${S} ( ${T} value, ${T} low, ${T} high, uint8_t* result );
+uint8_t smathAdd${S} ( ${T} a, ${T} b, ${T}* result );
+uint8_t smathSub${S} ( ${T} a, ${T} b, ${T}* result );
+uint8_t smathMul${S} ( ${T} a, ${T} b, ${T}* result );
+uint8_t smathDiv${S} ( ${T} a, ${T} b, ${T}* result );
+uint8_t smathMod${S} ( ${T} a, ${T} b, ${T}* result );
+uint8_t smathScale${S} ( ${T} value, ${T} numerator, ${T} denominator, ${T}* result );
+uint8_t smathAverage${S} ( ${T} a, ${T} b, ${T}* result );
+uint8_t smathAddSat${S} ( ${T} a, ${T} b, ${T}* result );
+uint8_t smathSubSat${S} ( ${T} a, ${T} b, ${T}* result );
+uint8_t smathMulSat${S} ( ${T} a, ${T} b, ${T}* result );
+uint8_t smathMin${S} ( ${T} a, ${T} b, ${T}* result );
+uint8_t smathMax${S} ( ${T} a, ${T} b, ${T}* result );
+uint8_t smathClamp${S} ( ${T} value, ${T} low, ${T} high, ${T}* result );
+uint8_t smathInRange${S} ( ${T} value, ${T} low, ${T} high, uint8_t* result );
 """)
 
-PROTOS_UNSIGNED = Template("""uint8_t basicmathsafeIsPowerOfTwo${S} ( ${T} value, uint8_t* result );
-uint8_t basicmathsafeSqrt${S} ( ${T} value, ${T}* result );
-uint8_t basicmathsafeLog2Floor${S} ( ${T} value, uint8_t* result );
+PROTOS_UNSIGNED = Template("""uint8_t smathIsPowerOfTwo${S} ( ${T} value, uint8_t* result );
+uint8_t smathSqrt${S} ( ${T} value, ${T}* result );
+uint8_t smathLog2Floor${S} ( ${T} value, uint8_t* result );
 """)
 
-PROTOS_SIGNED = Template("""uint8_t basicmathsafeAbs${S} ( ${T} value, ${T}* result );
-uint8_t basicmathsafeNeg${S} ( ${T} value, ${T}* result );
-uint8_t basicmathsafeSign${S} ( ${T} value, int32_t* result );
+PROTOS_SIGNED = Template("""uint8_t smathAbs${S} ( ${T} value, ${T}* result );
+uint8_t smathNeg${S} ( ${T} value, ${T}* result );
+uint8_t smathSign${S} ( ${T} value, int32_t* result );
 """)
 
 # ---------------------------------------------------------------- source
@@ -114,7 +114,7 @@ uint8_t basicmathsafeSign${S} ( ${T} value, int32_t* result );
 SOURCE_HEAD = r"""/**
   ******************************************************************************
   *
-  * @file      basicmathsafe.c
+  * @file      smath.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
   * @version   0.1.0
   * @date      05/08/2026
@@ -127,6 +127,9 @@ SOURCE_HEAD = r"""/**
   * @par History
   * 05/08/2026 Created. Four numeric families, uint8_t, uint16_t, uint32_t @n
   *            and int32_t, each with the same seventeen operations. @n
+  * 05/08/2026 Renamed from basicmathsafe to smath, so that every module @n
+  *            is its domain directory with an s in front. The status @n
+  *            prefix is SH_ rather than SM_, which smemory already has. @n
   *
   * @note
   * Five invariants hold for every function in this file.
@@ -137,7 +140,7 @@ SOURCE_HEAD = r"""/**
   *    signed types that inspection would already be undefined behaviour,
   *    and for unsigned types the wrapped value carries no evidence that it
   *    wrapped.
-  * 2. Output parameters are written only on BM_OK. A caller that ignores
+  * 2. Output parameters are written only on SH_OK. A caller that ignores
   *    the status reads whatever was in its own variable, not a wrong
   *    answer that looks like a right one.
   * 3. Every loop bound is a compile time constant derived from the width of
@@ -149,34 +152,34 @@ SOURCE_HEAD = r"""/**
   * @note
   * The saturating and the checked forms of add, subtract and multiply share
   * one status helper per operation, so the two can never disagree about
-  * where the boundary is. basicmathsafeAddSat saturates exactly when
-  * basicmathsafeAdd reports BM_OVERFLOW.
+  * where the boundary is. smathAddSat saturates exactly when
+  * smathAdd reports SH_OVERFLOW.
   *
   * @note
   * Overflow is detected by division rather than by a wider intermediate
   * type, so nothing here needs 64 bit arithmetic except
-  * basicmathsafeScale and basicmathsafeAverage, which say so in their own
+  * smathScale and smathAverage, which say so in their own
   * notes. On a target without a 64 bit multiply those two are the only
   * functions that cost a library call.
   *
   * @note
   * Division truncates toward zero, which is what C99 specifies. -7 / 2 is
-  * -3 here, not -4. basicmathsafeAverage inherits that, so the average of
+  * -3 here, not -4. smathAverage inherits that, so the average of
   * -3 and -2 is -2.
   *
   * @note
   * Two signed cases are undefined behaviour in C rather than merely wrong,
   * and both are caught. INT32_MIN / -1 has no representable result and is
-  * reported as BM_OVERFLOW. INT32_MIN % -1 is undefined for the same
+  * reported as SH_OVERFLOW. INT32_MIN % -1 is undefined for the same
   * reason, although its mathematical value of zero is representable, so it
-  * is answered with zero and BM_OK instead of an error.
+  * is answered with zero and SH_OK instead of an error.
   *
   ******************************************************************************
   */
 
 #include <stddef.h>
 
-#include "basicmathsafe.h"
+#include "smath.h"
 """
 
 FAMILY = Template(r"""
@@ -188,8 +191,8 @@ FAMILY = Template(r"""
  * @brief   Reports whether adding two ${HUMAN} values leaves the type.
  * @param[in] a  First term.
  * @param[in] b  Second term.
- * @return  BM_OK when the sum is representable, BM_OVERFLOW when it is above
- *          the largest value of the type, BM_UNDERFLOW when it is below the
+ * @return  SH_OK when the sum is representable, SH_OVERFLOW when it is above
+ *          the largest value of the type, SH_UNDERFLOW when it is below the
  *          smallest.
  * @note    The test is made on the operands. Forming the sum first and
  *          looking at it afterwards is undefined behaviour for a signed type
@@ -197,7 +200,7 @@ FAMILY = Template(r"""
  */
 static uint8_t addStatus${S} ( ${T} a, ${T} b )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
 ${ADDCHECK}
 
@@ -208,13 +211,13 @@ ${ADDCHECK}
  * @brief   Reports whether subtracting two ${HUMAN} values leaves the type.
  * @param[in] a  Value to subtract from.
  * @param[in] b  Value to subtract.
- * @return  BM_OK when the difference is representable, BM_OVERFLOW when it is
- *          above the largest value of the type, BM_UNDERFLOW when it is below
+ * @return  SH_OK when the difference is representable, SH_OVERFLOW when it is
+ *          above the largest value of the type, SH_UNDERFLOW when it is below
  *          the smallest.
  */
 static uint8_t subStatus${S} ( ${T} a, ${T} b )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
 ${SUBCHECK}
 
@@ -225,8 +228,8 @@ ${SUBCHECK}
  * @brief   Reports whether multiplying two ${HUMAN} values leaves the type.
  * @param[in] a  First factor.
  * @param[in] b  Second factor.
- * @return  BM_OK when the product is representable, BM_OVERFLOW when it is
- *          above the largest value of the type, BM_UNDERFLOW when it is below
+ * @return  SH_OK when the product is representable, SH_OVERFLOW when it is
+ *          above the largest value of the type, SH_UNDERFLOW when it is below
  *          the smallest.
  * @note    Every division used here has a divisor that has already been shown
  *          to be non zero, and none of them is the one division that itself
@@ -234,7 +237,7 @@ ${SUBCHECK}
  */
 static uint8_t mulStatus${S} ( ${T} a, ${T} b )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
 ${MULCHECK}
 
@@ -246,23 +249,23 @@ ${MULCHECK}
  * @param[in]  a       First term.
  * @param[in]  b       Second term.
  * @param[out] result  Set to the sum on success.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL, BM_OVERFLOW or
- *          BM_UNDERFLOW when the sum is not representable.
- * @note    On any status other than BM_OK the output is not written.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
+ *          SH_UNDERFLOW when the sum is not representable.
+ * @note    On any status other than SH_OK the output is not written.
  */
-uint8_t basicmathsafeAdd${S} ( ${T} a, ${T} b, ${T}* result )
+uint8_t smathAdd${S} ( ${T} a, ${T} b, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else
     {
         retVal = addStatus${S} ( a, b );
 
-        if ( retVal == BM_OK )
+        if ( retVal == SH_OK )
         {
             *result = ( ${T} ) ( a + b );
         }
@@ -280,25 +283,25 @@ uint8_t basicmathsafeAdd${S} ( ${T} a, ${T} b, ${T}* result )
  * @param[in]  a       Value to subtract from.
  * @param[in]  b       Value to subtract.
  * @param[out] result  Set to the difference on success.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL, BM_OVERFLOW or
- *          BM_UNDERFLOW when the difference is not representable.
- * @note    On an unsigned type a below b is BM_UNDERFLOW rather than a large
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
+ *          SH_UNDERFLOW when the difference is not representable.
+ * @note    On an unsigned type a below b is SH_UNDERFLOW rather than a large
  *          positive answer. Unsigned subtraction wrapping past zero is one of
  *          the most common ways a length calculation turns into an overrun.
  */
-uint8_t basicmathsafeSub${S} ( ${T} a, ${T} b, ${T}* result )
+uint8_t smathSub${S} ( ${T} a, ${T} b, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else
     {
         retVal = subStatus${S} ( a, b );
 
-        if ( retVal == BM_OK )
+        if ( retVal == SH_OK )
         {
             *result = ( ${T} ) ( a - b );
         }
@@ -316,22 +319,22 @@ uint8_t basicmathsafeSub${S} ( ${T} a, ${T} b, ${T}* result )
  * @param[in]  a       First factor.
  * @param[in]  b       Second factor.
  * @param[out] result  Set to the product on success.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL, BM_OVERFLOW or
- *          BM_UNDERFLOW when the product is not representable.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW or
+ *          SH_UNDERFLOW when the product is not representable.
  */
-uint8_t basicmathsafeMul${S} ( ${T} a, ${T} b, ${T}* result )
+uint8_t smathMul${S} ( ${T} a, ${T} b, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else
     {
         retVal = mulStatus${S} ( a, b );
 
-        if ( retVal == BM_OK )
+        if ( retVal == SH_OK )
         {
             *result = ( ${T} ) ( a * b );
         }
@@ -349,28 +352,28 @@ uint8_t basicmathsafeMul${S} ( ${T} a, ${T} b, ${T}* result )
  * @param[in]  a       Dividend.
  * @param[in]  b       Divisor.
  * @param[out] result  Set to the quotient on success.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL, BM_DIVBYZERO
- *          when the divisor is zero, BM_OVERFLOW when the quotient is not
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO
+ *          when the divisor is zero, SH_OVERFLOW when the quotient is not
  *          representable.
  * @note    Division truncates toward zero.
 ${DIVNOTE}
  */
-uint8_t basicmathsafeDiv${S} ( ${T} a, ${T} b, ${T}* result )
+uint8_t smathDiv${S} ( ${T} a, ${T} b, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else if ( b == 0 )
     {
-        retVal = BM_DIVBYZERO;
+        retVal = SH_DIVBYZERO;
     }
 ${DIVGUARD}    else
     {
         *result = ( ${T} ) ( a / b );
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -381,28 +384,28 @@ ${DIVGUARD}    else
  * @param[in]  a       Dividend.
  * @param[in]  b       Divisor.
  * @param[out] result  Set to the remainder on success.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL, BM_DIVBYZERO
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO
  *          when the divisor is zero.
  * @note    The remainder takes the sign of the dividend, which is what C99
  *          specifies.
 ${MODNOTE}
  */
-uint8_t basicmathsafeMod${S} ( ${T} a, ${T} b, ${T}* result )
+uint8_t smathMod${S} ( ${T} a, ${T} b, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else if ( b == 0 )
     {
-        retVal = BM_DIVBYZERO;
+        retVal = SH_DIVBYZERO;
     }
 ${MODGUARD}    else
     {
         *result = ( ${T} ) ( a % b );
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -414,8 +417,8 @@ ${MODGUARD}    else
  * @param[in]  numerator    Numerator of the ratio.
  * @param[in]  denominator  Denominator of the ratio.
  * @param[out] result       Set to the scaled value on success.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL, BM_DIVBYZERO
- *          when the denominator is zero, BM_OVERFLOW or BM_UNDERFLOW when
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DIVBYZERO
+ *          when the denominator is zero, SH_OVERFLOW or SH_UNDERFLOW when
  *          the scaled value is not representable.
  * @note    This is the function to reach for when converting a raw reading
  *          into engineering units. Written out by hand the multiply
@@ -427,18 +430,18 @@ ${MODGUARD}    else
  *          the exact product and only the quotient has to fit.
  * @note    The quotient truncates toward zero. It is not rounded.
  */
-uint8_t basicmathsafeScale${S} ( ${T} value, ${T} numerator, ${T} denominator, ${T}* result )
+uint8_t smathScale${S} ( ${T} value, ${T} numerator, ${T} denominator, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
     ${WIDE} wide = 0;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else if ( denominator == 0 )
     {
-        retVal = BM_DIVBYZERO;
+        retVal = SH_DIVBYZERO;
     }
     else
     {
@@ -446,12 +449,12 @@ uint8_t basicmathsafeScale${S} ( ${T} value, ${T} numerator, ${T} denominator, $
 
         if ( wide > ( ${WIDE} ) ${MAX} )
         {
-            retVal = BM_OVERFLOW;
+            retVal = SH_OVERFLOW;
         }
 ${SCALEGUARD}        else
         {
             *result = ( ${T} ) wide;
-            retVal = BM_OK;
+            retVal = SH_OK;
         }
     }
 
@@ -463,27 +466,27 @@ ${SCALEGUARD}        else
  * @param[in]  a       First value.
  * @param[in]  b       Second value.
  * @param[out] result  Set to the average on success.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL.
  * @note    The sum is formed in a ${WIDE}, so the obvious ( a + b ) / 2 that
  *          overflows for two large values cannot happen here. There is no
  *          overflow status because an average of two values of a type always
  *          fits that type.
  * @note    The result truncates toward zero.
  */
-uint8_t basicmathsafeAverage${S} ( ${T} a, ${T} b, ${T}* result )
+uint8_t smathAverage${S} ( ${T} a, ${T} b, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
     ${WIDE} wide = 0;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else
     {
         wide = ( ( ${WIDE} ) a + ( ${WIDE} ) b ) / 2;
         *result = ( ${T} ) wide;
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -495,8 +498,8 @@ uint8_t basicmathsafeAverage${S} ( ${T} a, ${T} b, ${T}* result )
  * @param[in]  b       Second term.
  * @param[out] result  Set to the sum, or to the boundary it would have
  *                     crossed.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL.
- * @note    Saturates exactly where basicmathsafeAdd${S} reports an error,
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL.
+ * @note    Saturates exactly where smathAdd${S} reports an error,
  *          because both ask the same helper. The two can never disagree
  *          about where the boundary is.
  * @note    Use this where a saturated reading is more useful than a refused
@@ -504,24 +507,24 @@ uint8_t basicmathsafeAverage${S} ( ${T} a, ${T} b, ${T}* result )
  *          limit. Use the checked form where a value out of range means
  *          something is wrong upstream.
  */
-uint8_t basicmathsafeAddSat${S} ( ${T} a, ${T} b, ${T}* result )
+uint8_t smathAddSat${S} ( ${T} a, ${T} b, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
-    uint8_t status = BM_OK;
+    uint8_t retVal = SH_OK;
+    uint8_t status = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else
     {
         status = addStatus${S} ( a, b );
 
-        if ( status == BM_OVERFLOW )
+        if ( status == SH_OVERFLOW )
         {
             *result = ( ${T} ) ${MAX};
         }
-        else if ( status == BM_UNDERFLOW )
+        else if ( status == SH_UNDERFLOW )
         {
             *result = ( ${T} ) ${MIN};
         }
@@ -530,7 +533,7 @@ uint8_t basicmathsafeAddSat${S} ( ${T} a, ${T} b, ${T}* result )
             *result = ( ${T} ) ( a + b );
         }
 
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -542,27 +545,27 @@ uint8_t basicmathsafeAddSat${S} ( ${T} a, ${T} b, ${T}* result )
  * @param[in]  b       Value to subtract.
  * @param[out] result  Set to the difference, or to the boundary it would
  *                     have crossed.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL.
- * @note    Saturates exactly where basicmathsafeSub${S} reports an error.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL.
+ * @note    Saturates exactly where smathSub${S} reports an error.
  */
-uint8_t basicmathsafeSubSat${S} ( ${T} a, ${T} b, ${T}* result )
+uint8_t smathSubSat${S} ( ${T} a, ${T} b, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
-    uint8_t status = BM_OK;
+    uint8_t retVal = SH_OK;
+    uint8_t status = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else
     {
         status = subStatus${S} ( a, b );
 
-        if ( status == BM_OVERFLOW )
+        if ( status == SH_OVERFLOW )
         {
             *result = ( ${T} ) ${MAX};
         }
-        else if ( status == BM_UNDERFLOW )
+        else if ( status == SH_UNDERFLOW )
         {
             *result = ( ${T} ) ${MIN};
         }
@@ -571,7 +574,7 @@ uint8_t basicmathsafeSubSat${S} ( ${T} a, ${T} b, ${T}* result )
             *result = ( ${T} ) ( a - b );
         }
 
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -583,27 +586,27 @@ uint8_t basicmathsafeSubSat${S} ( ${T} a, ${T} b, ${T}* result )
  * @param[in]  b       Second factor.
  * @param[out] result  Set to the product, or to the boundary it would have
  *                     crossed.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL.
- * @note    Saturates exactly where basicmathsafeMul${S} reports an error.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL.
+ * @note    Saturates exactly where smathMul${S} reports an error.
  */
-uint8_t basicmathsafeMulSat${S} ( ${T} a, ${T} b, ${T}* result )
+uint8_t smathMulSat${S} ( ${T} a, ${T} b, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
-    uint8_t status = BM_OK;
+    uint8_t retVal = SH_OK;
+    uint8_t status = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else
     {
         status = mulStatus${S} ( a, b );
 
-        if ( status == BM_OVERFLOW )
+        if ( status == SH_OVERFLOW )
         {
             *result = ( ${T} ) ${MAX};
         }
-        else if ( status == BM_UNDERFLOW )
+        else if ( status == SH_UNDERFLOW )
         {
             *result = ( ${T} ) ${MIN};
         }
@@ -612,7 +615,7 @@ uint8_t basicmathsafeMulSat${S} ( ${T} a, ${T} b, ${T}* result )
             *result = ( ${T} ) ( a * b );
         }
 
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -623,18 +626,18 @@ uint8_t basicmathsafeMulSat${S} ( ${T} a, ${T} b, ${T}* result )
  * @param[in]  a       First value.
  * @param[in]  b       Second value.
  * @param[out] result  Set to the smaller of the two.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL.
  * @note    A function rather than a macro, so neither argument is evaluated
  *          twice. The usual MIN macro applied to a call or an increment does
  *          the operation twice and is a well known source of bugs.
  */
-uint8_t basicmathsafeMin${S} ( ${T} a, ${T} b, ${T}* result )
+uint8_t smathMin${S} ( ${T} a, ${T} b, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else
     {
@@ -647,7 +650,7 @@ uint8_t basicmathsafeMin${S} ( ${T} a, ${T} b, ${T}* result )
             *result = b;
         }
 
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -658,17 +661,17 @@ uint8_t basicmathsafeMin${S} ( ${T} a, ${T} b, ${T}* result )
  * @param[in]  a       First value.
  * @param[in]  b       Second value.
  * @param[out] result  Set to the larger of the two.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL.
  * @note    A function rather than a macro, for the same reason as
- *          basicmathsafeMin${S}.
+ *          smathMin${S}.
  */
-uint8_t basicmathsafeMax${S} ( ${T} a, ${T} b, ${T}* result )
+uint8_t smathMax${S} ( ${T} a, ${T} b, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else
     {
@@ -681,7 +684,7 @@ uint8_t basicmathsafeMax${S} ( ${T} a, ${T} b, ${T}* result )
             *result = b;
         }
 
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -693,25 +696,25 @@ uint8_t basicmathsafeMax${S} ( ${T} a, ${T} b, ${T}* result )
  * @param[in]  low     Lowest value of the range.
  * @param[in]  high    Highest value of the range.
  * @param[out] result  Set to the clamped value on success.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL,
- *          BM_INVALIDRANGE when low is above high.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL,
+ *          SH_INVALIDRANGE when low is above high.
  * @note    A reversed range is refused rather than silently swapped. A caller
  *          that has its bounds the wrong way round has a bug, and quietly
  *          fixing it up hides the bug and produces an answer that looks
  *          reasonable.
  * @note    The range includes both ends.
  */
-uint8_t basicmathsafeClamp${S} ( ${T} value, ${T} low, ${T} high, ${T}* result )
+uint8_t smathClamp${S} ( ${T} value, ${T} low, ${T} high, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else if ( low > high )
     {
-        retVal = BM_INVALIDRANGE;
+        retVal = SH_INVALIDRANGE;
     }
     else
     {
@@ -728,7 +731,7 @@ uint8_t basicmathsafeClamp${S} ( ${T} value, ${T} low, ${T} high, ${T}* result )
             *result = value;
         }
 
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -740,22 +743,22 @@ uint8_t basicmathsafeClamp${S} ( ${T} value, ${T} low, ${T} high, ${T}* result )
  * @param[in]  low     Lowest value of the range.
  * @param[in]  high    Highest value of the range.
  * @param[out] result  Set to TRUE when the value is inside the range.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL,
- *          BM_INVALIDRANGE when low is above high.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL,
+ *          SH_INVALIDRANGE when low is above high.
  * @note    The range includes both ends, so a value equal to either bound is
  *          inside it.
  */
-uint8_t basicmathsafeInRange${S} ( ${T} value, ${T} low, ${T} high, uint8_t* result )
+uint8_t smathInRange${S} ( ${T} value, ${T} low, ${T} high, uint8_t* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else if ( low > high )
     {
-        retVal = BM_INVALIDRANGE;
+        retVal = SH_INVALIDRANGE;
     }
     else
     {
@@ -768,7 +771,7 @@ uint8_t basicmathsafeInRange${S} ( ${T} value, ${T} low, ${T} high, uint8_t* res
             *result = FALSE;
         }
 
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -779,59 +782,59 @@ ${SPECIFIC}""")
 
 ADD_UNSIGNED = """    if ( b > ( ${MAX} - a ) )
     {
-        retVal = BM_OVERFLOW;
+        retVal = SH_OVERFLOW;
     }
     else
     {
-        retVal = BM_OK;
+        retVal = SH_OK;
     }"""
 
 ADD_SIGNED = """    if ( ( b > 0 ) && ( a > ( ${MAX} - b ) ) )
     {
-        retVal = BM_OVERFLOW;
+        retVal = SH_OVERFLOW;
     }
     else if ( ( b < 0 ) && ( a < ( ${MIN} - b ) ) )
     {
-        retVal = BM_UNDERFLOW;
+        retVal = SH_UNDERFLOW;
     }
     else
     {
-        retVal = BM_OK;
+        retVal = SH_OK;
     }"""
 
 SUB_UNSIGNED = """    if ( a < b )
     {
-        retVal = BM_UNDERFLOW;
+        retVal = SH_UNDERFLOW;
     }
     else
     {
-        retVal = BM_OK;
+        retVal = SH_OK;
     }"""
 
 SUB_SIGNED = """    if ( ( b < 0 ) && ( a > ( ${MAX} + b ) ) )
     {
-        retVal = BM_OVERFLOW;
+        retVal = SH_OVERFLOW;
     }
     else if ( ( b > 0 ) && ( a < ( ${MIN} + b ) ) )
     {
-        retVal = BM_UNDERFLOW;
+        retVal = SH_UNDERFLOW;
     }
     else
     {
-        retVal = BM_OK;
+        retVal = SH_OK;
     }"""
 
 MUL_UNSIGNED = """    if ( a == 0 )
     {
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
     else if ( b > ( ${MAX} / a ) )
     {
-        retVal = BM_OVERFLOW;
+        retVal = SH_OVERFLOW;
     }
     else
     {
-        retVal = BM_OK;
+        retVal = SH_OK;
     }"""
 
 MUL_SIGNED = """    if ( a > 0 )
@@ -840,27 +843,27 @@ MUL_SIGNED = """    if ( a > 0 )
         {
             if ( a > ( ${MAX} / b ) )
             {
-                retVal = BM_OVERFLOW;
+                retVal = SH_OVERFLOW;
             }
             else
             {
-                retVal = BM_OK;
+                retVal = SH_OK;
             }
         }
         else if ( b < 0 )
         {
             if ( b < ( ${MIN} / a ) )
             {
-                retVal = BM_UNDERFLOW;
+                retVal = SH_UNDERFLOW;
             }
             else
             {
-                retVal = BM_OK;
+                retVal = SH_OK;
             }
         }
         else
         {
-            retVal = BM_OK;
+            retVal = SH_OK;
         }
     }
     else if ( a < 0 )
@@ -869,65 +872,65 @@ MUL_SIGNED = """    if ( a > 0 )
         {
             if ( a < ( ${MIN} / b ) )
             {
-                retVal = BM_UNDERFLOW;
+                retVal = SH_UNDERFLOW;
             }
             else
             {
-                retVal = BM_OK;
+                retVal = SH_OK;
             }
         }
         else if ( b < 0 )
         {
             if ( a < ( ${MAX} / b ) )
             {
-                retVal = BM_OVERFLOW;
+                retVal = SH_OVERFLOW;
             }
             else
             {
-                retVal = BM_OK;
+                retVal = SH_OK;
             }
         }
         else
         {
-            retVal = BM_OK;
+            retVal = SH_OK;
         }
     }
     else
     {
-        retVal = BM_OK;
+        retVal = SH_OK;
     }"""
 
 DIV_GUARD_SIGNED = """    else if ( ( a == ${MIN} ) && ( b == -1 ) )
     {
-        retVal = BM_OVERFLOW;
+        retVal = SH_OVERFLOW;
     }
 """
 
 MOD_GUARD_SIGNED = """    else if ( ( a == ${MIN} ) && ( b == -1 ) )
     {
         *result = 0;
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 """
 
 SCALE_GUARD_SIGNED = """        else if ( wide < ( ${WIDE} ) ${MIN} )
         {
-            retVal = BM_UNDERFLOW;
+            retVal = SH_UNDERFLOW;
         }
 """
 
 DIV_NOTE_SIGNED = """ * @note    The smallest value of the type divided by minus one has no
  *          representable answer, and computing it is undefined behaviour
- *          rather than merely wrong. It is reported as BM_OVERFLOW."""
+ *          rather than merely wrong. It is reported as SH_OVERFLOW."""
 
 DIV_NOTE_UNSIGNED = """ * @note    An unsigned quotient is never larger than its dividend, so
- *          BM_OVERFLOW cannot happen here. It is listed because the signed
+ *          SH_OVERFLOW cannot happen here. It is listed because the signed
  *          family can return it and the two share a contract."""
 
 MOD_NOTE_SIGNED = """ * @note    The smallest value of the type modulo minus one is undefined
  *          behaviour in C, for the same reason the matching division is.
  *          Its mathematical value of zero is representable, so it is
- *          answered with zero and BM_OK rather than refused."""
+ *          answered with zero and SH_OK rather than refused."""
 
 MOD_NOTE_UNSIGNED = """ * @note    An unsigned remainder is always below its divisor, so there is
  *          no case here that can fail other than a zero divisor."""
@@ -939,18 +942,18 @@ SPECIFIC_UNSIGNED = Template(r"""
  * @brief   Reports whether a value is an exact power of two.
  * @param[in]  value   Value to test.
  * @param[out] result  Set to TRUE when the value is a power of two.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL.
  * @note    Zero is not a power of two and is reported as FALSE. The bit trick
  *          this uses, value AND value minus one, says zero is one, which is
  *          the mistake this function exists to stop the caller making.
  */
-uint8_t basicmathsafeIsPowerOfTwo${S} ( ${T} value, uint8_t* result )
+uint8_t smathIsPowerOfTwo${S} ( ${T} value, uint8_t* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else
     {
@@ -967,7 +970,7 @@ uint8_t basicmathsafeIsPowerOfTwo${S} ( ${T} value, uint8_t* result )
             *result = FALSE;
         }
 
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -978,7 +981,7 @@ uint8_t basicmathsafeIsPowerOfTwo${S} ( ${T} value, uint8_t* result )
  * @param[in]  value   Value to take the root of.
  * @param[out] result  Set to the largest value whose square is not above the
  *                     input.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL.
  * @note    Integer arithmetic only, no floating point, so this is usable on a
  *          target with no FPU and gives the same answer on every target.
  * @note    The result is the floor of the true root. The root of 8 is 2.
@@ -986,9 +989,9 @@ uint8_t basicmathsafeIsPowerOfTwo${S} ( ${T} value, uint8_t* result )
  *          type, whatever the input is. Nothing about the timing depends on
  *          the value.
  */
-uint8_t basicmathsafeSqrt${S} ( ${T} value, ${T}* result )
+uint8_t smathSqrt${S} ( ${T} value, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
     ${T} remainder = value;
     ${T} root = 0;
     ${T} bit = 0;
@@ -996,7 +999,7 @@ uint8_t basicmathsafeSqrt${S} ( ${T} value, ${T}* result )
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else
     {
@@ -1018,7 +1021,7 @@ uint8_t basicmathsafeSqrt${S} ( ${T} value, ${T}* result )
         }
 
         *result = root;
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -1028,27 +1031,27 @@ uint8_t basicmathsafeSqrt${S} ( ${T} value, ${T}* result )
  * @brief   Computes the floor of the base two logarithm of a value.
  * @param[in]  value   Value to take the logarithm of.
  * @param[out] result  Set to the position of the highest set bit.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL, BM_DOMAIN when
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_DOMAIN when
  *          the value is zero.
- * @note    Zero has no logarithm, so it is BM_DOMAIN and the output is not
+ * @note    Zero has no logarithm, so it is SH_DOMAIN and the output is not
  *          written. Returning zero for an input of zero would be
  *          indistinguishable from the correct answer for an input of one.
  * @note    The answer is the floor, so the logarithm of 7 is 2 and of 8 is 3.
  */
-uint8_t basicmathsafeLog2Floor${S} ( ${T} value, uint8_t* result )
+uint8_t smathLog2Floor${S} ( ${T} value, uint8_t* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
     ${T} shifted = value;
     uint8_t position = 0;
     uint32_t i = 0;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else if ( value == 0 )
     {
-        retVal = BM_DOMAIN;
+        retVal = SH_DOMAIN;
     }
     else
     {
@@ -1066,7 +1069,7 @@ uint8_t basicmathsafeLog2Floor${S} ( ${T} value, uint8_t* result )
         }
 
         *result = position;
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -1078,24 +1081,24 @@ SPECIFIC_SIGNED = Template(r"""
  * @brief   Computes the magnitude of a value.
  * @param[in]  value   Value to take the magnitude of.
  * @param[out] result  Set to the magnitude on success.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL, BM_OVERFLOW
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW
  *          when the value is the smallest of the type.
  * @note    The smallest value of a two's complement type has no positive
  *          counterpart, so its magnitude is not representable. The standard
  *          library abs returns the input unchanged there, which is a negative
  *          magnitude and one of the sharpest edges in C. This reports it.
  */
-uint8_t basicmathsafeAbs${S} ( ${T} value, ${T}* result )
+uint8_t smathAbs${S} ( ${T} value, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else if ( value == ${MIN} )
     {
-        retVal = BM_OVERFLOW;
+        retVal = SH_OVERFLOW;
     }
     else
     {
@@ -1108,7 +1111,7 @@ uint8_t basicmathsafeAbs${S} ( ${T} value, ${T}* result )
             *result = value;
         }
 
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -1118,28 +1121,28 @@ uint8_t basicmathsafeAbs${S} ( ${T} value, ${T}* result )
  * @brief   Negates a value.
  * @param[in]  value   Value to negate.
  * @param[out] result  Set to the negated value on success.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL, BM_OVERFLOW
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL, SH_OVERFLOW
  *          when the value is the smallest of the type.
  * @note    Negating the smallest value of a two's complement type is
  *          undefined behaviour, for the same reason its magnitude is not
  *          representable.
  */
-uint8_t basicmathsafeNeg${S} ( ${T} value, ${T}* result )
+uint8_t smathNeg${S} ( ${T} value, ${T}* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else if ( value == ${MIN} )
     {
-        retVal = BM_OVERFLOW;
+        retVal = SH_OVERFLOW;
     }
     else
     {
         *result = ( ${T} ) ( -value );
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -1150,18 +1153,18 @@ uint8_t basicmathsafeNeg${S} ( ${T} value, ${T}* result )
  * @param[in]  value   Value to test.
  * @param[out] result  Set to -1 when the value is negative, 0 when it is
  *                     zero, 1 when it is positive.
- * @return  BM_OK on success, BM_NULLPTR when result is NULL.
+ * @return  SH_OK on success, SH_NULLPTR when result is NULL.
  * @note    Defined for every input including the smallest value of the type,
  *          unlike the magnitude, because the answer is always one of three
  *          small numbers.
  */
-uint8_t basicmathsafeSign${S} ( ${T} value, int32_t* result )
+uint8_t smathSign${S} ( ${T} value, int32_t* result )
 {
-    uint8_t retVal = BM_OK;
+    uint8_t retVal = SH_OK;
 
     if ( result == NULL )
     {
-        retVal = BM_NULLPTR;
+        retVal = SH_NULLPTR;
     }
     else
     {
@@ -1178,7 +1181,7 @@ uint8_t basicmathsafeSign${S} ( ${T} value, int32_t* result )
             *result = 0;
         }
 
-        retVal = BM_OK;
+        retVal = SH_OK;
     }
 
     return ( retVal );
@@ -1241,8 +1244,8 @@ def main():
     os.makedirs(os.path.join(REPO, "inc", "math"), exist_ok=True)
     os.makedirs(os.path.join(REPO, "src", "math"), exist_ok=True)
 
-    hpath = os.path.join(REPO, "inc", "math", "basicmathsafe.h")
-    cpath = os.path.join(REPO, "src", "math", "basicmathsafe.c")
+    hpath = os.path.join(REPO, "inc", "math", "smath.h")
+    cpath = os.path.join(REPO, "src", "math", "smath.c")
 
     with open(hpath, "w", newline="\n") as f:
         f.write(build_header())

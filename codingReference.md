@@ -146,7 +146,7 @@ These are additional to the esclib rules and specific to this library.
     /**
       ******************************************************************************
       *
-      * @file      basicmathsafe.c
+      * @file      smath.c
       * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
       * @version   0.0.1
       * @date      25/01/2022

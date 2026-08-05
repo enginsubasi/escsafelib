@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate test/BasicMathSafe_Test/BasicMathSafe_Test.c.
+"""Generate test/SMath_Test/SMath_Test.c.
 
 Two kinds of case are emitted per numeric family.
 
@@ -16,7 +16,7 @@ them, which is where a wrong comparison shows up.
 
 Run from the repository root:
 
-    python tools/gen_basicmathsafe_test.py
+    python tools/gen_smath_test.py
 """
 
 import os
@@ -78,12 +78,12 @@ TYPES = [
 HEAD = r"""/**
   ******************************************************************************
   *
-  * @file      BasicMathSafe_Test.c
+  * @file      SMath_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
   * @version   0.1.0
   * @date      05/08/2026
   *
-  * @brief     Self checking test program for the basicmathsafe module.
+  * @brief     Self checking test program for the smath module.
   *
   * @par Device
   * Host
@@ -113,7 +113,7 @@ HEAD = r"""/**
 #include <stdint.h>
 #include <stdio.h>
 
-#include "basicmathsafe.h"
+#include "smath.h"
 
 static uint32_t checks = 0;
 static uint32_t failures = 0;
@@ -272,16 +272,16 @@ static void sweep${S} ( void )
 
             truth = ( ${WIDE} ) a + ( ${WIDE} ) b;
             out = sentinel;
-            status = basicmathsafeAdd${S} ( a, b, &out );
+            status = smathAdd${S} ( a, b, &out );
 
             if ( truth > ( ${WIDE} ) ${MAX} )
             {
-                if ( status != BM_OVERFLOW ) { ++addBad; }
+                if ( status != SH_OVERFLOW ) { ++addBad; }
                 if ( out != sentinel ) { ++keptBad; }
             }
 ${ADDLOW}            else
             {
-                if ( ( status != BM_OK ) || ( out != ( ${T} ) truth ) ) { ++addBad; }
+                if ( ( status != SH_OK ) || ( out != ( ${T} ) truth ) ) { ++addBad; }
             }
 
             /* ---- subtract ---- */
@@ -292,59 +292,59 @@ ${SUBORACLE}
 
             truth = ( ${WIDE} ) a * ( ${WIDE} ) b;
             out = sentinel;
-            status = basicmathsafeMul${S} ( a, b, &out );
+            status = smathMul${S} ( a, b, &out );
 
             if ( truth > ( ${WIDE} ) ${MAX} )
             {
-                if ( status != BM_OVERFLOW ) { ++mulBad; }
+                if ( status != SH_OVERFLOW ) { ++mulBad; }
                 if ( out != sentinel ) { ++keptBad; }
             }
 ${MULLOW}            else
             {
-                if ( ( status != BM_OK ) || ( out != ( ${T} ) truth ) ) { ++mulBad; }
+                if ( ( status != SH_OK ) || ( out != ( ${T} ) truth ) ) { ++mulBad; }
             }
 
             /* ---- divide ---- */
 
             out = sentinel;
-            status = basicmathsafeDiv${S} ( a, b, &out );
+            status = smathDiv${S} ( a, b, &out );
 
             if ( b == 0 )
             {
-                if ( status != BM_DIVBYZERO ) { ++divBad; }
+                if ( status != SH_DIVBYZERO ) { ++divBad; }
                 if ( out != sentinel ) { ++keptBad; }
             }
 ${DIVSPECIAL}            else
             {
                 truth = ( ${WIDE} ) a / ( ${WIDE} ) b;
 
-                if ( ( status != BM_OK ) || ( out != ( ${T} ) truth ) ) { ++divBad; }
+                if ( ( status != SH_OK ) || ( out != ( ${T} ) truth ) ) { ++divBad; }
             }
 
             /* ---- modulo ---- */
 
             out = sentinel;
-            status = basicmathsafeMod${S} ( a, b, &out );
+            status = smathMod${S} ( a, b, &out );
 
             if ( b == 0 )
             {
-                if ( status != BM_DIVBYZERO ) { ++modBad; }
+                if ( status != SH_DIVBYZERO ) { ++modBad; }
                 if ( out != sentinel ) { ++keptBad; }
             }
 ${MODSPECIAL}            else
             {
                 truth = ( ${WIDE} ) a % ( ${WIDE} ) b;
 
-                if ( ( status != BM_OK ) || ( out != ( ${T} ) truth ) ) { ++modBad; }
+                if ( ( status != SH_OK ) || ( out != ( ${T} ) truth ) ) { ++modBad; }
             }
 
             /* ---- saturating add ---- */
 
             truth = ( ${WIDE} ) a + ( ${WIDE} ) b;
             out = sentinel;
-            status = basicmathsafeAddSat${S} ( a, b, &out );
+            status = smathAddSat${S} ( a, b, &out );
 
-            if ( status != BM_OK ) { ++addSatBad; }
+            if ( status != SH_OK ) { ++addSatBad; }
             else if ( truth > ( ${WIDE} ) ${MAX} )
             {
                 if ( out != ( ${T} ) ${MAX} ) { ++addSatBad; }
@@ -362,9 +362,9 @@ ${SUBSATORACLE}
 
             truth = ( ${WIDE} ) a * ( ${WIDE} ) b;
             out = sentinel;
-            status = basicmathsafeMulSat${S} ( a, b, &out );
+            status = smathMulSat${S} ( a, b, &out );
 
-            if ( status != BM_OK ) { ++mulSatBad; }
+            if ( status != SH_OK ) { ++mulSatBad; }
             else if ( truth > ( ${WIDE} ) ${MAX} )
             {
                 if ( out != ( ${T} ) ${MAX} ) { ++mulSatBad; }
@@ -400,116 +400,116 @@ static void targeted${S} ( void )
 ${TARGETEDDECL}
     /* ---- NULL output ---- */
 
-    expectStatus ( "${S} add: NULL output", basicmathsafeAdd${S} ( 1, 1, NULL ), BM_NULLPTR );
-    expectStatus ( "${S} sub: NULL output", basicmathsafeSub${S} ( 1, 1, NULL ), BM_NULLPTR );
-    expectStatus ( "${S} mul: NULL output", basicmathsafeMul${S} ( 1, 1, NULL ), BM_NULLPTR );
-    expectStatus ( "${S} div: NULL output", basicmathsafeDiv${S} ( 1, 1, NULL ), BM_NULLPTR );
-    expectStatus ( "${S} mod: NULL output", basicmathsafeMod${S} ( 1, 1, NULL ), BM_NULLPTR );
-    expectStatus ( "${S} scale: NULL output", basicmathsafeScale${S} ( 1, 1, 1, NULL ), BM_NULLPTR );
-    expectStatus ( "${S} average: NULL output", basicmathsafeAverage${S} ( 1, 1, NULL ), BM_NULLPTR );
-    expectStatus ( "${S} addSat: NULL output", basicmathsafeAddSat${S} ( 1, 1, NULL ), BM_NULLPTR );
-    expectStatus ( "${S} min: NULL output", basicmathsafeMin${S} ( 1, 1, NULL ), BM_NULLPTR );
-    expectStatus ( "${S} clamp: NULL output", basicmathsafeClamp${S} ( 1, 0, 2, NULL ), BM_NULLPTR );
-    expectStatus ( "${S} inRange: NULL output", basicmathsafeInRange${S} ( 1, 0, 2, NULL ), BM_NULLPTR );
+    expectStatus ( "${S} add: NULL output", smathAdd${S} ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} sub: NULL output", smathSub${S} ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} mul: NULL output", smathMul${S} ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} div: NULL output", smathDiv${S} ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} mod: NULL output", smathMod${S} ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} scale: NULL output", smathScale${S} ( 1, 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} average: NULL output", smathAverage${S} ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} addSat: NULL output", smathAddSat${S} ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} min: NULL output", smathMin${S} ( 1, 1, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} clamp: NULL output", smathClamp${S} ( 1, 0, 2, NULL ), SH_NULLPTR );
+    expectStatus ( "${S} inRange: NULL output", smathInRange${S} ( 1, 0, 2, NULL ), SH_NULLPTR );
 
     /* ---- boundaries ---- */
 
     expectStatus ( "${S} add: reaching the largest value exactly",
-                   basicmathsafeAdd${S} ( ( ${T} ) ( ${MAX} - 1 ), 1, &out ), BM_OK );
+                   smathAdd${S} ( ( ${T} ) ( ${MAX} - 1 ), 1, &out ), SH_OK );
     expect${S} ( "${S} add: reaching the largest value exactly result", out, ( ${T} ) ${MAX} );
 
     kept = 123;
     out = kept;
     expectStatus ( "${S} add: one past the largest value",
-                   basicmathsafeAdd${S} ( ( ${T} ) ${MAX}, 1, &out ), BM_OVERFLOW );
+                   smathAdd${S} ( ( ${T} ) ${MAX}, 1, &out ), SH_OVERFLOW );
     expect${S} ( "${S} add: output untouched after overflow", out, kept );
 
     expectStatus ( "${S} mul: the largest value times one",
-                   basicmathsafeMul${S} ( ( ${T} ) ${MAX}, 1, &out ), BM_OK );
+                   smathMul${S} ( ( ${T} ) ${MAX}, 1, &out ), SH_OK );
     expect${S} ( "${S} mul: the largest value times one result", out, ( ${T} ) ${MAX} );
 
     expectStatus ( "${S} mul: the largest value times two",
-                   basicmathsafeMul${S} ( ( ${T} ) ${MAX}, 2, &out ), BM_OVERFLOW );
+                   smathMul${S} ( ( ${T} ) ${MAX}, 2, &out ), SH_OVERFLOW );
 
     expectStatus ( "${S} mul: anything times zero",
-                   basicmathsafeMul${S} ( ( ${T} ) ${MAX}, 0, &out ), BM_OK );
+                   smathMul${S} ( ( ${T} ) ${MAX}, 0, &out ), SH_OK );
     expect${S} ( "${S} mul: anything times zero result", out, 0 );
 
-    expectStatus ( "${S} div: by zero", basicmathsafeDiv${S} ( 10, 0, &out ), BM_DIVBYZERO );
-    expectStatus ( "${S} mod: by zero", basicmathsafeMod${S} ( 10, 0, &out ), BM_DIVBYZERO );
+    expectStatus ( "${S} div: by zero", smathDiv${S} ( 10, 0, &out ), SH_DIVBYZERO );
+    expectStatus ( "${S} mod: by zero", smathMod${S} ( 10, 0, &out ), SH_DIVBYZERO );
 
     /* ---- saturating ---- */
 
     expectStatus ( "${S} addSat: clamps at the largest value",
-                   basicmathsafeAddSat${S} ( ( ${T} ) ${MAX}, 5, &out ), BM_OK );
+                   smathAddSat${S} ( ( ${T} ) ${MAX}, 5, &out ), SH_OK );
     expect${S} ( "${S} addSat: clamps at the largest value result", out, ( ${T} ) ${MAX} );
 
     expectStatus ( "${S} subSat: clamps at the smallest value",
-                   basicmathsafeSubSat${S} ( ( ${T} ) ${MIN}, 5, &out ), BM_OK );
+                   smathSubSat${S} ( ( ${T} ) ${MIN}, 5, &out ), SH_OK );
     expect${S} ( "${S} subSat: clamps at the smallest value result", out, ( ${T} ) ${MIN} );
 
     expectStatus ( "${S} mulSat: clamps at the largest value",
-                   basicmathsafeMulSat${S} ( ( ${T} ) ${MAX}, 2, &out ), BM_OK );
+                   smathMulSat${S} ( ( ${T} ) ${MAX}, 2, &out ), SH_OK );
     expect${S} ( "${S} mulSat: clamps at the largest value result", out, ( ${T} ) ${MAX} );
 
     /* ---- scale ---- */
 
     expectStatus ( "${S} scale: three quarters",
-                   basicmathsafeScale${S} ( ${SCALE_V}, ${SCALE_N}, ${SCALE_D}, &out ), BM_OK );
+                   smathScale${S} ( ${SCALE_V}, ${SCALE_N}, ${SCALE_D}, &out ), SH_OK );
     expect${S} ( "${S} scale: three quarters result", out, ${SCALE_R} );
 
     /* The product overflows the type long before the division brings it
        back. A hand written value * numerator / denominator is wrong here
        and this function is not. */
     expectStatus ( "${S} scale: the intermediate product exceeds the type",
-                   basicmathsafeScale${S} ( ( ${T} ) ${MAX}, 2, 4, &out ), BM_OK );
+                   smathScale${S} ( ( ${T} ) ${MAX}, 2, 4, &out ), SH_OK );
     expect${S} ( "${S} scale: the intermediate product exceeds the type result",
                  out, ( ${T} ) ( ( ${T} ) ( ${MAX} / 2 ) ) );
 
     expectStatus ( "${S} scale: result above the type",
-                   basicmathsafeScale${S} ( ${SCALE_OV}, ${SCALE_ON}, 1, &out ), BM_OVERFLOW );
+                   smathScale${S} ( ${SCALE_OV}, ${SCALE_ON}, 1, &out ), SH_OVERFLOW );
     expectStatus ( "${S} scale: zero denominator",
-                   basicmathsafeScale${S} ( 10, 1, 0, &out ), BM_DIVBYZERO );
+                   smathScale${S} ( 10, 1, 0, &out ), SH_DIVBYZERO );
 
     /* ---- average ---- */
 
     expectStatus ( "${S} average: two of the largest value",
-                   basicmathsafeAverage${S} ( ( ${T} ) ${MAX}, ( ${T} ) ${MAX}, &out ), BM_OK );
+                   smathAverage${S} ( ( ${T} ) ${MAX}, ( ${T} ) ${MAX}, &out ), SH_OK );
     expect${S} ( "${S} average: two of the largest value result", out, ( ${T} ) ${MAX} );
 
     expectStatus ( "${S} average: the largest value and zero",
-                   basicmathsafeAverage${S} ( ( ${T} ) ${MAX}, 0, &out ), BM_OK );
+                   smathAverage${S} ( ( ${T} ) ${MAX}, 0, &out ), SH_OK );
     expect${S} ( "${S} average: the largest value and zero result",
                  out, ( ${T} ) ( ${MAX} / 2 ) );
 
     /* ---- min, max, clamp, range ---- */
 
-    expectStatus ( "${S} min: picks the smaller", basicmathsafeMin${S} ( 7, 3, &out ), BM_OK );
+    expectStatus ( "${S} min: picks the smaller", smathMin${S} ( 7, 3, &out ), SH_OK );
     expect${S} ( "${S} min: picks the smaller result", out, 3 );
-    expectStatus ( "${S} max: picks the larger", basicmathsafeMax${S} ( 7, 3, &out ), BM_OK );
+    expectStatus ( "${S} max: picks the larger", smathMax${S} ( 7, 3, &out ), SH_OK );
     expect${S} ( "${S} max: picks the larger result", out, 7 );
 
-    expectStatus ( "${S} clamp: below the range", basicmathsafeClamp${S} ( 1, 5, 10, &out ), BM_OK );
+    expectStatus ( "${S} clamp: below the range", smathClamp${S} ( 1, 5, 10, &out ), SH_OK );
     expect${S} ( "${S} clamp: below the range result", out, 5 );
-    expectStatus ( "${S} clamp: inside the range", basicmathsafeClamp${S} ( 7, 5, 10, &out ), BM_OK );
+    expectStatus ( "${S} clamp: inside the range", smathClamp${S} ( 7, 5, 10, &out ), SH_OK );
     expect${S} ( "${S} clamp: inside the range result", out, 7 );
-    expectStatus ( "${S} clamp: above the range", basicmathsafeClamp${S} ( 50, 5, 10, &out ), BM_OK );
+    expectStatus ( "${S} clamp: above the range", smathClamp${S} ( 50, 5, 10, &out ), SH_OK );
     expect${S} ( "${S} clamp: above the range result", out, 10 );
-    expectStatus ( "${S} clamp: on the lower bound", basicmathsafeClamp${S} ( 5, 5, 10, &out ), BM_OK );
+    expectStatus ( "${S} clamp: on the lower bound", smathClamp${S} ( 5, 5, 10, &out ), SH_OK );
     expect${S} ( "${S} clamp: on the lower bound result", out, 5 );
 
     out = 99;
-    expectStatus ( "${S} clamp: reversed bounds", basicmathsafeClamp${S} ( 7, 10, 5, &out ), BM_INVALIDRANGE );
+    expectStatus ( "${S} clamp: reversed bounds", smathClamp${S} ( 7, 10, 5, &out ), SH_INVALIDRANGE );
     expect${S} ( "${S} clamp: output untouched after a reversed range", out, 99 );
 
-    expectStatus ( "${S} inRange: inside", basicmathsafeInRange${S} ( 7, 5, 10, &flag ), BM_OK );
+    expectStatus ( "${S} inRange: inside", smathInRange${S} ( 7, 5, 10, &flag ), SH_OK );
     expectU32 ( "${S} inRange: inside result", ( uint32_t ) flag, TRUE );
-    expectStatus ( "${S} inRange: on the upper bound", basicmathsafeInRange${S} ( 10, 5, 10, &flag ), BM_OK );
+    expectStatus ( "${S} inRange: on the upper bound", smathInRange${S} ( 10, 5, 10, &flag ), SH_OK );
     expectU32 ( "${S} inRange: on the upper bound result", ( uint32_t ) flag, TRUE );
-    expectStatus ( "${S} inRange: above", basicmathsafeInRange${S} ( 11, 5, 10, &flag ), BM_OK );
+    expectStatus ( "${S} inRange: above", smathInRange${S} ( 11, 5, 10, &flag ), SH_OK );
     expectU32 ( "${S} inRange: above result", ( uint32_t ) flag, FALSE );
     expectStatus ( "${S} inRange: reversed bounds",
-                   basicmathsafeInRange${S} ( 7, 10, 5, &flag ), BM_INVALIDRANGE );
+                   smathInRange${S} ( 7, 10, 5, &flag ), SH_INVALIDRANGE );
 ${TARGETEDEXTRA}}
 """)
 
@@ -522,43 +522,43 @@ ${TARGETEDEXTRA}}
 
 SUBORACLE_SIGNED = """            truth = ( ${WIDE} ) a - ( ${WIDE} ) b;
             out = sentinel;
-            status = basicmathsafeSub${S} ( a, b, &out );
+            status = smathSub${S} ( a, b, &out );
 
             if ( truth > ( ${WIDE} ) ${MAX} )
             {
-                if ( status != BM_OVERFLOW ) { ++subBad; }
+                if ( status != SH_OVERFLOW ) { ++subBad; }
                 if ( out != sentinel ) { ++keptBad; }
             }
             else if ( truth < ( ${WIDE} ) ${MIN} )
             {
-                if ( status != BM_UNDERFLOW ) { ++subBad; }
+                if ( status != SH_UNDERFLOW ) { ++subBad; }
                 if ( out != sentinel ) { ++keptBad; }
             }
             else
             {
-                if ( ( status != BM_OK ) || ( out != ( ${T} ) truth ) ) { ++subBad; }
+                if ( ( status != SH_OK ) || ( out != ( ${T} ) truth ) ) { ++subBad; }
             }"""
 
 SUBORACLE_UNSIGNED = """            out = sentinel;
-            status = basicmathsafeSub${S} ( a, b, &out );
+            status = smathSub${S} ( a, b, &out );
 
             if ( a < b )
             {
-                if ( status != BM_UNDERFLOW ) { ++subBad; }
+                if ( status != SH_UNDERFLOW ) { ++subBad; }
                 if ( out != sentinel ) { ++keptBad; }
             }
             else
             {
                 truth = ( ${WIDE} ) a - ( ${WIDE} ) b;
 
-                if ( ( status != BM_OK ) || ( out != ( ${T} ) truth ) ) { ++subBad; }
+                if ( ( status != SH_OK ) || ( out != ( ${T} ) truth ) ) { ++subBad; }
             }"""
 
 SUBSATORACLE_SIGNED = """            truth = ( ${WIDE} ) a - ( ${WIDE} ) b;
             out = sentinel;
-            status = basicmathsafeSubSat${S} ( a, b, &out );
+            status = smathSubSat${S} ( a, b, &out );
 
-            if ( status != BM_OK ) { ++subSatBad; }
+            if ( status != SH_OK ) { ++subSatBad; }
             else if ( truth > ( ${WIDE} ) ${MAX} )
             {
                 if ( out != ( ${T} ) ${MAX} ) { ++subSatBad; }
@@ -573,9 +573,9 @@ SUBSATORACLE_SIGNED = """            truth = ( ${WIDE} ) a - ( ${WIDE} ) b;
             }"""
 
 SUBSATORACLE_UNSIGNED = """            out = sentinel;
-            status = basicmathsafeSubSat${S} ( a, b, &out );
+            status = smathSubSat${S} ( a, b, &out );
 
-            if ( status != BM_OK ) { ++subSatBad; }
+            if ( status != SH_OK ) { ++subSatBad; }
             else if ( a < b )
             {
                 if ( out != ( ${T} ) ${MIN} ) { ++subSatBad; }
@@ -600,73 +600,73 @@ SATLOW_SIGNED = """            else if ( truth < ( ${WIDE} ) ${MIN} )
 
 ADDLOW_SIGNED = """            else if ( truth < ( ${WIDE} ) ${MIN} )
             {
-                if ( status != BM_UNDERFLOW ) { ++addBad; }
+                if ( status != SH_UNDERFLOW ) { ++addBad; }
                 if ( out != sentinel ) { ++keptBad; }
             }
 """
 
 MULLOW_SIGNED = """            else if ( truth < ( ${WIDE} ) ${MIN} )
             {
-                if ( status != BM_UNDERFLOW ) { ++mulBad; }
+                if ( status != SH_UNDERFLOW ) { ++mulBad; }
                 if ( out != sentinel ) { ++keptBad; }
             }
 """
 
 DIVSPECIAL_SIGNED = """            else if ( ( a == ${MIN} ) && ( b == -1 ) )
             {
-                if ( status != BM_OVERFLOW ) { ++divBad; }
+                if ( status != SH_OVERFLOW ) { ++divBad; }
                 if ( out != sentinel ) { ++keptBad; }
             }
 """
 
 MODSPECIAL_SIGNED = """            else if ( ( a == ${MIN} ) && ( b == -1 ) )
             {
-                if ( ( status != BM_OK ) || ( out != 0 ) ) { ++modBad; }
+                if ( ( status != SH_OK ) || ( out != 0 ) ) { ++modBad; }
             }
 """
 
 EXTRA_UNSIGNED = Template(r"""
     /* ---- unsigned only ---- */
 
-    expectStatus ( "${S} isPowerOfTwo: zero", basicmathsafeIsPowerOfTwo${S} ( 0, &flag ), BM_OK );
+    expectStatus ( "${S} isPowerOfTwo: zero", smathIsPowerOfTwo${S} ( 0, &flag ), SH_OK );
     expectU32 ( "${S} isPowerOfTwo: zero is not a power of two", ( uint32_t ) flag, FALSE );
-    expectStatus ( "${S} isPowerOfTwo: one", basicmathsafeIsPowerOfTwo${S} ( 1, &flag ), BM_OK );
+    expectStatus ( "${S} isPowerOfTwo: one", smathIsPowerOfTwo${S} ( 1, &flag ), SH_OK );
     expectU32 ( "${S} isPowerOfTwo: one result", ( uint32_t ) flag, TRUE );
-    expectStatus ( "${S} isPowerOfTwo: two", basicmathsafeIsPowerOfTwo${S} ( 2, &flag ), BM_OK );
+    expectStatus ( "${S} isPowerOfTwo: two", smathIsPowerOfTwo${S} ( 2, &flag ), SH_OK );
     expectU32 ( "${S} isPowerOfTwo: two result", ( uint32_t ) flag, TRUE );
-    expectStatus ( "${S} isPowerOfTwo: three", basicmathsafeIsPowerOfTwo${S} ( 3, &flag ), BM_OK );
+    expectStatus ( "${S} isPowerOfTwo: three", smathIsPowerOfTwo${S} ( 3, &flag ), SH_OK );
     expectU32 ( "${S} isPowerOfTwo: three result", ( uint32_t ) flag, FALSE );
     expectStatus ( "${S} isPowerOfTwo: all bits set",
-                   basicmathsafeIsPowerOfTwo${S} ( ( ${T} ) ${MAX}, &flag ), BM_OK );
+                   smathIsPowerOfTwo${S} ( ( ${T} ) ${MAX}, &flag ), SH_OK );
     expectU32 ( "${S} isPowerOfTwo: all bits set result", ( uint32_t ) flag, FALSE );
     expectStatus ( "${S} isPowerOfTwo: NULL output",
-                   basicmathsafeIsPowerOfTwo${S} ( 1, NULL ), BM_NULLPTR );
+                   smathIsPowerOfTwo${S} ( 1, NULL ), SH_NULLPTR );
 
-    expectStatus ( "${S} sqrt: zero", basicmathsafeSqrt${S} ( 0, &out ), BM_OK );
+    expectStatus ( "${S} sqrt: zero", smathSqrt${S} ( 0, &out ), SH_OK );
     expect${S} ( "${S} sqrt: zero result", out, 0 );
-    expectStatus ( "${S} sqrt: one", basicmathsafeSqrt${S} ( 1, &out ), BM_OK );
+    expectStatus ( "${S} sqrt: one", smathSqrt${S} ( 1, &out ), SH_OK );
     expect${S} ( "${S} sqrt: one result", out, 1 );
-    expectStatus ( "${S} sqrt: three floors to one", basicmathsafeSqrt${S} ( 3, &out ), BM_OK );
+    expectStatus ( "${S} sqrt: three floors to one", smathSqrt${S} ( 3, &out ), SH_OK );
     expect${S} ( "${S} sqrt: three floors to one result", out, 1 );
-    expectStatus ( "${S} sqrt: four", basicmathsafeSqrt${S} ( 4, &out ), BM_OK );
+    expectStatus ( "${S} sqrt: four", smathSqrt${S} ( 4, &out ), SH_OK );
     expect${S} ( "${S} sqrt: four result", out, 2 );
-    expectStatus ( "${S} sqrt: eight floors to two", basicmathsafeSqrt${S} ( 8, &out ), BM_OK );
+    expectStatus ( "${S} sqrt: eight floors to two", smathSqrt${S} ( 8, &out ), SH_OK );
     expect${S} ( "${S} sqrt: eight floors to two result", out, 2 );
     expectStatus ( "${S} sqrt: the largest value",
-                   basicmathsafeSqrt${S} ( ( ${T} ) ${MAX}, &out ), BM_OK );
+                   smathSqrt${S} ( ( ${T} ) ${MAX}, &out ), SH_OK );
     expect${S} ( "${S} sqrt: the largest value result", out, ${SQRT_MAX} );
-    expectStatus ( "${S} sqrt: NULL output", basicmathsafeSqrt${S} ( 4, NULL ), BM_NULLPTR );
+    expectStatus ( "${S} sqrt: NULL output", smathSqrt${S} ( 4, NULL ), SH_NULLPTR );
 
     expectStatus ( "${S} log2Floor: zero has no logarithm",
-                   basicmathsafeLog2Floor${S} ( 0, &flag ), BM_DOMAIN );
-    expectStatus ( "${S} log2Floor: one", basicmathsafeLog2Floor${S} ( 1, &flag ), BM_OK );
+                   smathLog2Floor${S} ( 0, &flag ), SH_DOMAIN );
+    expectStatus ( "${S} log2Floor: one", smathLog2Floor${S} ( 1, &flag ), SH_OK );
     expectU32 ( "${S} log2Floor: one result", ( uint32_t ) flag, 0 );
-    expectStatus ( "${S} log2Floor: seven floors to two", basicmathsafeLog2Floor${S} ( 7, &flag ), BM_OK );
+    expectStatus ( "${S} log2Floor: seven floors to two", smathLog2Floor${S} ( 7, &flag ), SH_OK );
     expectU32 ( "${S} log2Floor: seven floors to two result", ( uint32_t ) flag, 2 );
-    expectStatus ( "${S} log2Floor: eight", basicmathsafeLog2Floor${S} ( 8, &flag ), BM_OK );
+    expectStatus ( "${S} log2Floor: eight", smathLog2Floor${S} ( 8, &flag ), SH_OK );
     expectU32 ( "${S} log2Floor: eight result", ( uint32_t ) flag, 3 );
     expectStatus ( "${S} log2Floor: the largest value",
-                   basicmathsafeLog2Floor${S} ( ( ${T} ) ${MAX}, &flag ), BM_OK );
+                   smathLog2Floor${S} ( ( ${T} ) ${MAX}, &flag ), SH_OK );
     expectU32 ( "${S} log2Floor: the largest value result", ( uint32_t ) flag, ${LOG2_MAX} );
 
     /* The square root and the logarithm must agree with each other on every
@@ -680,7 +680,7 @@ EXTRA_UNSIGNED = Template(r"""
             ${T} square = ( ${T} ) ( root * root );
             ${T} back = 0;
 
-            if ( basicmathsafeSqrt${S} ( square, &back ) != BM_OK ) { ++bad; }
+            if ( smathSqrt${S} ( square, &back ) != SH_OK ) { ++bad; }
             else if ( back != ( ${T} ) root ) { ++bad; }
             else { /* Intentionally blank. */ }
         }
@@ -693,91 +693,91 @@ EXTRA_SIGNED = Template(r"""
     /* ---- signed only ---- */
 
     expectStatus ( "${S} sub: below the smallest value",
-                   basicmathsafeSub${S} ( ${MIN}, 1, &out ), BM_UNDERFLOW );
+                   smathSub${S} ( ${MIN}, 1, &out ), SH_UNDERFLOW );
     expectStatus ( "${S} add: below the smallest value",
-                   basicmathsafeAdd${S} ( ${MIN}, -1, &out ), BM_UNDERFLOW );
+                   smathAdd${S} ( ${MIN}, -1, &out ), SH_UNDERFLOW );
 
     expectStatus ( "${S} div: the smallest value by minus one",
-                   basicmathsafeDiv${S} ( ${MIN}, -1, &out ), BM_OVERFLOW );
+                   smathDiv${S} ( ${MIN}, -1, &out ), SH_OVERFLOW );
 
     out = 77;
     expectStatus ( "${S} mod: the smallest value modulo minus one",
-                   basicmathsafeMod${S} ( ${MIN}, -1, &out ), BM_OK );
+                   smathMod${S} ( ${MIN}, -1, &out ), SH_OK );
     expect${S} ( "${S} mod: the smallest value modulo minus one is zero", out, 0 );
 
     expectStatus ( "${S} div: truncates toward zero",
-                   basicmathsafeDiv${S} ( -7, 2, &out ), BM_OK );
+                   smathDiv${S} ( -7, 2, &out ), SH_OK );
     expect${S} ( "${S} div: truncates toward zero result", out, -3 );
 
     expectStatus ( "${S} mod: the remainder takes the sign of the dividend",
-                   basicmathsafeMod${S} ( -7, 2, &out ), BM_OK );
+                   smathMod${S} ( -7, 2, &out ), SH_OK );
     expect${S} ( "${S} mod: the remainder takes the sign of the dividend result", out, -1 );
 
     expectStatus ( "${S} mul: negative times negative is positive",
-                   basicmathsafeMul${S} ( -3, -4, &out ), BM_OK );
+                   smathMul${S} ( -3, -4, &out ), SH_OK );
     expect${S} ( "${S} mul: negative times negative is positive result", out, 12 );
 
     expectStatus ( "${S} mul: below the smallest value",
-                   basicmathsafeMul${S} ( ${MIN}, 2, &out ), BM_UNDERFLOW );
+                   smathMul${S} ( ${MIN}, 2, &out ), SH_UNDERFLOW );
     expectStatus ( "${S} mul: the smallest value times minus one",
-                   basicmathsafeMul${S} ( ${MIN}, -1, &out ), BM_OVERFLOW );
+                   smathMul${S} ( ${MIN}, -1, &out ), SH_OVERFLOW );
 
     expectStatus ( "${S} mulSat: clamps at the smallest value",
-                   basicmathsafeMulSat${S} ( ${MIN}, 2, &out ), BM_OK );
+                   smathMulSat${S} ( ${MIN}, 2, &out ), SH_OK );
     expect${S} ( "${S} mulSat: clamps at the smallest value result", out, ${MIN} );
 
     expectStatus ( "${S} average: two negatives",
-                   basicmathsafeAverage${S} ( -3, -5, &out ), BM_OK );
+                   smathAverage${S} ( -3, -5, &out ), SH_OK );
     expect${S} ( "${S} average: two negatives result", out, -4 );
 
     expectStatus ( "${S} average: the two extremes",
-                   basicmathsafeAverage${S} ( ${MIN}, ${MAX}, &out ), BM_OK );
+                   smathAverage${S} ( ${MIN}, ${MAX}, &out ), SH_OK );
     expect${S} ( "${S} average: the two extremes result", out, 0 );
 
     expectStatus ( "${S} scale: a negative value",
-                   basicmathsafeScale${S} ( -1000, 3, 4, &out ), BM_OK );
+                   smathScale${S} ( -1000, 3, 4, &out ), SH_OK );
     expect${S} ( "${S} scale: a negative value result", out, -750 );
 
     expectStatus ( "${S} scale: result below the type",
-                   basicmathsafeScale${S} ( ${MIN}, 2, 1, &out ), BM_UNDERFLOW );
+                   smathScale${S} ( ${MIN}, 2, 1, &out ), SH_UNDERFLOW );
 
     expectStatus ( "${S} clamp: a negative range",
-                   basicmathsafeClamp${S} ( -50, -10, -5, &out ), BM_OK );
+                   smathClamp${S} ( -50, -10, -5, &out ), SH_OK );
     expect${S} ( "${S} clamp: a negative range result", out, -10 );
 
-    expectStatus ( "${S} abs: a positive value", basicmathsafeAbs${S} ( 5, &out ), BM_OK );
+    expectStatus ( "${S} abs: a positive value", smathAbs${S} ( 5, &out ), SH_OK );
     expect${S} ( "${S} abs: a positive value result", out, 5 );
-    expectStatus ( "${S} abs: a negative value", basicmathsafeAbs${S} ( -5, &out ), BM_OK );
+    expectStatus ( "${S} abs: a negative value", smathAbs${S} ( -5, &out ), SH_OK );
     expect${S} ( "${S} abs: a negative value result", out, 5 );
-    expectStatus ( "${S} abs: zero", basicmathsafeAbs${S} ( 0, &out ), BM_OK );
+    expectStatus ( "${S} abs: zero", smathAbs${S} ( 0, &out ), SH_OK );
     expect${S} ( "${S} abs: zero result", out, 0 );
 
     out = 88;
     expectStatus ( "${S} abs: the smallest value has no magnitude",
-                   basicmathsafeAbs${S} ( ${MIN}, &out ), BM_OVERFLOW );
+                   smathAbs${S} ( ${MIN}, &out ), SH_OVERFLOW );
     expect${S} ( "${S} abs: output untouched after overflow", out, 88 );
-    expectStatus ( "${S} abs: NULL output", basicmathsafeAbs${S} ( 5, NULL ), BM_NULLPTR );
+    expectStatus ( "${S} abs: NULL output", smathAbs${S} ( 5, NULL ), SH_NULLPTR );
 
-    expectStatus ( "${S} neg: a positive value", basicmathsafeNeg${S} ( 5, &out ), BM_OK );
+    expectStatus ( "${S} neg: a positive value", smathNeg${S} ( 5, &out ), SH_OK );
     expect${S} ( "${S} neg: a positive value result", out, -5 );
-    expectStatus ( "${S} neg: a negative value", basicmathsafeNeg${S} ( -5, &out ), BM_OK );
+    expectStatus ( "${S} neg: a negative value", smathNeg${S} ( -5, &out ), SH_OK );
     expect${S} ( "${S} neg: a negative value result", out, 5 );
     expectStatus ( "${S} neg: the smallest value cannot be negated",
-                   basicmathsafeNeg${S} ( ${MIN}, &out ), BM_OVERFLOW );
+                   smathNeg${S} ( ${MIN}, &out ), SH_OVERFLOW );
     expectStatus ( "${S} neg: the largest value",
-                   basicmathsafeNeg${S} ( ${MAX}, &out ), BM_OK );
+                   smathNeg${S} ( ${MAX}, &out ), SH_OK );
     expect${S} ( "${S} neg: the largest value result", out, ( ${T} ) ( -${MAX} ) );
 
-    expectStatus ( "${S} sign: negative", basicmathsafeSign${S} ( -5, &sign ), BM_OK );
+    expectStatus ( "${S} sign: negative", smathSign${S} ( -5, &sign ), SH_OK );
     expectI32 ( "${S} sign: negative result", sign, -1 );
-    expectStatus ( "${S} sign: zero", basicmathsafeSign${S} ( 0, &sign ), BM_OK );
+    expectStatus ( "${S} sign: zero", smathSign${S} ( 0, &sign ), SH_OK );
     expectI32 ( "${S} sign: zero result", sign, 0 );
-    expectStatus ( "${S} sign: positive", basicmathsafeSign${S} ( 5, &sign ), BM_OK );
+    expectStatus ( "${S} sign: positive", smathSign${S} ( 5, &sign ), SH_OK );
     expectI32 ( "${S} sign: positive result", sign, 1 );
     expectStatus ( "${S} sign: the smallest value is still defined",
-                   basicmathsafeSign${S} ( ${MIN}, &sign ), BM_OK );
+                   smathSign${S} ( ${MIN}, &sign ), SH_OK );
     expectI32 ( "${S} sign: the smallest value is still defined result", sign, -1 );
-    expectStatus ( "${S} sign: NULL output", basicmathsafeSign${S} ( 1, NULL ), BM_NULLPTR );
+    expectStatus ( "${S} sign: NULL output", smathSign${S} ( 1, NULL ), SH_NULLPTR );
 """)
 
 TAIL = """
@@ -848,9 +848,9 @@ def main():
 
     parts.append(TAIL)
 
-    outdir = os.path.join(REPO, "test", "BasicMathSafe_Test")
+    outdir = os.path.join(REPO, "test", "SMath_Test")
     os.makedirs(outdir, exist_ok=True)
-    path = os.path.join(outdir, "BasicMathSafe_Test.c")
+    path = os.path.join(outdir, "SMath_Test.c")
 
     with open(path, "w", newline="\n") as f:
         f.write("".join(parts))

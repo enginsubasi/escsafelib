@@ -64,25 +64,25 @@ jobs:
       - name: Run the smemory test program
         run: ./smemory_test
 
-      - name: Build the basicmathsafe test program
+      - name: Build the smath test program
         run: |
           ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
             -Iinc/math \
-            test/BasicMathSafe_Test/BasicMathSafe_Test.c src/math/basicmathsafe.c \
-            -o basicmathsafe_test
+            test/SMath_Test/SMath_Test.c src/math/smath.c \
+            -o smath_test
 
-      - name: Run the basicmathsafe test program
-        run: ./basicmathsafe_test
+      - name: Run the smath test program
+        run: ./smath_test
 
-      - name: Build the selfdiagsafe test program
+      - name: Build the sdiag test program
         run: |
           ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/selfdiag \
-            test/SelfDiagSafe_Test/SelfDiagSafe_Test.c src/selfdiag/selfdiagsafe.c \
-            -o selfdiagsafe_test
+            -Iinc/diag \
+            test/SDiag_Test/SDiag_Test.c src/diag/sdiag.c \
+            -o sdiag_test
 
-      - name: Run the selfdiagsafe test program
-        run: ./selfdiagsafe_test
+      - name: Run the sdiag test program
+        run: ./sdiag_test
 
       - name: Build the sring test program
         run: |
@@ -121,8 +121,8 @@ jobs:
         run: |
           python3 tools/gen_sarray.py
           python3 tools/gen_sarray_test.py
-          python3 tools/gen_basicmathsafe.py
-          python3 tools/gen_basicmathsafe_test.py
+          python3 tools/gen_smath.py
+          python3 tools/gen_smath_test.py
           git diff --stat
           git diff --exit-code
 
@@ -172,29 +172,29 @@ jobs:
       - name: Run smemory under sanitizers
         run: ./smemory_san
 
-      - name: Build basicmathsafe with sanitizers
+      - name: Build smath with sanitizers
         run: |
           clang -Wall -Wextra -std=c99 -g \
             -fsanitize=address,undefined -fno-sanitize-recover=all \
             -fno-omit-frame-pointer \
             -Iinc/math \
-            test/BasicMathSafe_Test/BasicMathSafe_Test.c src/math/basicmathsafe.c \
-            -o basicmathsafe_san
+            test/SMath_Test/SMath_Test.c src/math/smath.c \
+            -o smath_san
 
-      - name: Run basicmathsafe under sanitizers
-        run: ./basicmathsafe_san
+      - name: Run smath under sanitizers
+        run: ./smath_san
 
-      - name: Build selfdiagsafe with sanitizers
+      - name: Build sdiag with sanitizers
         run: |
           clang -Wall -Wextra -std=c99 -g \
             -fsanitize=address,undefined -fno-sanitize-recover=all \
             -fno-omit-frame-pointer \
-            -Iinc/selfdiag \
-            test/SelfDiagSafe_Test/SelfDiagSafe_Test.c src/selfdiag/selfdiagsafe.c \
-            -o selfdiagsafe_san
+            -Iinc/diag \
+            test/SDiag_Test/SDiag_Test.c src/diag/sdiag.c \
+            -o sdiag_san
 
-      - name: Run selfdiagsafe under sanitizers
-        run: ./selfdiagsafe_san
+      - name: Run sdiag under sanitizers
+        run: ./sdiag_san
 
       - name: Build sring with sanitizers
         run: |
@@ -296,7 +296,7 @@ jobs:
             --suppress=unusedFunction \
             --suppress=checkersReport \
             -Iinc/string -Iinc/array -Iinc/memory -Iinc/math \
-            -Iinc/ring -Iinc/filter -Iinc/fixed -Iinc/selfdiag \
+            -Iinc/ring -Iinc/filter -Iinc/fixed -Iinc/diag \
             src/ 2>&1 | tee cppcheck.log
 
       # The MISRA addon reports rule numbers only. The rule texts are
@@ -317,10 +317,10 @@ jobs:
             -Iinc/memory src/memory/smemory.c 2>&1 | tee -a misra.log
           cppcheck --addon=misra --std=c99 --platform=unix32 \
             --suppress=missingIncludeSystem \
-            -Iinc/math src/math/basicmathsafe.c 2>&1 | tee -a misra.log
+            -Iinc/math src/math/smath.c 2>&1 | tee -a misra.log
           cppcheck --addon=misra --std=c99 --platform=unix32 \
             --suppress=missingIncludeSystem \
-            -Iinc/selfdiag src/selfdiag/selfdiagsafe.c 2>&1 | tee -a misra.log
+            -Iinc/diag src/diag/sdiag.c 2>&1 | tee -a misra.log
           cppcheck --addon=misra --std=c99 --platform=unix32 \
             --suppress=missingIncludeSystem \
             -Iinc/ring src/ring/sring.c 2>&1 | tee -a misra.log

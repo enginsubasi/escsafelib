@@ -1,7 +1,7 @@
 /**
   ******************************************************************************
   *
-  * @file      selfdiagsafe.c
+  * @file      sdiag.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
   * @version   0.1.0
   * @date      05/08/2026
@@ -16,6 +16,10 @@
   * 01/08/2026 Banner converted to the Doxygen convention. @n
   * 05/08/2026 Implemented. Integrity checks, memory tests, stack usage @n
   *            measurement, control flow monitoring and redundant storage. @n
+  * 05/08/2026 Renamed from selfdiagsafe to sdiag and its directory from @n
+  *            selfdiag to diag, so that every module is its domain @n
+  *            directory with an s in front. The SD_ status prefix is @n
+  *            unchanged. @n
   *
   * @note
   * Everything here is portable C99 with no hardware dependency, which is
@@ -70,7 +74,7 @@
 
 #include <stddef.h>
 
-#include "selfdiagsafe.h"
+#include "sdiag.h"
 
 /**
  * @brief   Folds one byte into a running CRC-32 register.
@@ -168,7 +172,7 @@ static uint32_t flowFold ( uint32_t signature, uint32_t id )
  *          tampering: an attacker who can change the data can recompute the
  *          CRC.
  */
-uint8_t selfdiagsafeCrc32Update ( const void* data, uint32_t size, uint32_t seed, uint32_t* crc )
+uint8_t sdiagCrc32Update ( const void* data, uint32_t size, uint32_t seed, uint32_t* crc )
 {
     uint8_t retVal = SD_OK;
     const unsigned char* bytes = ( const unsigned char* ) data;
@@ -205,14 +209,14 @@ uint8_t selfdiagsafeCrc32Update ( const void* data, uint32_t size, uint32_t seed
  * @param[in]  size  Length of the block in bytes.
  * @param[out] crc   Set to the CRC on success.
  * @return  SD_OK on success, otherwise the status
- *          selfdiagsafeCrc32Update reports.
- * @note    The same as selfdiagsafeCrc32Update with a seed of SD_CRC32_SEED.
+ *          sdiagCrc32Update reports.
+ * @note    The same as sdiagCrc32Update with a seed of SD_CRC32_SEED.
  */
-uint8_t selfdiagsafeCrc32 ( const void* data, uint32_t size, uint32_t* crc )
+uint8_t sdiagCrc32 ( const void* data, uint32_t size, uint32_t* crc )
 {
     uint8_t retVal = SD_OK;
 
-    retVal = selfdiagsafeCrc32Update ( data, size, SD_CRC32_SEED, crc );
+    retVal = sdiagCrc32Update ( data, size, SD_CRC32_SEED, crc );
 
     return ( retVal );
 }
@@ -230,14 +234,14 @@ uint8_t selfdiagsafeCrc32 ( const void* data, uint32_t size, uint32_t* crc )
  *          inversion, often labelled CRC-16-CCITT-FALSE. The CRC of the nine
  *          bytes "123456789" is 0x29B1.
  * @note    The starting seed is SD_CRC16_SEED and not zero, unlike
- *          selfdiagsafeCrc32Update. The two algorithms differ in whether
+ *          sdiagCrc32Update. The two algorithms differ in whether
  *          they invert, and each seed is the one that makes its own chaining
  *          exact.
  * @note    Half the width of the CRC-32, so half the cost and a much weaker
  *          guarantee. Use it for a short message on a slow part, not for a
  *          firmware image.
  */
-uint8_t selfdiagsafeCrc16Update ( const void* data, uint32_t size, uint16_t seed, uint16_t* crc )
+uint8_t sdiagCrc16Update ( const void* data, uint32_t size, uint16_t seed, uint16_t* crc )
 {
     uint8_t retVal = SD_OK;
     const unsigned char* bytes = ( const unsigned char* ) data;
@@ -272,13 +276,13 @@ uint8_t selfdiagsafeCrc16Update ( const void* data, uint32_t size, uint16_t seed
  * @param[in]  size  Length of the block in bytes.
  * @param[out] crc   Set to the CRC on success.
  * @return  SD_OK on success, otherwise the status
- *          selfdiagsafeCrc16Update reports.
+ *          sdiagCrc16Update reports.
  */
-uint8_t selfdiagsafeCrc16 ( const void* data, uint32_t size, uint16_t* crc )
+uint8_t sdiagCrc16 ( const void* data, uint32_t size, uint16_t* crc )
 {
     uint8_t retVal = SD_OK;
 
-    retVal = selfdiagsafeCrc16Update ( data, size, SD_CRC16_SEED, crc );
+    retVal = sdiagCrc16Update ( data, size, SD_CRC16_SEED, crc );
 
     return ( retVal );
 }
@@ -298,7 +302,7 @@ uint8_t selfdiagsafeCrc16 ( const void* data, uint32_t size, uint16_t* crc )
  *          only where the cost of a CRC genuinely does not fit, and never
  *          instead of one for a firmware image.
  */
-uint8_t selfdiagsafeChecksum32 ( const void* data, uint32_t size, uint32_t* sum )
+uint8_t sdiagChecksum32 ( const void* data, uint32_t size, uint32_t* sum )
 {
     uint8_t retVal = SD_OK;
     const unsigned char* bytes = ( const unsigned char* ) data;
@@ -361,7 +365,7 @@ uint8_t selfdiagsafeChecksum32 ( const void* data, uint32_t size, uint32_t* sum 
  *          memory test the address that failed is the whole result, and there
  *          is nothing to report when nothing failed.
  */
-uint8_t selfdiagsafeRamTestDestructive ( uint32_t* start, uint32_t words, uint32_t* failIndex )
+uint8_t sdiagRamTestDestructive ( uint32_t* start, uint32_t words, uint32_t* failIndex )
 {
     uint8_t retVal = SD_OK;
     uint8_t done = FALSE;
@@ -525,7 +529,7 @@ uint8_t selfdiagsafeRamTestDestructive ( uint32_t* start, uint32_t words, uint32
  * @note    failIndex is written only when the status is SD_FAILED, as in the
  *          destructive test.
  */
-uint8_t selfdiagsafeRamTestNonDestructive ( uint32_t* start, uint32_t words, uint32_t* failIndex )
+uint8_t sdiagRamTestNonDestructive ( uint32_t* start, uint32_t words, uint32_t* failIndex )
 {
     uint8_t retVal = SD_OK;
     uint8_t done = FALSE;
@@ -607,14 +611,14 @@ uint8_t selfdiagsafeRamTestNonDestructive ( uint32_t* start, uint32_t words, uin
  * @return  SD_OK on success, SD_NULLPTR when base is NULL, SD_INVALIDSIZE
  *          when the length is zero.
  * @note    Call this once at start up on the unused part of the stack, then
- *          call selfdiagsafeStackUnused later to find out how much of it was
+ *          call sdiagStackUnused later to find out how much of it was
  *          never written. SD_STACK_PATTERN is a reasonable value: it is not
  *          zero, not all ones, and unlikely to occur as real data.
  * @note    Painting the region the running stack is already using destroys
  *          the current call frames. Paint from the far end of the stack up to
  *          somewhere safely below the current stack pointer.
  */
-uint8_t selfdiagsafeStackPaint ( uint32_t* base, uint32_t words, uint32_t pattern )
+uint8_t sdiagStackPaint ( uint32_t* base, uint32_t words, uint32_t pattern )
 {
     uint8_t retVal = SD_OK;
     volatile uint32_t* cells = ( volatile uint32_t* ) base;
@@ -663,7 +667,7 @@ uint8_t selfdiagsafeStackPaint ( uint32_t* base, uint32_t words, uint32_t patter
  *          pattern intact, so the real depth used can be greater than this
  *          reports. Leave margin.
  */
-uint8_t selfdiagsafeStackUnused ( const uint32_t* base, uint32_t words, uint32_t pattern, uint32_t* unused )
+uint8_t sdiagStackUnused ( const uint32_t* base, uint32_t words, uint32_t pattern, uint32_t* unused )
 {
     uint8_t retVal = SD_OK;
     uint8_t done = FALSE;
@@ -708,7 +712,7 @@ uint8_t selfdiagsafeStackUnused ( const uint32_t* base, uint32_t words, uint32_t
  *          so several independent routes can be monitored at once and the
  *          functions stay reentrant.
  */
-uint8_t selfdiagsafeFlowInit ( selfdiagsafeflow_t* driver )
+uint8_t sdiagFlowInit ( sdiagflow_t* driver )
 {
     uint8_t retVal = SD_OK;
 
@@ -742,7 +746,7 @@ uint8_t selfdiagsafeFlowInit ( selfdiagsafeflow_t* driver )
  *          happens to collide on the signature can still be caught on its
  *          length. Thirty two bits of signature is not a lot.
  */
-uint8_t selfdiagsafeFlowCheckpoint ( selfdiagsafeflow_t* driver, uint32_t id )
+uint8_t sdiagFlowCheckpoint ( sdiagflow_t* driver, uint32_t id )
 {
     uint8_t retVal = SD_OK;
 
@@ -767,12 +771,12 @@ uint8_t selfdiagsafeFlowCheckpoint ( selfdiagsafeflow_t* driver, uint32_t id )
  * @param[in] expectedCount  Number of checkpoints a correct route passes.
  * @return  SD_OK when both the signature and the count match, SD_NULLPTR
  *          when driver is NULL, SD_MISMATCH when either differs.
- * @note    Compute the expected signature with selfdiagsafeFlowExpected,
+ * @note    Compute the expected signature with sdiagFlowExpected,
  *          either offline or once at start up. Writing it out by hand and
  *          keeping it in step with the code is how this check quietly stops
  *          meaning anything.
  */
-uint8_t selfdiagsafeFlowVerify ( const selfdiagsafeflow_t* driver, uint32_t expected, uint32_t expectedCount )
+uint8_t sdiagFlowVerify ( const sdiagflow_t* driver, uint32_t expected, uint32_t expectedCount )
 {
     uint8_t retVal = SD_OK;
 
@@ -803,11 +807,11 @@ uint8_t selfdiagsafeFlowVerify ( const selfdiagsafeflow_t* driver, uint32_t expe
  * @param[out] expected  Set to the signature that sequence produces.
  * @return  SD_OK on success, SD_NULLPTR when a pointer is NULL,
  *          SD_INVALIDSIZE when the count is zero.
- * @note    Uses the same fold as selfdiagsafeFlowCheckpoint, so the two
+ * @note    Uses the same fold as sdiagFlowCheckpoint, so the two
  *          cannot drift apart. That is the reason this exists rather than
  *          leaving the caller to reimplement the fold.
  */
-uint8_t selfdiagsafeFlowExpected ( const uint32_t* ids, uint32_t count, uint32_t* expected )
+uint8_t sdiagFlowExpected ( const uint32_t* ids, uint32_t count, uint32_t* expected )
 {
     uint8_t retVal = SD_OK;
     uint32_t signature = 0;
@@ -850,7 +854,7 @@ uint8_t selfdiagsafeFlowExpected ( const uint32_t* ids, uint32_t count, uint32_t
  *          the case where both words are hit the same way, which is exactly
  *          what a stuck bus line or a whole word losing power does.
  */
-uint8_t selfdiagsafeShadowSet ( selfdiagsafeshadow_t* shadow, uint32_t value )
+uint8_t sdiagShadowSet ( sdiagshadow_t* shadow, uint32_t value )
 {
     uint8_t retVal = SD_OK;
 
@@ -878,7 +882,7 @@ uint8_t selfdiagsafeShadowSet ( selfdiagsafeshadow_t* shadow, uint32_t value )
  *          Without that the whole check optimises away, because as far as the
  *          language is concerned nothing can have changed them.
  */
-uint8_t selfdiagsafeShadowVerify ( const selfdiagsafeshadow_t* shadow )
+uint8_t sdiagShadowVerify ( const sdiagshadow_t* shadow )
 {
     uint8_t retVal = SD_OK;
     const volatile uint32_t* value = NULL;
@@ -916,7 +920,7 @@ uint8_t selfdiagsafeShadowVerify ( const selfdiagsafeshadow_t* shadow )
  *          status reads whatever was in its own variable rather than a value
  *          that is known to be wrong.
  */
-uint8_t selfdiagsafeShadowGet ( const selfdiagsafeshadow_t* shadow, uint32_t* value )
+uint8_t sdiagShadowGet ( const sdiagshadow_t* shadow, uint32_t* value )
 {
     uint8_t retVal = SD_OK;
 
@@ -926,7 +930,7 @@ uint8_t selfdiagsafeShadowGet ( const selfdiagsafeshadow_t* shadow, uint32_t* va
     }
     else
     {
-        retVal = selfdiagsafeShadowVerify ( shadow );
+        retVal = sdiagShadowVerify ( shadow );
 
         if ( retVal == SD_OK )
         {

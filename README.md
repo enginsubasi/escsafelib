@@ -18,11 +18,11 @@ fails leaves its destination untouched.
 | `inc/string/sstring.h` | 41 functions. Bounded replacements for `<string.h>`, plus tokenizing, transforms, validation and number conversion. |
 | `inc/array/sarray.h` | 92 functions. Twenty three bounded array operations in four element families, `uint8_t`, `uint16_t`, `uint32_t` and `int32_t`. |
 | `inc/memory/smemory.h` | 17 functions. Bounded replacements for the `mem` family of `<string.h>`, plus a constant time comparison and an erase the compiler may not remove. |
-| `inc/math/basicmathsafe.h` | 68 functions. Checked and saturating arithmetic, safe division, scaling, clamping and range tests in the same four numeric families. |
+| `inc/math/smath.h` | 68 functions. Checked and saturating arithmetic, safe division, scaling, clamping and range tests in the same four numeric families. |
 | `inc/ring/sring.h` | 12 functions. Single producer single consumer byte ring buffer. Lock free for an interrupt filling it while the main loop drains it. |
 | `inc/filter/sfilter.h` | 19 functions. Moving average, exponential average, debounce, slew limit, hysteresis and median. |
 | `inc/fixed/sfixed.h` | 19 functions. Q16.16 fixed point: conversion, checked arithmetic, rounding, interpolation and square root. No floating point. |
-| `inc/selfdiag/selfdiagsafe.h` | 16 functions. CRC and checksum, March memory tests, stack usage measurement, control flow monitoring and redundant storage. No hardware dependency. |
+| `inc/diag/sdiag.h` | 16 functions. CRC and checksum, March memory tests, stack usage measurement, control flow monitoring and redundant storage. No hardware dependency. |
 
 `sarray` and `smemory` split the same territory along one line. Operations
 that do not need to know what the bytes mean live in `smemory` and take a
@@ -45,7 +45,7 @@ wrong answer that looks like a right one.
 
 #include "sring.h"
 #include "sstring.h"
-#include "basicmathsafe.h"
+#include "smath.h"
 
 static uint8_t      rxStorage[ 128 ];
 static sringu8_t    rxRing;
@@ -108,11 +108,11 @@ uint8_t readTargetRpm ( uint32_t* rpm )
         }
         /* raw * 3000 overflows a uint32_t long before the divide brings it
            back. Written out by hand this line is silently wrong. */
-        else if ( basicmathsafeScaleu32 ( raw, 3000u, 1000u, &scaled ) != BM_OK )
+        else if ( smathScaleu32 ( raw, 3000u, 1000u, &scaled ) != SH_OK )
         {
             retVal = FALSE;
         }
-        else if ( basicmathsafeInRangeu32 ( scaled, 500u, 6000u, &inRange ) != BM_OK )
+        else if ( smathInRangeu32 ( scaled, 500u, 6000u, &inRange ) != SH_OK )
         {
             retVal = FALSE;
         }
@@ -152,12 +152,12 @@ gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/memory \
   test/SMemory_Test/SMemory_Test.c src/memory/smemory.c -o smemory_test && ./smemory_test
 
 gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/math \
-  test/BasicMathSafe_Test/BasicMathSafe_Test.c src/math/basicmathsafe.c \
-  -o basicmathsafe_test && ./basicmathsafe_test
+  test/SMath_Test/SMath_Test.c src/math/smath.c \
+  -o smath_test && ./smath_test
 
-gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/selfdiag \
-  test/SelfDiagSafe_Test/SelfDiagSafe_Test.c src/selfdiag/selfdiagsafe.c \
-  -o selfdiagsafe_test && ./selfdiagsafe_test
+gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/diag \
+  test/SDiag_Test/SDiag_Test.c src/diag/sdiag.c \
+  -o sdiag_test && ./sdiag_test
 
 gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/ring \
   test/SRing_Test/SRing_Test.c src/ring/sring.c -o sring_test && ./sring_test
@@ -171,7 +171,7 @@ gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/fixed \
 
 ## Generated modules
 
-`sarray` and `basicmathsafe` are each one design repeated across four
+`sarray` and `smath` are each one design repeated across four
 numeric types, so their C is emitted from a template in `tools/` rather
 than typed out four times. The generated C is what ships and what you copy
 into a project; nothing in `tools/` has to exist for the library to be
@@ -179,7 +179,7 @@ used. See `tools/README.md` before changing either module.
 
 ## What this library does not do
 
-`selfdiagsafe` covers the self tests that can be written in portable C. A
+`sdiag` covers the self tests that can be written in portable C. A
 CPU register test, a program counter test and an instruction set test
 cannot be, because C gives no way to name a register or to guarantee an
 instruction is issued. A complete IEC 61508 or ISO 26262 self test needs

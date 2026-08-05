@@ -46,7 +46,7 @@ the source of truth, is what ships, and is what a consumer copies into a
 project. Nothing here has to exist for the library to be used, and no target
 toolchain ever runs Python.
 
-They exist because `sarray` and `basicmathsafe` are each one design repeated
+They exist because `sarray` and `smath` are each one design repeated
 across four element types. Typing that out four times invites the failure
 where a fix lands in `sarrayFindu32` and never reaches `sarrayFindu16`.
 Editing the template makes the change in all four families at once.
@@ -55,16 +55,16 @@ Editing the template makes the change in all four families at once.
 |---|---|
 | `gen_sarray.py` | `inc/array/sarray.h`, `src/array/sarray.c` |
 | `gen_sarray_test.py` | `test/SArray_Test/SArray_Test.c` |
-| `gen_basicmathsafe.py` | `inc/math/basicmathsafe.h`, `src/math/basicmathsafe.c` |
-| `gen_basicmathsafe_test.py` | `test/BasicMathSafe_Test/BasicMathSafe_Test.c` |
+| `gen_smath.py` | `inc/math/smath.h`, `src/math/smath.c` |
+| `gen_smath_test.py` | `test/SMath_Test/SMath_Test.c` |
 
 Run them from the repository root:
 
 ```bash
 python tools/gen_sarray.py
 python tools/gen_sarray_test.py
-python tools/gen_basicmathsafe.py
-python tools/gen_basicmathsafe_test.py
+python tools/gen_smath.py
+python tools/gen_smath_test.py
 ```
 
 Each writes its files with LF line endings and no other side effect.
@@ -80,7 +80,7 @@ four and confirm the tree is unchanged:
 
 ```bash
 python tools/gen_sarray.py && python tools/gen_sarray_test.py
-python tools/gen_basicmathsafe.py && python tools/gen_basicmathsafe_test.py
+python tools/gen_smath.py && python tools/gen_smath_test.py
 git diff --stat
 ```
 
@@ -88,5 +88,5 @@ An empty diff means the two have not drifted apart. A non empty one means
 somebody edited the output by hand, and whatever they changed is about to be
 lost.
 
-`sstring`, `smemory` and `selfdiagsafe` are single implementations with no
+`sstring`, `smemory` and `sdiag` are single implementations with no
 repetition, are written by hand, and have no generator.

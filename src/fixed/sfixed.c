@@ -772,7 +772,7 @@ uint8_t sfixedMax ( sfixed_t a, sfixed_t b, sfixed_t* result )
  * @return  SX_OK on success, SX_NULLPTR when result is NULL,
  *          SX_INVALIDRANGE when low is above high.
  * @note    A reversed range is refused rather than silently swapped, as in
- *          basicmathsafe. A caller with its bounds the wrong way round has a
+ *          smath. A caller with its bounds the wrong way round has a
  *          bug, and quietly fixing it hides the bug.
  */
 uint8_t sfixedClamp ( sfixed_t value, sfixed_t low, sfixed_t high, sfixed_t* result )
