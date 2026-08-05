@@ -176,9 +176,22 @@ cannot be, because C gives no way to name a register or to guarantee an
 instruction is issued. A complete IEC 61508 or ISO 26262 self test needs
 assembly for those.
 
-No module has ever executed on an ARM target. Every one of them
-cross compiles cleanly and passes the ARM analyzer, which is not the same
-thing.
+## Where the verification stops
+
+Every module cross compiles for `arm-none-eabi` with `-Wall -Wextra
+-Wpedantic` and passes the gcc analyzer, and every test suite passes on a
+host under both gcc and clang, at a warning level well beyond the project's
+own, and under UBSan.
+
+**None of it has ever run on an ARM target.** Building clean for a target is
+not the same as behaving on one, and the difference is not only theoretical
+here. The suites cannot see an unaligned access fault, anything that depends
+on the target's word size or padding, the memory ordering assumption behind
+the `sring` barrier, or the real timing of the constant time comparison in
+`smemory` on a core with a cache.
+
+Treat host verification as what it is. An integrator putting this on a
+target owns the on target validation.
 
 # Coding Reference
 

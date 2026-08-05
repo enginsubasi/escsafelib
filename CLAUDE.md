@@ -109,7 +109,11 @@ The same idea covers `selfdiagsafe`'s memory tests, which a portable test cannot
 Three things cannot be verified on this machine, and no claim should be made about them until they are:
 
 - **Stuck-at memory faults.** Nothing portable can produce a cell that accepts a write and returns something else, so the read checks inside the March elements are covered by review only. This is why two `selfdiagsafe` mutants survive.
-- **Execution on ARM.** Every module cross-compiles and passes `-fanalyzer`; none has ever run on a target or under an emulator. There is no `qemu` here.
+- **Execution on ARM. This one is permanent, not pending.** There is no target and no emulator, and there will not be one. Every module cross-compiles for `arm-none-eabi` and passes `-fanalyzer`, which says the code builds for the target, not that it behaves there. Everything the test suites prove, they prove on x86-64 hosts.
+
+  What that costs is narrow but real, and it should be stated rather than glossed. The suites cannot see: unaligned access faults (`sarray` and `selfdiagsafe` take typed pointers partly to make this the compiler's problem, but a caller can still hand over a misaligned buffer); anything that depends on the target's actual word size or padding; the memory-ordering assumption in `sring`, whose whole barrier argument is about a processor this code has never run on; and the real timing of `smemoryEqualSecure`, which is constant in comparison count but was never measured on a core with a cache.
+
+  Do not write "verified on ARM" anywhere. An integrator putting this on a target owns that validation, and the honest claim is that the logic is verified on a host and the code builds clean for the target.
 - **cppcheck, MISRA and doxygen.** None of the three is installed, and there is no `gh` to read the CI results back. Two MISRA deviations are recorded by hand (Rule 11.4 in `sstring`/`sarray`/`smemory`, Rule 11.5 in `smemory`/`selfdiagsafe`); no checker has confirmed there are only two.
 
 Static analysis, using the analyzer built into the ARM compiler:
