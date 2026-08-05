@@ -21,6 +21,7 @@ fails leaves its destination untouched.
 | `inc/math/basicmathsafe.h` | 68 functions. Checked and saturating arithmetic, safe division, scaling, clamping and range tests in the same four numeric families. |
 | `inc/ring/sring.h` | 12 functions. Single producer single consumer byte ring buffer. Lock free for an interrupt filling it while the main loop drains it. |
 | `inc/filter/sfilter.h` | 19 functions. Moving average, exponential average, debounce, slew limit, hysteresis and median. |
+| `inc/fixed/sfixed.h` | 19 functions. Q16.16 fixed point: conversion, checked arithmetic, rounding, interpolation and square root. No floating point. |
 | `inc/selfdiag/selfdiagsafe.h` | 16 functions. CRC and checksum, March memory tests, stack usage measurement, control flow monitoring and redundant storage. No hardware dependency. |
 
 `sarray` and `smemory` split the same territory along one line. Operations
@@ -163,6 +164,9 @@ gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/ring \
 
 gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/filter \
   test/SFilter_Test/SFilter_Test.c src/filter/sfilter.c -o sfilter_test && ./sfilter_test
+
+gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/fixed \
+  test/SFixed_Test/SFixed_Test.c src/fixed/sfixed.c -o sfixed_test && ./sfixed_test
 ```
 
 ## Generated modules

@@ -36,6 +36,7 @@ echo "== compiler =="
 echo
 
 MODULES=(
+  "fixed    sfixed        SFixed"
   "filter   sfilter       SFilter"
   "string   sstring       SString"
   "array    sarray        SArray"
@@ -155,9 +156,20 @@ done
 
 echo
 echo "== generated modules have not drifted =="
+# Scoped to the generated files only. A bare "git diff" would also flag every
+# uncommitted edit elsewhere in the tree, which makes this report DRIFT during
+# any normal working session and trains the reader to ignore it.
+GENERATED="inc/array src/array test/SArray_Test
+           inc/math src/math test/BasicMathSafe_Test"
 python tools/gen_sarray.py >/dev/null && python tools/gen_sarray_test.py >/dev/null
 python tools/gen_basicmathsafe.py >/dev/null && python tools/gen_basicmathsafe_test.py >/dev/null
-if git diff --quiet -- inc src test; then echo "  no drift"; else echo "  DRIFT"; fail=1; fi
+if git diff --quiet -- $GENERATED; then
+  echo "  no drift"
+else
+  echo "  DRIFT in the generated modules:"
+  git diff --stat -- $GENERATED | sed 's/^/    /'
+  fail=1
+fi
 
 echo
 if [ "$fail" -eq 0 ]; then echo "ALL GREEN"; else echo "SOMETHING FAILED, see above"; fi

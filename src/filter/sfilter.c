@@ -323,6 +323,15 @@ uint8_t sfilterEmaInit ( sfilterema_t* driver, uint8_t shift, int32_t initial )
  *          at a permanent offset.
  * @note    The accumulator is an int64_t, so no combination of shift and
  *          sample can overflow it.
+ * @note    The accumulator can be negative and is shifted right, which C99
+ *          leaves implementation defined. Every compiler this library is
+ *          built with does an arithmetic shift, and the test drives the
+ *          filter to a negative constant and requires it to be reached
+ *          exactly, so a compiler that did otherwise would fail there rather
+ *          than quietly produce a filter that never settles. sfixed avoids
+ *          the construct entirely; here it is the whole mechanism, and a
+ *          division would round toward zero and stall the filter just above
+ *          a negative target.
  */
 uint8_t sfilterEmaUpdate ( sfilterema_t* driver, int32_t sample, int32_t* value )
 {
