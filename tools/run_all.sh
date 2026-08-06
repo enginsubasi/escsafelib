@@ -190,6 +190,15 @@ else
 fi
 
 echo
+echo "== the public API follows the rules the library states =="
+if python tools/apicheck.py > "$OUT/apicheck.log" 2>&1; then
+  echo "  $(tail -1 "$OUT/apicheck.log")"
+else
+  sed 's/^/  /' "$OUT/apicheck.log"
+  fail=1
+fi
+
+echo
 echo "== doxygen comments match the convention =="
 if python tools/doxcheck.py > "$OUT/doxcheck.log" 2>&1; then
   echo "  $(tail -1 "$OUT/doxcheck.log")"

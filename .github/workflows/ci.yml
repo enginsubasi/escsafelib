@@ -479,6 +479,14 @@ jobs:
       - name: Check the comments against the convention
         run: python3 tools/doxcheck.py
 
+      # The declarations, as opposed to the comments. The first rule it
+      # checks is the one this library is arranged around: every pointer
+      # to a buffer is immediately followed by that buffer's capacity.
+      # Deriving a bound from a different buffer was a real defect here
+      # once, and a guard page test reproduced it as a fault.
+      - name: Check the API against the rules the library states
+        run: python3 tools/apicheck.py
+
   mutation:
     name: Mutation tests (reporting)
     runs-on: ubuntu-latest

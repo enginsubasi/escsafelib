@@ -92,6 +92,40 @@ lost.
 are single implementations with no repetition, are written by hand, and
 have no generator.
 
+## apicheck.py
+
+The declarations, where `doxcheck.py` covers the comments. Together they
+enforce the conventions in `CLAUDE.md` that nothing else does.
+
+```bash
+python tools/apicheck.py            # this repository
+python tools/apicheck.py <dir>      # somewhere else, for testing
+```
+
+Seven rules. The first is the one the library is arranged around:
+
+| rule | what it requires |
+|---|---|
+| `capacity` | every pointer to a buffer is immediately followed by that buffer's capacity |
+| `adjacency` | a parameter named `<x>Size` sits immediately after `<x>` |
+| `status` | every public function returns `uint8_t` |
+| `prefix` | every public function is named after its module |
+| `enum` | every enum member uses its module's registered status prefix |
+| `types` | `stdint.h` types throughout, no bare `int` |
+
+**`capacity` is not a style rule.** Deriving a source scan bound from the
+destination size once let a short unterminated source be read past its end;
+a guard page test reproduced it as a fault, and giving every pointer its
+own capacity is the fix that is still holding. Nothing checked that the fix
+stayed applied until this existed.
+
+A pointer to a module's own driver struct is a handle rather than a buffer
+and is exempt: there is nothing to overrun. Those types are read out of
+each header's own typedefs, so a new module needs no change here.
+
+As with every other checker in this directory: it was developed against a
+header carrying one deliberate breach per rule, and every rule fired.
+
 ## mutate.py and mutants/
 
 The mutation tests. `tools/mutate.py` is the runner; the defects live in

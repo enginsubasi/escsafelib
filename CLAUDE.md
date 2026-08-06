@@ -338,6 +338,18 @@ arm-none-eabi-gcc -c -Wall $(for d in inc/*/; do echo -n " -I$d"; done) /tmp/all
 
 Doxygen is not installed here, so `Doxyfile` ships unverified; `WARN_NO_PARAMDOC = YES` is what turns the comment convention into a tool enforced rule when the owner runs it.
 
+`tools/apicheck.py` is the other half of the same idea and checks the
+declarations rather than the comments. Seven rules, and the first is the one
+this library is arranged around: **every pointer to a buffer is immediately
+followed by that buffer's capacity**. That is the rule the guard-page defect
+was about, and until this existed nothing checked that the fix stayed
+applied. It also checks that a size named `<x>Size` sits next to `<x>`, that
+every public function returns `uint8_t`, that names carry their module's
+prefix, that enum members carry their module's status prefix, and that no
+prototype names a bare `int`. 357 declarations, no findings. A pointer to a
+module's own driver struct is exempt, and those types are read out of each
+header's typedefs so a new module needs no change to the tool.
+
 `tools/doxcheck.py` covers the gap in the meantime, and covers more than doxygen would. It checks every `.c` in the tree — 488 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, and unknown tags. It is a blocking CI job because it runs clean here.
 
 **Its most useful rule is one doxygen has no concept of: a `@return` must name every status the body can set, and no status it cannot.** That is what found the only real defect the first full audit turned up. The four `smath` families share one template, so the unsigned ones had inherited the signed text and promised an `SH_UNDERFLOW` that an unsigned addition cannot produce and an `SH_OVERFLOW` that an unsigned subtraction cannot — a caller testing for either was writing a branch that never runs.
