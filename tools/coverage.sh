@@ -48,6 +48,7 @@ MODULES=(
   "state    sstate        SState"
   "string   sstring       SString"
   "vote     svote         SVote"
+  "watch    swatch        SWatch"
 )
 
 fail=0
