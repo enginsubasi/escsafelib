@@ -446,6 +446,25 @@ jobs:
       - name: Check the comments against the convention
         run: python3 tools/doxcheck.py
 
+  mutation:
+    name: Mutation tests (reporting)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reporting rather than blocking only because it takes a while:
+      # 180 mutants, each a full build and run of one suite. It runs
+      # clean on the development machine, so a survivor here is a real
+      # hole in a suite rather than a discovery about a tool nobody had
+      # used. Five mutants are expected to survive and are marked
+      # equivalent with the argument for each; the runner requires them
+      # to survive, so a wrong argument shows up as RESURRECTED.
+      - name: Break every module on purpose
+        run: |
+          CC=gcc UBSANCC=clang python3 tools/mutate.py
+
   coverage:
     name: Statement and branch coverage (reporting)
     runs-on: ubuntu-latest

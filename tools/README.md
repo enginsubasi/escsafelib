@@ -92,6 +92,38 @@ lost.
 are single implementations with no repetition, are written by hand, and
 have no generator.
 
+## mutate.py and mutants/
+
+The mutation tests. `tools/mutate.py` is the runner; the defects live in
+`tools/mutants/<module>.py`, one file per module so each set can be read on
+its own.
+
+```bash
+PATH="/c/Program Files/CodeBlocks/MinGW/bin:$PATH" UBSANCC="python -m ziglang cc" \
+  python tools/mutate.py
+python tools/mutate.py svote sbits
+python tools/mutate.py --list
+```
+
+Three outcomes. **killed** is what was wanted. **SURVIVED** is a hole in the
+suite. **RESURRECTED** means a mutant marked equivalent was killed, so the
+argument written next to it is wrong — that check is the reason to have a
+tool rather than a number in a document.
+
+An equivalent mutant carries the reason no test could kill it and is
+**required to survive**. Adding one without that reason is how a hole gets
+filed as a fact.
+
+Some defects are undefined behaviour that computes the right answer on this
+host. `svote`'s channel spread formed in 32 bits is one: every assertion
+passes and it is still signed overflow. Those are marked `ubsan` and re-run
+under `-fsanitize=undefined -fsanitize-trap=undefined`, which is how the
+real suite runs here and in CI. A trap is a kill.
+
+Five mutants survive the portable suites on purpose and are killed by
+`test/harness/run.sh` instead. They are over-reads, and a host reads the
+bytes past the end quite happily.
+
 ## coverage.sh
 
 Statement and branch coverage of every module against its own suite, using

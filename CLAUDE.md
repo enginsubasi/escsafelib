@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All fourteen modules are implemented — 358 functions and 3643 self-checking test cases.
+All fourteen modules are implemented — 358 functions and 3653 self-checking test cases.
 
 ## Working language
 
@@ -98,7 +98,84 @@ All fourteen modules are clean under a much stricter warning set than the projec
 
 Zero warnings across all fourteen. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
 
-A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `smath` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `sscale` against 16 of 17, `svote` against 16 of 16, `sfault` against 16 of 17, `sstate` against 16 of 18, `swatch` against 16 of 16, `sbits` against 17 of 17, `sdiag` against 10 of 12.
+A suite that passes on the first run has not yet been shown to check
+anything. Mutate the module — flip a bounds test to off by one, delete an
+overflow guard, disable an overlap check — rebuild against the mutant and
+confirm the suite goes red.
+
+```bash
+PATH="/c/Program Files/CodeBlocks/MinGW/bin:$PATH" UBSANCC="python -m ziglang cc" \
+  python tools/mutate.py            # every module
+python tools/mutate.py svote        # one of them
+python tools/mutate.py --list
+```
+
+**180 mutants across the fourteen modules: 161 killed, 19 equivalent, all
+accounted for.** The defects live in `tools/mutants/<module>.py`, one file
+per module, and the runner is `tools/mutate.py`. Before that they were
+throwaway scripts in a scratch directory and the numbers in this file were
+an assertion nobody could check; the ones above are a measurement anybody
+can repeat.
+
+| module | killed | equivalent | module | killed | equivalent |
+|---|---|---|---|---|---|
+| `sarray` | 5 | 6 | `sring` | 13 | 1 |
+| `sbits` | 17 | 0 | `sscale` | 16 | 1 |
+| `sdiag` | 7 | 1 | `sstate` | 16 | 2 |
+| `sfault` | 16 | 1 | `sstring` | 7 | 4 |
+| `sfilter` | 10 | 0 | `svote` | 16 | 0 |
+| `sfixed` | 10 | 0 | `swatch` | 16 | 0 |
+| `smath` | 8 | 0 | `smemory` | 4 | 3 |
+
+The runner separates three outcomes, and the third is why it is a tool
+rather than a number:
+
+- **killed** — the suite went red, which is what was wanted.
+- **SURVIVED** — the suite passed against a broken module. A hole, unless
+  the mutant carries an equivalence argument.
+- **RESURRECTED** — a mutant marked equivalent was killed. The argument
+  written next to it is wrong, or the suite grew a case that distinguishes
+  what was claimed indistinguishable. Either way the note has to change.
+
+An equivalent mutant carries the reason it cannot be killed, and the runner
+**requires it to survive**. That turns each equivalence claim into
+something the tool checks rather than something a comment asserts.
+
+Writing the tool found four things the numbers had been hiding:
+
+- **`sstring` had never been mutation tested at all.** It is the reference
+  module, 41 functions and 478 cases, and it was simply missing from the
+  list.
+- **`sring`'s ordering invariant was never tested** — the whole memory
+  barrier argument. Publishing the index before writing the byte passed
+  every case in the suite, because a single-threaded test that puts and
+  then gets sees the same ring whichever order the two stores happened in.
+  Only the barrier sits between them, so only the barrier can see it: the
+  suite now installs a barrier that inspects the ring as it fires and
+  asserts the byte is already there and the index has not moved. 162 cases
+  became 172 and two mutants died.
+- **A whole class of over-read mutant survives every portable suite.**
+  `sstring` M2, M5 and M6, `smemory` M5 and `sarray` M4 all read past the
+  end of a buffer, which on a host reads bytes that are there and answers
+  correctly. They are killed by `test/harness/run.sh` and nothing else.
+- **`sarray`'s first mutant set was five sixths equivalent**, which
+  measures nothing. It had been aimed at defensive code no caller can
+  reach. It now targets the operations: the sort, the rotation, the binary
+  search, insertion and removal.
+
+Two results from the older runs are still worth keeping in mind:
+
+- Masking `smemoryEqualSecure` down to the low bit of each difference still
+  passes every naive equality case. Only the deliberate high-bit-only case
+  catches it.
+- **`sdiag`'s two March memory tests still cannot have their failure paths
+  reached by anything portable.** See "Untestable here" below, and
+  `test/harness/aliasing.c`, which reaches four of the twenty two lines.
+
+`tools/mutate.py` suppresses the Windows crash dialog and treats a suite
+that does not finish as killed. Without the first, the run stops dead on
+the mutant that removes the guard against `INT32_MIN / -1`: the SIGFPE
+raises a dialog and waits for a mouse.
 
 One `svote` mutant is worth knowing about because of *how* it dies. Forming the channel spread as `highest - lowest` in 32 bits rather than 64 produces the same bits on this host, so every assertion still passes — but it is signed overflow, and **UBSan traps it**. The suite is run under `-fsanitize=undefined -fsanitize-trap=undefined` by `tools/run_all.sh` and by CI, so the sanitizer is part of the kill criterion and not an extra. A mutant that only the sanitizer catches is still killed; one that nothing catches is a hole.
 
@@ -208,7 +285,11 @@ The same idea covers `sdiag`'s memory tests, which a portable test cannot reach 
 
 Three things cannot be verified on this machine, and no claim should be made about them until they are:
 
-- **Stuck-at memory faults.** Nothing portable can produce a cell that accepts a write and returns something else, so the read checks inside the March elements are covered by review only. This is why two `sdiag` mutants survive.
+- **Stuck-at memory faults.** Nothing portable can produce a cell that accepts a write and returns something else, so most of the read checks inside the March elements are covered by review only.
+
+  `test/harness/aliasing.c` closes part of it. One section object mapped twice at adjacent addresses with `MapViewOfFileEx` is a real address decoder fault: the second half of the region genuinely *is* the first half. `sdiagRamTestDestructive` reports `SD_FAILED` at index 16384, the first word of the second view; `sdiagRamTestNonDestructive` reports `SD_OK`, exactly as its own note says it must, because it restores every word before moving on and so never has two different values live at once; and a healthy region of the same size passes both.
+
+  That is **four of the twenty two uncovered lines**, and it is worth being precise about why it is not more. One March element catches the aliasing, so only that element's failure path runs. The rest need a cell that accepts a write and returns something else, and nothing on this machine can make one. `sdiag` goes from 91.0% to 92.7% of lines and 84.2% to 89.5% of branches with the harness included.
 - **Execution on ARM. This one is permanent, not pending.** There is no target and no emulator, and there will not be one. Every module cross-compiles for `arm-none-eabi` and passes `-fanalyzer`, which says the code builds for the target, not that it behaves there. Everything the test suites prove, they prove on x86-64 hosts.
 
   What that costs is narrow but real, and it should be stated rather than glossed. The suites cannot see: unaligned access faults (`sarray` and `sdiag` take typed pointers partly to make this the compiler's problem, but a caller can still hand over a misaligned buffer); anything that depends on the target's actual word size or padding; the memory-ordering assumption in `sring`, whose whole barrier argument is about a processor this code has never run on; and the real timing of `smemoryEqualSecure`, which is constant in comparison count but was never measured on a core with a cache.

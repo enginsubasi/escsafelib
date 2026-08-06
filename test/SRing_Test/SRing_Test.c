@@ -63,6 +63,40 @@ static void countingBarrier ( void )
     ++barrierCalls;
 }
 
+/* The ring the inspecting barrier looks into, and what it found there. */
+static const sringu8_t* watched = NULL;
+static uint32_t writeAtBarrier = 0;
+static uint32_t readAtBarrier = 0;
+static uint8_t byteAtBarrier = 0;
+
+/**
+ * @brief   Stands in for a memory barrier and records the ring as it was
+ *          at the moment it fired.
+ * @note    This is the only way a single threaded test can see the ordering
+ *          the whole barrier argument rests on. Whether the byte reaches the
+ *          buffer before the index that publishes it matters to a concurrent
+ *          reader, and a test that only calls Put and then Get can never
+ *          observe the difference: both orders leave the same ring behind.
+ *          The barrier fires exactly between the two, so what it sees is
+ *          precisely the intermediate state, and asserting on that catches
+ *          a module that published first.
+ */
+static void inspectingBarrier ( void )
+{
+    ++barrierCalls;
+
+    if ( watched != NULL )
+    {
+        writeAtBarrier = watched->writeIndex;
+        readAtBarrier = watched->readIndex;
+        byteAtBarrier = watched->buffer[ watched->writeIndex ];
+    }
+    else
+    {
+        // Intentionally blank.
+    }
+}
+
 /**
  * @brief   Records the outcome of one case and prints the failures.
  * @param[in] name  Name of the case.
@@ -798,6 +832,54 @@ static void testBarrier ( void )
     barrierCalls = 0;
     ( void ) sringPeeku8 ( &ring, &value );
     expectU32 ( "barrier: peek publishes nothing so it does not fire", barrierCalls, 0 );
+
+    /* ---- the ordering the barrier exists to protect ----
+
+       Mutation testing found this hole: moving the index before the byte
+       passed every case in this file, because a single threaded test that
+       puts and then gets sees the same ring whichever order the two stores
+       happened in. Only the barrier is between them, so only the barrier
+       can see it. */
+
+    ( void ) sringInitu8 ( &ring, storage, RINGBYTES, inspectingBarrier );
+    watched = &ring;
+
+    writeAtBarrier = 0xFFFFFFFFu;
+    byteAtBarrier = 0;
+    ( void ) sringPutu8 ( &ring, 0xC7u );
+
+    expectU32 ( "barrier: on a put the byte is already in the buffer",
+                ( uint32_t ) byteAtBarrier, 0xC7u );
+    expectU32 ( "barrier: and the index that publishes it has not moved yet",
+                writeAtBarrier, 0 );
+    expectU32 ( "barrier: it moves after the barrier", ring.writeIndex, 1 );
+
+    /* The same for the block form, which publishes a run of bytes at once. */
+    ( void ) sringInitu8 ( &ring, storage, RINGBYTES, inspectingBarrier );
+    writeAtBarrier = 0xFFFFFFFFu;
+    byteAtBarrier = 0;
+    ( void ) sringPutBlocku8 ( &ring, source, 4u, 4u );
+
+    expectU32 ( "barrier: on a block put the first byte is already there",
+                ( uint32_t ) byteAtBarrier, ( uint32_t ) source[ 0 ] );
+    expectU32 ( "barrier: and nothing has been published yet", writeAtBarrier, 0 );
+    expectU32 ( "barrier: the whole run is published after it", ring.writeIndex, 4 );
+
+    /* On the way out the byte has to leave the buffer before the index that
+       releases the slot moves, or the producer may refill it first. */
+    readAtBarrier = 0xFFFFFFFFu;
+    ( void ) sringGetu8 ( &ring, &value );
+    expectU32 ( "barrier: on a get the index has not released the slot yet",
+                readAtBarrier, 0 );
+    expectU32 ( "barrier: it releases after the barrier", ring.readIndex, 1 );
+
+    readAtBarrier = 0xFFFFFFFFu;
+    ( void ) sringGetBlocku8 ( &ring, dest, 4u, 3u );
+    expectU32 ( "barrier: on a block get nothing is released yet",
+                readAtBarrier, 1 );
+    expectU32 ( "barrier: the whole run is released after it", ring.readIndex, 4 );
+
+    watched = NULL;
 
     /* Fill the ring, then a refused put must not fire it. */
     for ( i = 0; i < ( RINGBYTES - 1u ); ++i )
