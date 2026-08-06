@@ -193,6 +193,31 @@ gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/bits \
   test/SBits_Test/SBits_Test.c src/bits/sbits.c -o sbits_test && ./sbits_test
 ```
 
+## The modules together
+
+Every suite in `test/<Name>_Test/` covers one module. `test/Integration_Test/`
+covers nine of them as a chain, because a module can satisfy its own
+contract exactly and still be impossible to use next to its neighbour.
+
+It models a two channel pedal position sensor: a frame arrives on a ring,
+a CRC decides whether it is worth unpacking, two twelve bit channels come
+out of four bytes, raw counts become per mille of travel through a
+calibration table, each channel is smoothed, the two are compared, a
+disagreement is qualified over several cycles before it counts, and a
+qualified disagreement puts the state machine in its safe state. A cycle
+that does not happen is a missed deadline.
+
+```bash
+gcc -Wall -Wextra -Wpedantic -std=c99 \
+  -Iinc/bits -Iinc/diag -Iinc/fault -Iinc/filter -Iinc/ring \
+  -Iinc/scale -Iinc/state -Iinc/vote -Iinc/watch -Iinc/math \
+  test/Integration_Test/Integration_Test.c \
+  src/bits/sbits.c src/diag/sdiag.c src/fault/sfault.c \
+  src/filter/sfilter.c src/ring/sring.c src/scale/sscale.c \
+  src/state/sstate.c src/vote/svote.c src/watch/swatch.c \
+  src/math/smath.c -o integration_test && ./integration_test
+```
+
 ## Generated modules
 
 `sarray` and `smath` are each one design repeated across four

@@ -170,6 +170,26 @@ for m in "${MODULES[@]}"; do
 done
 
 echo
+echo "== the modules working together =="
+# Every other suite tests one module. This one runs nine of them as a
+# chain, because a module can satisfy its own contract exactly and
+# still be impossible to use next to its neighbour.
+if "${CC[@]}" -Wall -Wextra -Wpedantic -std=c99 -g \
+     -Iinc/bits -Iinc/diag -Iinc/fault -Iinc/filter -Iinc/ring -Iinc/scale -Iinc/state -Iinc/vote -Iinc/watch -Iinc/math \
+     test/Integration_Test/Integration_Test.c \
+     src/bits/sbits.c src/diag/sdiag.c src/fault/sfault.c src/filter/sfilter.c src/ring/sring.c src/scale/sscale.c src/state/sstate.c src/vote/svote.c src/watch/swatch.c src/math/smath.c \
+     -o "$OUT/integration" 2>"$OUT/integration_build.log"; then
+  if [ -s "$OUT/integration_build.log" ]; then
+    echo "  WARNINGS"; sed 's/^/      /' "$OUT/integration_build.log" | head -20; fail=1
+  fi
+  "$OUT/integration" >"$OUT/integration_run.log" 2>&1; rc=$?
+  printf "  %-14s %-24s exit=%s\n" "integration" "$(tail -1 "$OUT/integration_run.log")" "$rc"
+  [ "$rc" -ne 0 ] && fail=1
+else
+  echo "  BUILD FAILED"; sed 's/^/      /' "$OUT/integration_build.log" | head -20; fail=1
+fi
+
+echo
 echo "== doxygen comments match the convention =="
 if python tools/doxcheck.py > "$OUT/doxcheck.log" 2>&1; then
   echo "  $(tail -1 "$OUT/doxcheck.log")"

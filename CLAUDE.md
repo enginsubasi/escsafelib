@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All fourteen modules are implemented — 358 functions and 3653 self-checking test cases.
+All fourteen modules are implemented — 358 functions and 3691 self-checking test cases across fifteen suites.
 
 ## Working language
 
@@ -566,7 +566,25 @@ For stateful modules (from esclib, applies here as new modules gain state):
 
 `sring` is the worked example of all of it: `sringu8_t` holds every field, `driver` is the first parameter of all twelve functions, the buffer is handed to `sringInitu8`, the names are `sringInitu8` / `sringPutu8` / `sringGetu8` / `sringCountu8`, the type suffix is there because the module is width-specific, and the memory barrier — the one piece of processor behaviour it needs — is a function pointer stored at `Init` instead of a call into a HAL. Copy its shape when adding a stateful module.
 
-The other five modules are stateless and take their buffers and capacities directly instead.
+Six modules now hold state and all six refuse a driver that never went
+through `Init`, through a static `isReady` helper: `sring`, `sscale`,
+`sfault`, `sstate`, `swatch` and `sfilter`. **Five of them report that as
+`*_NULLPTR` and `sfilter` reports `SF_INVALIDSIZE`, which is deliberate and
+stays that way.** A zeroed `sfilteravg_t` has both a NULL buffer and a
+capacity of zero, and for a moving average the size is the more useful of
+the two things to name; changing a verified module's contract for cosmetic
+consistency buys nothing and costs every existing call site. The difference
+is recorded here so that the next stateful module copies one of them on
+purpose rather than by accident: **use `*_NULLPTR` unless there is a reason
+like `sfilter`'s.**
+
+The check catches a driver in static storage that the C startup zeroed. It
+cannot catch one in automatic storage that was never initialised, and no
+check in C can; every one of the six says so in its own `@note` rather than
+implying more.
+
+The remaining modules are stateless and take their buffers and capacities
+directly instead.
 
 ## Header contract
 
