@@ -418,6 +418,17 @@ static void testu8 ( void )
     expectStatus ( "u8 count: no match", sarrayCountu8 ( a, 8, 77, &hits ), SA_OK );
     expectU32 ( "u8 count: no match is zero not an error", hits, 0 );
 
+    /* A match at the very first element. Every other case here has its
+       matches away from the start, so a scan beginning at one instead of
+       zero counted correctly and nothing noticed. */
+    a[ 0 ] = 99;
+    expectStatus ( "u8 count: a match at the first element",
+                   sarrayCountu8 ( a, 8, 99, &hits ), SA_OK );
+    expectU32 ( "u8 count: it is counted like any other", hits, 3 );
+    expectStatus ( "u8 count: only the first element",
+                   sarrayCountu8 ( a, 1, 99, &hits ), SA_OK );
+    expectU32 ( "u8 count: one", hits, 1 );
+
     expectStatus ( "u8 find: zero capacity", sarrayFindu8 ( a, 0, 99, &index ), SA_INVALIDSIZE );
 
     /* ---- IsSorted ---- */
@@ -1068,6 +1079,17 @@ static void testu16 ( void )
     expectStatus ( "u16 count: no match", sarrayCountu16 ( a, 8, 77, &hits ), SA_OK );
     expectU32 ( "u16 count: no match is zero not an error", hits, 0 );
 
+    /* A match at the very first element. Every other case here has its
+       matches away from the start, so a scan beginning at one instead of
+       zero counted correctly and nothing noticed. */
+    a[ 0 ] = 99;
+    expectStatus ( "u16 count: a match at the first element",
+                   sarrayCountu16 ( a, 8, 99, &hits ), SA_OK );
+    expectU32 ( "u16 count: it is counted like any other", hits, 3 );
+    expectStatus ( "u16 count: only the first element",
+                   sarrayCountu16 ( a, 1, 99, &hits ), SA_OK );
+    expectU32 ( "u16 count: one", hits, 1 );
+
     expectStatus ( "u16 find: zero capacity", sarrayFindu16 ( a, 0, 99, &index ), SA_INVALIDSIZE );
 
     /* ---- IsSorted ---- */
@@ -1717,6 +1739,17 @@ static void testu32 ( void )
     expectU32 ( "u32 count: two matches result", hits, 2 );
     expectStatus ( "u32 count: no match", sarrayCountu32 ( a, 8, 77, &hits ), SA_OK );
     expectU32 ( "u32 count: no match is zero not an error", hits, 0 );
+
+    /* A match at the very first element. Every other case here has its
+       matches away from the start, so a scan beginning at one instead of
+       zero counted correctly and nothing noticed. */
+    a[ 0 ] = 99;
+    expectStatus ( "u32 count: a match at the first element",
+                   sarrayCountu32 ( a, 8, 99, &hits ), SA_OK );
+    expectU32 ( "u32 count: it is counted like any other", hits, 3 );
+    expectStatus ( "u32 count: only the first element",
+                   sarrayCountu32 ( a, 1, 99, &hits ), SA_OK );
+    expectU32 ( "u32 count: one", hits, 1 );
 
     expectStatus ( "u32 find: zero capacity", sarrayFindu32 ( a, 0, 99, &index ), SA_INVALIDSIZE );
 
@@ -2380,6 +2413,17 @@ static void testi32 ( void )
     expectU32 ( "i32 count: two matches result", hits, 2 );
     expectStatus ( "i32 count: no match", sarrayCounti32 ( a, 8, 77, &hits ), SA_OK );
     expectU32 ( "i32 count: no match is zero not an error", hits, 0 );
+
+    /* A match at the very first element. Every other case here has its
+       matches away from the start, so a scan beginning at one instead of
+       zero counted correctly and nothing noticed. */
+    a[ 0 ] = 99;
+    expectStatus ( "i32 count: a match at the first element",
+                   sarrayCounti32 ( a, 8, 99, &hits ), SA_OK );
+    expectU32 ( "i32 count: it is counted like any other", hits, 3 );
+    expectStatus ( "i32 count: only the first element",
+                   sarrayCounti32 ( a, 1, 99, &hits ), SA_OK );
+    expectU32 ( "i32 count: one", hits, 1 );
 
     expectStatus ( "i32 find: zero capacity", sarrayFindi32 ( a, 0, 99, &index ), SA_INVALIDSIZE );
 

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All fourteen modules are implemented — 358 functions and 3691 self-checking test cases across fifteen suites.
+All fourteen modules are implemented — 358 functions and 3707 self-checking test cases across fifteen suites.
 
 ## Working language
 
@@ -110,7 +110,7 @@ python tools/mutate.py svote        # one of them
 python tools/mutate.py --list
 ```
 
-**180 mutants across the fourteen modules: 161 killed, 19 equivalent, all
+**202 mutants across the fourteen modules: 183 killed, 19 equivalent, all
 accounted for.** The defects live in `tools/mutants/<module>.py`, one file
 per module, and the runner is `tools/mutate.py`. Before that they were
 throwaway scripts in a scratch directory and the numbers in this file were
@@ -119,13 +119,22 @@ can repeat.
 
 | module | killed | equivalent | module | killed | equivalent |
 |---|---|---|---|---|---|
-| `sarray` | 5 | 6 | `sring` | 13 | 1 |
+| `sarray` | 13 | 6 | `sring` | 13 | 1 |
 | `sbits` | 17 | 0 | `sscale` | 16 | 1 |
 | `sdiag` | 7 | 1 | `sstate` | 16 | 2 |
-| `sfault` | 16 | 1 | `sstring` | 7 | 4 |
+| `sfault` | 16 | 1 | `sstring` | 14 | 4 |
 | `sfilter` | 10 | 0 | `svote` | 16 | 0 |
 | `sfixed` | 10 | 0 | `swatch` | 16 | 0 |
-| `smath` | 8 | 0 | `smemory` | 4 | 3 |
+| `smath` | 15 | 0 | `smemory` | 4 | 3 |
+
+`sarray`, `smath` and `sstring` were the thinnest measurement here for a
+while: five, eight and seven real mutants against ninety two, sixty eight
+and forty one functions, where the modules written last carry one and a
+half per function. They are also the three most likely to be copied out.
+Deepening them roughly doubled each and found a real hole immediately:
+**`sarrayCount` had never been asked to count a match at the first
+element**, so a scan starting at one instead of zero answered correctly
+every time. The generated suite now counts one there.
 
 The runner separates three outcomes, and the third is why it is a tool
 rather than a number:

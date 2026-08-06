@@ -435,6 +435,17 @@ static void test${S} ( void )
     expectStatus ( "${S} count: no match", sarrayCount${S} ( a, 8, 77, &hits ), SA_OK );
     expectU32 ( "${S} count: no match is zero not an error", hits, 0 );
 
+    /* A match at the very first element. Every other case here has its
+       matches away from the start, so a scan beginning at one instead of
+       zero counted correctly and nothing noticed. */
+    a[ 0 ] = 99;
+    expectStatus ( "${S} count: a match at the first element",
+                   sarrayCount${S} ( a, 8, 99, &hits ), SA_OK );
+    expectU32 ( "${S} count: it is counted like any other", hits, 3 );
+    expectStatus ( "${S} count: only the first element",
+                   sarrayCount${S} ( a, 1, 99, &hits ), SA_OK );
+    expectU32 ( "${S} count: one", hits, 1 );
+
     expectStatus ( "${S} find: zero capacity", sarrayFind${S} ( a, 0, 99, &index ), SA_INVALIDSIZE );
 
     /* ---- IsSorted ---- */

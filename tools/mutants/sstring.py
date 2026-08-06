@@ -78,4 +78,46 @@ MUTANTS = [
         "old": '    if ( ( aSize == 0 ) || ( bSize == 0 ) )\n    {\n        retVal = FALSE;\n    }',
         "new": '    if ( ( aSize == 0 ) || ( bSize == 0 ) )\n    {\n        retVal = TRUE;\n    }',
     },
+    {
+        "id": 'M12',
+        "what": 'the reverse copies the string unchanged',
+        "old": '                    dest[ i ] = src[ ( srcLen - 1 ) - i ];',
+        "new": '                    dest[ i ] = src[ i ];',
+    },
+    {
+        "id": 'M13',
+        "what": 'the terminator is not written after a transform',
+        "old": "                for ( i = 0; i < srcLen; ++i )\n                {\n                    dest[ i ] = toUpperAscii ( src[ i ] );\n                }\n\n                dest[ srcLen ] = '\\0';",
+        "new": '                for ( i = 0; i < srcLen; ++i )\n                {\n                    dest[ i ] = toUpperAscii ( src[ i ] );\n                }\n',
+    },
+    {
+        "id": 'M14',
+        "what": 'the character search never looks at the terminator',
+        "old": '            for ( i = 0; ( i <= strLen ) && ( done == FALSE ); ++i )',
+        "new": '            for ( i = 0; ( i < strLen ) && ( done == FALSE ); ++i )',
+    },
+    {
+        "id": 'M15',
+        "what": 'the suffix test compares from the wrong offset',
+        "old": '                    if ( str[ offset + i ] != suffix[ i ] )',
+        "new": '                    if ( str[ i ] != suffix[ i ] )',
+    },
+    {
+        "id": 'M16',
+        "what": 'the digits of a number come out reversed',
+        "old": "uint8_t sstringFromU32 ( char* dest, uint32_t destSize, uint32_t value )\n{\n    uint8_t retVal = SS_OK;\n    char scratch [ 11 ];\n    uint32_t digits = 0;\n    uint32_t work = value;\n    uint32_t i = 0;\n\n    if ( dest == NULL )\n    {\n        retVal = SS_NULLPTR;\n    }\n    else if ( destSize == 0 )\n    {\n        retVal = SS_INVALIDSIZE;\n    }\n    else\n    {\n        // A 32 bit value never needs more than ten digits.\n        for ( i = 0; i < 10u; ++i )\n        {\n            if ( ( work != 0u ) || ( digits == 0u ) )\n            {\n                scratch[ digits ] = ( char ) ( '0' + ( char ) ( work % 10u ) );",
+        "new": "uint8_t sstringFromU32 ( char* dest, uint32_t destSize, uint32_t value )\n{\n    uint8_t retVal = SS_OK;\n    char scratch [ 11 ];\n    uint32_t digits = 0;\n    uint32_t work = value;\n    uint32_t i = 0;\n\n    if ( dest == NULL )\n    {\n        retVal = SS_NULLPTR;\n    }\n    else if ( destSize == 0 )\n    {\n        retVal = SS_INVALIDSIZE;\n    }\n    else\n    {\n        // A 32 bit value never needs more than ten digits.\n        for ( i = 0; i < 10u; ++i )\n        {\n            if ( ( work != 0u ) || ( digits == 0u ) )\n            {\n                scratch[ digits ] = ( char ) ( '0' + ( char ) ( work / 10u ) );",
+    },
+    {
+        "id": 'M17',
+        "what": 'a token starts at a delimiter instead of past it',
+        "old": '                if ( isInSet ( str[ i ], delims, delimsLen ) == FALSE )',
+        "new": '                if ( isInSet ( str[ i ], delims, delimsLen ) == TRUE )',
+    },
+    {
+        "id": 'M18',
+        "what": 'a token does not end at the next delimiter',
+        "old": '                    if ( isInSet ( str[ i ], delims, delimsLen ) == TRUE )',
+        "new": '                    if ( FALSE )',
+    },
 ]
