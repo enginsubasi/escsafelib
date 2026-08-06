@@ -36,6 +36,7 @@ rm -rf "$OUT"
 mkdir -p "$OUT"
 
 MODULES=(
+  "bits     sbits         SBits"
   "array    sarray        SArray"
   "diag     sdiag         SDiag"
   "fault    sfault        SFault"

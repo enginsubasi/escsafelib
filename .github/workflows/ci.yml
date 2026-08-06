@@ -164,6 +164,16 @@ jobs:
       - name: Run the swatch test program
         run: ./swatch_test
 
+      - name: Build the sbits test program
+        run: |
+          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
+            -Iinc/bits \
+            test/SBits_Test/SBits_Test.c src/bits/sbits.c \
+            -o sbits_test
+
+      - name: Run the sbits test program
+        run: ./sbits_test
+
       # The generated modules must still be exactly what their generator
       # produces. A non empty diff means somebody edited the output by hand
       # and the next generator run would silently revert it.
@@ -342,6 +352,18 @@ jobs:
       - name: Run swatch under sanitizers
         run: ./swatch_san
 
+      - name: Build sbits with sanitizers
+        run: |
+          clang -Wall -Wextra -std=c99 -g \
+            -fsanitize=address,undefined -fno-sanitize-recover=all \
+            -fno-omit-frame-pointer \
+            -Iinc/bits \
+            test/SBits_Test/SBits_Test.c src/bits/sbits.c \
+            -o sbits_san
+
+      - name: Run sbits under sanitizers
+        run: ./sbits_san
+
   cross-compile:
     name: Cross compile for ARM
     runs-on: ubuntu-latest
@@ -471,6 +493,7 @@ jobs:
             -Iinc/string -Iinc/array -Iinc/memory -Iinc/math \
             -Iinc/ring -Iinc/filter -Iinc/fixed -Iinc/diag \
             -Iinc/scale -Iinc/vote -Iinc/fault -Iinc/state -Iinc/watch \
+            -Iinc/bits \
             src/ 2>&1 | tee cppcheck.log
 
       # The MISRA addon reports rule numbers only. The rule texts are
@@ -519,6 +542,9 @@ jobs:
           cppcheck --addon=misra --std=c99 --platform=unix32 \
             --suppress=missingIncludeSystem \
             -Iinc/watch src/watch/swatch.c 2>&1 | tee -a misra.log
+          cppcheck --addon=misra --std=c99 --platform=unix32 \
+            --suppress=missingIncludeSystem \
+            -Iinc/bits src/bits/sbits.c 2>&1 | tee -a misra.log
 
       - uses: actions/upload-artifact@v4
         if: always()

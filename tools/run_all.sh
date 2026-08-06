@@ -45,6 +45,7 @@ echo "== compiler =="
 echo
 
 MODULES=(
+  "bits     sbits         SBits"
   "fixed    sfixed        SFixed"
   "filter   sfilter       SFilter"
   "string   sstring       SString"

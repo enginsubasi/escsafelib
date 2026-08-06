@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All thirteen modules are implemented — 344 functions and 3501 self-checking test cases.
+All fourteen modules are implemented — 358 functions and 3643 self-checking test cases.
 
 ## Working language
 
@@ -71,6 +71,9 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/state \
 
 python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/watch \
   test/SWatch_Test/SWatch_Test.c src/watch/swatch.c -o swatch_test && ./swatch_test
+
+python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/bits \
+  test/SBits_Test/SBits_Test.c src/bits/sbits.c -o sbits_test && ./sbits_test
 ```
 
 Run the tests before claiming anything passes. Compiling is not passing.
@@ -85,7 +88,7 @@ Use it. gcc and clang do not warn about the same things — gcc's `-Wextra` incl
 
 **gcc has no AddressSanitizer either.** MinGW-W64 ships no ASan runtime, so the control does not link. Neither host compiler on this machine can run ASan; the Ubuntu CI runner is still the only place it works, and the guard-page harnesses are still how out-of-bounds reads get proven here.
 
-All thirteen modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
+All fourteen modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
 
 ```bash
 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wcast-qual \
@@ -93,9 +96,9 @@ All thirteen modules are clean under a much stricter warning set than the projec
 -Wundef -Wwrite-strings
 ```
 
-Zero warnings across all thirteen. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
+Zero warnings across all fourteen. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
 
-A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `smath` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `sscale` against 16 of 17, `svote` against 16 of 16, `sfault` against 16 of 17, `sstate` against 16 of 18, `swatch` against 16 of 16, `sdiag` against 10 of 12.
+A suite that passes on the first run has not yet been shown to check anything. Mutate the module — flip a bounds test to off by one, delete an overflow guard, disable an overlap check — rebuild against the mutant and confirm the suite goes red. `sarray` was cleared against 6 mutants, `smemory` against 7, `smath` against 11, `sring` against 11, `sfilter` against 11, `sfixed` against 12, `sscale` against 16 of 17, `svote` against 16 of 16, `sfault` against 16 of 17, `sstate` against 16 of 18, `swatch` against 16 of 16, `sbits` against 17 of 17, `sdiag` against 10 of 12.
 
 One `svote` mutant is worth knowing about because of *how* it dies. Forming the channel spread as `highest - lowest` in 32 bits rather than 64 produces the same bits on this host, so every assertion still passes — but it is signed overflow, and **UBSan traps it**. The suite is run under `-fsanitize=undefined -fsanitize-trap=undefined` by `tools/run_all.sh` and by CI, so the sanitizer is part of the kill criterion and not an extra. A mutant that only the sanitizer catches is still killed; one that nothing catches is a hole.
 
@@ -273,7 +276,7 @@ test/<Name>_Test/<Name>_Test.c                        self-checking test main
 template/inc/generic.h, template/src/generic.c        copy these to start a new module
 ```
 
-Domains: `array`, `diag`, `fault`, `filter`, `fixed`, `math`, `memory`, `ring`, `scale`, `state`, `string`, `vote`, `watch`.
+Domains: `array`, `bits`, `diag`, `fault`, `filter`, `fixed`, `math`, `memory`, `ring`, `scale`, `state`, `string`, `vote`, `watch`.
 
 **A module is named after its domain directory with an `s` in front, without
 exception.** `array`/`sarray`, `diag`/`sdiag`, `math`/`smath`, and so on. Two
@@ -295,7 +298,7 @@ to compile in one translation unit and CI checks it:
 | `SF_` | `sfilter` | `SH_` | `smath` (`SM_` was taken) |
 | `SM_` | `smemory` | `SV_` | `svote` |
 | `SU_` | `sfault` (`SF_` was taken) | `ST_` | `sstate` |
-| `SW_` | `swatch` | | |
+| `SW_` | `swatch` | `SB_` | `sbits` |
 
 Two prefixes could not be the obvious abbreviation. `sfixed` takes the `X` of
 fi**x**ed because `sfilter` already held `SF_`, and `smath` takes the `H` of
@@ -303,7 +306,7 @@ mat**h** because `smemory` already held `SM_`. `SM_` was deliberately left
 with `smemory` rather than moved: renaming a shipped module's prefix to free
 a letter is churn paid by every existing call site.
 
-All thirteen modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
+All fourteen modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
 
 `sarray` is 92 functions: twenty three operations repeated across four element families, `uint8_t`, `uint16_t`, `uint32_t` and `int32_t`. Two things about it differ from `sstring` and will bite if forgotten:
 
@@ -407,6 +410,17 @@ Three more things:
 - **A missed deadline latches.** The supervised thing was not there when it should have been, and whatever depended on it has already been running on stale information. `swatchStart` resumes; the module does not recover on its own.
 
 `swatchRemaining` reports zero past the deadline rather than a wrapped negative, and deliberately does not expire the watch: a query that changed the state would make the diagnosis depend on who looked.
+
+`sbits` is 14 functions of bit field packing, in a word and across a byte array. A protocol frame is a row of bit fields, and unpacking one by hand is three lines of shifting and masking that nobody reviews and everybody copies.
+
+Two rules hold it together, and both are about undefined or implementation-defined behaviour rather than about arithmetic:
+
+- **There is no shift by the width of the type.** `1u << 32` is undefined behaviour, not a way of writing zero, and it is where hand written bit field code goes wrong: a field the full width of the word produces a mask the standard does not define, and the answer depends on the part. It typically gives the right result on one and zero on another, so it survives every test run on the wrong machine. `lowMask` handles the full width case on its own.
+- **There is no right shift of a signed value**, the same rule as `sfixed`. Sign extension is done by subtracting the width's modulus in `int64_t`, which the standard defines completely, and a negative value is packed by *adding* that modulus rather than by masking a signed value — bitwise operations on a negative signed value describe its representation, not its value.
+
+The byte array form numbers bits from the least significant bit of the first byte, which is what CAN calls Intel format. **The module offers no other ordering on purpose:** a bit ordering guessed differently at the two ends of a link is a fault that looks like corrupted data. It moves one bit at a time rather than assembling whole bytes and shifting the ends into place, because at 32 bits the difference is a handful of instructions and the straddling errors all live in the faster version.
+
+The writer checks the size, the position, the width *and* the value before it writes a single bit. A frame carrying half of a new signal and half of an old one is worse than one carrying neither.
 
 `smemory` is 17 functions, the untyped half of the library: bounded replacements for the `mem` family of `<string.h>`. **The line between it and `sarray` is whether the operation has to know what the bytes mean.** Copy, move, set, compare and search do not, so they take a `void*` and live here. A sum, a minimum or an ordering by magnitude does, so it lives in `sarray`. When adding a function, that question decides the module — do not add a typed operation to `smemory` or a byte-blind one to `sarray`.
 
