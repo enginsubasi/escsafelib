@@ -506,6 +506,27 @@ jobs:
         run: |
           CC=gcc UBSANCC=clang python3 tools/mutate.py
 
+  size:
+    name: What each module costs on a target (reporting)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the ARM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi
+
+      # Reporting, because the number is information rather than a gate:
+      # what counts as too big is the integrator's budget and not ours.
+      # It does assert one thing, though. Every module must show .data and
+      # .bss of zero, because this library has no module state anywhere,
+      # and a number other than zero means somebody added some.
+      - name: Measure it
+        run: bash tools/size.sh
+
   coverage:
     name: Statement and branch coverage (reporting)
     runs-on: ubuntu-latest

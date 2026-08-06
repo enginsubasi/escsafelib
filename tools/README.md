@@ -173,6 +173,31 @@ wrote, which wants a test, or a defensive branch the API cannot reach, which
 wants a comment saying why. Telling the two apart is the whole exercise, and
 it is what turned the first run into four real holes rather than a number.
 
+## size.sh
+
+What each module costs on a target, for two cores.
+
+```bash
+bash tools/size.sh
+```
+
+The first question an integrator asks about an embedded library, and the
+repository could not answer it before this. The whole of it is about 23 KB
+of flash on a Cortex-M0+ and 21 KB on a Cortex-M4.
+
+**The numbers are upper bounds.** Each module is compiled whole and
+measured as one object, so the figure covers every function in it whether a
+caller uses them or not. With `-ffunction-sections` and `--gc-sections` a
+project that calls four of `sarray`'s ninety two functions pays for four.
+Read the table as the cost of taking a whole module, which is the worst
+case and the easy one to compare.
+
+It also checks something rather than only reporting it. **Every module must
+show `.data` and `.bss` of zero**, because there is no module state
+anywhere in this library, and a number other than zero in either column
+means somebody added some. That invariant was stated in `CLAUDE.md` from
+the beginning and measured for the first time here.
+
 ## doxcheck.py
 
 Not a generator. It checks the Doxygen comments in every `.c` against the

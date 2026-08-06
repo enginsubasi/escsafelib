@@ -209,17 +209,27 @@ PATH="/c/Program Files/CodeBlocks/MinGW/bin:$PATH" bash tools/coverage.sh gcc
 
 What that first run found, and what closing it cost:
 
-| module | branches taken, before | after |
-|---|---|---|
-| `sarray` | 79.4% | 97.2% |
-| `smemory` | 81.7% | 90.4% |
-| `sdiag` | 82.2% | 84.2% |
-| `sstring` | 83.0% | 88.3% |
-| `sfixed` | 86.0% | 94.7% |
-| `sscale` | 89.9% | 90.8% |
-| `smath` | 91.3% | 97.0% |
-| `sring` | 91.5% | 91.5% |
-| `sfilter` | 92.3% | 94.6% |
+| module | branches taken, before | now | lines now |
+|---|---|---|---|
+| `sarray` | 79.4% | 97.2% | 99.0% |
+| `smemory` | 81.7% | 90.4% | 99.4% |
+| `sdiag` | 82.2% | 84.2% | 91.0% |
+| `sstring` | 83.0% | 88.3% | 99.8% |
+| `sfixed` | 86.0% | 94.7% | 100% |
+| `sscale` | 89.9% | 90.8% | 97.2% |
+| `smath` | 91.3% | 97.0% | 98.9% |
+| `sring` | 91.5% | 91.5% | 99.5% |
+| `sfilter` | 92.3% | 94.6% | 100% |
+| `sbits` | — | 99.0% | 100% |
+| `sfault` | — | 95.6% | 100% |
+| `sstate` | — | 97.5% | 99.5% |
+| `svote` | — | 98.4% | 100% |
+| `swatch` | — | **100%** | 100% |
+
+The "now" column includes the integration suite, which `coverage.sh` links
+against nine of the modules and counts. That is what took `swatch` to every
+branch and `sfault` to 95.6%: a chain exercises paths a module's own suite
+has no reason to reach.
 
 Four of the holes were ones a broken module would have survived, and they are
 the reason to measure rather than assume:
@@ -570,7 +580,7 @@ Beyond the shared esclib style, this library adds:
 - No dynamic allocation, ever. The caller owns all storage.
 - No `<string.h>`, no `<ctype.h>`, no `<stdlib.h>`. Only `<stdint.h>` and `<stddef.h>`.
 - Failure is reported through the return value. No abort, no assert, no logging.
-- No module state, so every function is reentrant.
+- No module state, so every function is reentrant. **`tools/size.sh` measures this rather than trusting it**: every module is required to show `.data` and `.bss` of zero and the script goes red otherwise. All fourteen do. The whole library is about 23 KB of flash on a Cortex-M0+ and 21 KB on a Cortex-M4, measured whole, which is an upper bound because a project linking with `--gc-sections` pays only for the functions it calls.
 
 ## The driver-struct pattern
 
