@@ -20,7 +20,8 @@ TYPES = [
 
 # ---------------------------------------------------------------- header
 
-HEADER_HEAD = """#ifndef SARRAY_H_
+HEADER_HEAD = """/* SPDX-License-Identifier: GPL-3.0-or-later */
+#ifndef SARRAY_H_
 #define SARRAY_H_
 
 #ifdef __cplusplus
@@ -110,6 +111,9 @@ SOURCE_HEAD = r"""/**
   * @date      04/08/2026
   *
   * @brief     Safe array handling function library file.
+  *
+  * @par License
+  * SPDX-License-Identifier: GPL-3.0-or-later
   *
   * @par Device
   * Generic

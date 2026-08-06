@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 #ifndef SMEMORY_H_
 #define SMEMORY_H_
 

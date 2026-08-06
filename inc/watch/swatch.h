@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 #ifndef SWATCH_H_
 #define SWATCH_H_
 

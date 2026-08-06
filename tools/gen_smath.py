@@ -29,7 +29,8 @@ TYPES = [
 
 # ---------------------------------------------------------------- header
 
-HEADER_HEAD = """#ifndef SMATH_H_
+HEADER_HEAD = """/* SPDX-License-Identifier: GPL-3.0-or-later */
+#ifndef SMATH_H_
 #define SMATH_H_
 
 #ifdef __cplusplus
@@ -120,6 +121,9 @@ SOURCE_HEAD = r"""/**
   * @date      05/08/2026
   *
   * @brief     Safe basic arithmetic function library file.
+  *
+  * @par License
+  * SPDX-License-Identifier: GPL-3.0-or-later
   *
   * @par Device
   * Generic

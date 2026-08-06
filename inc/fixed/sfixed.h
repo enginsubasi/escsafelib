@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 #ifndef SFIXED_H_
 #define SFIXED_H_
 

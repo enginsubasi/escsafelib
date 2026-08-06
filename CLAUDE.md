@@ -541,6 +541,12 @@ Modules are **fully independent**: every `.c` includes only its own header plus 
 
 Start a new module by copying `template/`, never by copying an existing module.
 
+## Licence
+
+GPL-3.0-or-later. **Every header carries `/* SPDX-License-Identifier: GPL-3.0-or-later */` as its first line and every source carries a `@par License` block in its banner**, because a module is consumed by copying its pair out and a licence named only in this repository does not travel with the copy. `tools/doxcheck.py` enforces both, so a new module cannot ship without them; `template/` already has them, which is another reason to start there.
+
+The verbatim licence text is **not** in the repository yet and belongs in a file named `LICENSE`, taken exactly from <https://www.gnu.org/licenses/gpl-3.0.txt>. It is missing on purpose rather than by oversight: a copy of the GPL is only the GPL if it is exact, and one written out from memory that differs by a clause is a different licence wearing the same name. `COPYING.md` records that and everything else about the licence.
+
 ## Safety rules
 
 Beyond the shared esclib style, this library adds:

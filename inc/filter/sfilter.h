@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 #ifndef SFILTER_H_
 #define SFILTER_H_
 

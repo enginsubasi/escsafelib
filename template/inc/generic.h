@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 #ifndef GENERIC_H_
 #define GENERIC_H_
 

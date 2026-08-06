@@ -157,6 +157,14 @@ def check_banner(path, text, head):
     if not text.startswith("/**"):
         report(path, 1, "banner", "file does not open with a /** block")
 
+    # A module is consumed by copying its pair into another project, so a
+    # licence named only in this repository's documentation does not travel
+    # with it. Only the files that get copied are checked; a test program
+    # stays here.
+    if ("src" + os.sep) in path:
+        if "SPDX-License-Identifier" not in head:
+            report(path, 1, "licence", "banner has no SPDX-License-Identifier")
+
     for tag in BANNER_TAGS + ["@par Device", "@par History"]:
         if tag not in head:
             report(path, 1, "banner", "banner has no %s" % tag)
@@ -353,6 +361,9 @@ def check_source(path):
 
 def check_header(path):
     text = io.open(path, encoding="utf-8").read()
+
+    if "SPDX-License-Identifier" not in text:
+        report(path, 1, "licence", "header has no SPDX-License-Identifier")
 
     if "/**" in text:
         report(path, text[: text.find("/**")].count("\n") + 1,

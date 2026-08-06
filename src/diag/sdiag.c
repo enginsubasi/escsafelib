@@ -8,6 +8,9 @@
   *
   * @brief     Self diagnostic function library file without hardware dependencies.
   *
+  * @par License
+  * SPDX-License-Identifier: GPL-3.0-or-later
+  *
   * @par Device
   * Generic
   *

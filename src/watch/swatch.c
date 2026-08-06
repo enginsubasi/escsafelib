@@ -8,6 +8,9 @@
   *
   * @brief     Safe deadline and liveness supervision function library file.
   *
+  * @par License
+  * SPDX-License-Identifier: GPL-3.0-or-later
+  *
   * @par Device
   * Generic
   *

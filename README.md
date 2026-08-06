@@ -251,6 +251,14 @@ the `sring` barrier, or the real timing of the constant time comparison in
 Treat host verification as what it is. An integrator putting this on a
 target owns the on target validation.
 
+# Licence
+
+GPL-3.0-or-later. Every header and every source carries an
+`SPDX-License-Identifier`, because this library is consumed by copying a
+pair of files into another project and a licence named only here would not
+travel with them. See `COPYING.md`, which also says what the licence means
+for a product that ships one of these modules.
+
 # Coding Reference
 
 The library coding references are defined in codingReference.md file.
