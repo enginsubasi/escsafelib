@@ -330,6 +330,32 @@ static void testEma ( void )
     ( void ) sfilterEmaGet ( &filter, &value );
     expectI32 ( "ema: starts at the initial value", value, 500 );
 
+    /* A negative starting value. Scaling it by 2^shift with a left shift is
+       undefined behaviour in C99 for a negative operand; the sanitizer build
+       traps here if that construct ever comes back. Both ends of the type
+       and the largest shift are the cases where the scaled value is
+       furthest from zero. */
+    ( void ) sfilterEmaInit ( &filter, 4, -500 );
+    ( void ) sfilterEmaGet ( &filter, &value );
+    expectI32 ( "ema: starts at a negative initial value", value, -500 );
+
+    ( void ) sfilterEmaInit ( &filter, ( uint8_t ) SF_EMA_MAX_SHIFT, INT32_MIN );
+    ( void ) sfilterEmaGet ( &filter, &value );
+    expectI32 ( "ema: starts at INT32_MIN with the largest shift", value, INT32_MIN );
+
+    ( void ) sfilterEmaInit ( &filter, ( uint8_t ) SF_EMA_MAX_SHIFT, INT32_MAX );
+    ( void ) sfilterEmaGet ( &filter, &value );
+    expectI32 ( "ema: starts at INT32_MAX with the largest shift", value, INT32_MAX );
+
+    ( void ) sfilterEmaInit ( &filter, 5, -3000 );
+
+    for ( i = 0; i < 2000u; ++i )
+    {
+        ( void ) sfilterEmaUpdate ( &filter, 1000, &value );
+    }
+
+    expectI32 ( "ema: climbs out of a negative initial value exactly", value, 1000 );
+
     /* The case that matters: a constant input must be reached exactly. An
        integer filter without the fractional accumulator stops short of it
        and stays there. */

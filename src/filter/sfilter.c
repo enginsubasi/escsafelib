@@ -3,8 +3,8 @@
   *
   * @file      sfilter.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      04/11/2026
   *
   * @brief     Safe signal conditioning function library file.
   *
@@ -17,6 +17,8 @@
   * @par History
   * 05/08/2026 Created. Moving average, exponential moving average, @n
   *            debounce, slew limit, hysteresis and median. @n
+  * 04/11/2026 sfilterEmaInit scales a negative initial value by @n
+  *            multiplication; the left shift it used was undefined. @n
   *
   * @note
   * Every sample in this module is an int32_t, whatever the sensor produced.
@@ -306,7 +308,11 @@ uint8_t sfilterEmaInit ( sfilterema_t* driver, uint8_t shift, int32_t initial )
     else
     {
         driver->shift = shift;
-        driver->accumulator = ( ( int64_t ) initial ) << shift;
+        /* Scaled by multiplication, not by a left shift: shifting a
+           negative value left is undefined behaviour in C99. The factor is
+           formed unsigned, where the shift is always defined, and the
+           product is at most 2^31 * 2^16, well inside int64_t. */
+        driver->accumulator = ( int64_t ) initial * ( int64_t ) ( ( uint64_t ) 1u << shift );
         retVal = SF_OK;
     }
 

@@ -13,7 +13,7 @@ MUTANTS = [
     {
         "id": 'M2',
         "what": 'the exponential filter keeps no fraction',
-        "old": '        driver->accumulator = ( ( int64_t ) initial ) << shift;',
+        "old": '        driver->accumulator = ( int64_t ) initial * ( int64_t ) ( ( uint64_t ) 1u << shift );',
         "new": '        driver->accumulator = ( int64_t ) initial;',
     },
     {
@@ -63,5 +63,12 @@ MUTANTS = [
         "what": 'the unready guard on the moving average is dropped',
         "old": '    else if ( ( driver->buffer == NULL ) || ( driver->capacity == 0 ) )',
         "new": '    else if ( FALSE )',
+    },
+    {
+        "id": 'M11',
+        "what": 'the exponential filter scales its start by a signed left shift',
+        "ubsan": True,
+        "old": '        driver->accumulator = ( int64_t ) initial * ( int64_t ) ( ( uint64_t ) 1u << shift );',
+        "new": '        driver->accumulator = ( ( int64_t ) initial ) << shift;',
     },
 ]
