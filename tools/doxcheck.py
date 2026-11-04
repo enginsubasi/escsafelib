@@ -2,9 +2,9 @@
 """Check the Doxygen comments across escsafelib against this repository's own
 convention.
 
-It exists because doxygen is not installed on the development machine, and
-because the two things most worth checking are ones doxygen would not check
-even if it were:
+It was written when doxygen was not available on the development machine,
+and it stays because the things most worth checking are ones doxygen does
+not check:
 
   - that a @param list matches the signature, which doxygen only reports
     with WARN_NO_PARAMDOC and only in one direction;
@@ -43,6 +43,9 @@ What it enforces, from CLAUDE.md and codingReference.md:
               and every status @return names can really be set
   tag         no tag outside the agreed set, which catches misspellings
   header      headers carry no doxygen at all
+  struct      every struct a header declares has a @struct block in the
+              paired source, with exactly one @var per member and none for
+              a member that is not there
 
 Two things it deliberately accepts:
 
@@ -69,6 +72,7 @@ BANNER_TAGS = ["@file", "@author", "@version", "@date", "@brief"]
 KNOWN_TAGS = {
     "@file", "@author", "@version", "@date", "@brief", "@par", "@note",
     "@param", "@return", "@n", "@warning", "@details", "@see",
+    "@struct", "@var",
 }
 
 findings = []
@@ -372,6 +376,69 @@ def check_header(path):
     for tag in ("@brief", "@param", "@return", "@file"):
         if tag in text:
             report(path, 1, "header", "header carries %s" % tag)
+
+    check_structs(path, text)
+
+
+def struct_members(text):
+    """The typedef'd structs of a header, as (name, line, [members])."""
+    clean = re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group(0).count("\n"),
+                   text, flags=re.S)
+    clean = re.sub(r"//[^\n]*", "", clean)
+    found = []
+    for m in re.finditer(r"typedef\s+struct\s*\w*\s*\{(.*?)\}\s*(\w+)\s*;",
+                         clean, re.S):
+        members = []
+        for decl in m.group(1).split(";"):
+            decl = decl.strip()
+            if decl:
+                members.append(re.findall(r"\w+", decl.split("[")[0])[-1])
+        found.append((m.group(2), clean[: m.start()].count("\n") + 1, members))
+    return found
+
+
+def check_structs(path, text):
+    """Every struct a header declares is documented in its own source.
+
+    Headers stay pure declarations, so the documentation lives in the
+    paired .c as a @struct block with one @var per member. Doxygen reports
+    a missing one as an undocumented compound or member; this reports it
+    without needing doxygen, and also reports a @var naming a member the
+    struct does not have, which doxygen silently ignores.
+    """
+    structs = struct_members(text)
+    if not structs:
+        return
+
+    # inc/<domain>/<name>.h pairs with src/<domain>/<name>.c, and the
+    # template's inc/<name>.h with src/<name>.c.
+    head, name = os.path.split(path)
+    if os.path.basename(head) == "inc":
+        source = os.path.join(os.path.dirname(head), "src", name[:-2] + ".c")
+    else:
+        source = os.path.join(os.path.dirname(os.path.dirname(head)), "src",
+                              os.path.basename(head), name[:-2] + ".c")
+    if not os.path.isfile(source):
+        report(path, structs[0][1], "struct",
+               "declares a struct and has no paired source to document it in")
+        return
+
+    body = io.open(source, encoding="utf-8").read()
+
+    for sname, line, members in structs:
+        if not re.search(r"@struct\s+%s\b" % re.escape(sname), body):
+            report(path, line, "struct",
+                   "%s has no @struct block in %s" % (sname, os.path.basename(source)))
+        documented = re.findall(r"@var\s+%s::(\w+)" % re.escape(sname), body)
+        for member in members:
+            if documented.count(member) != 1:
+                report(path, line, "struct",
+                       "%s::%s is documented %d times, not once"
+                       % (sname, member, documented.count(member)))
+        for extra in sorted(set(documented) - set(members)):
+            report(path, line, "struct",
+                   "@var %s::%s names a member the struct does not have"
+                   % (sname, extra))
 
 
 def main():

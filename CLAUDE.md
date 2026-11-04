@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All fourteen modules are implemented — 358 functions and 3707 self-checking test cases across fifteen suites.
+All fourteen modules are implemented — 358 functions and 3711 self-checking test cases across fifteen suites.
 
 ## Working language
 
@@ -86,6 +86,31 @@ PATH="/c/Program Files/CodeBlocks/MinGW/bin:$PATH" gcc --version
 
 Use it. gcc and clang do not warn about the same things — gcc's `-Wextra` includes `-Wtype-limits`, which clang does not implement the same way, and that difference has already caught dead code in a generated test that clang passed silently. (There is a second `gcc.exe` at `C:\Program Files (x86)\STMicroelectronics\...\MinGW`; it is version 4.5.0 from 2010 and does not support C99. Ignore it.)
 
+A third toolset is installed through winget as **WinLibs**: gcc 16.1.0,
+**cppcheck 2.21.0** and **doxygen 1.17.0**, in
+
+```
+C:\Users\engin\AppData\Local\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\mingw64\bin
+```
+
+It is not on `PATH` either. Until 04/11/2026 this file said cppcheck and
+doxygen did not exist here; they did, and the first run of each found
+something (see "Static analysis and MISRA" below). gcc 16 is clean under
+the strict warning set and under `-fanalyzer`, with a control for each.
+
+**cppcheck's `--addon=misra` silently does nothing on this machine.** It
+prints `Checking ...`, reports no violation and returns zero for every
+module, including a control file built to break five rules. Run the addon
+by hand instead, through a dump file, and run the control first:
+
+```bash
+cppcheck --dump --std=c99 --platform=unix32 -Iinc/<domain> <copy of the .c>
+python <WinLibs>/share/Cppcheck/addons/misra.py <copy of the .c>.dump
+```
+
+Do it on a copy in the scratchpad: `--dump` writes the `.dump` file next to
+its input.
+
 **gcc has no AddressSanitizer either.** MinGW-W64 ships no ASan runtime, so the control does not link. Neither host compiler on this machine can run ASan; the Ubuntu CI runner is still the only place it works, and the guard-page harnesses are still how out-of-bounds reads get proven here.
 
 All fourteen modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
@@ -110,7 +135,7 @@ python tools/mutate.py svote        # one of them
 python tools/mutate.py --list
 ```
 
-**202 mutants across the fourteen modules: 183 killed, 19 equivalent, all
+**203 mutants across the fourteen modules: 184 killed, 19 equivalent, all
 accounted for.** The defects live in `tools/mutants/<module>.py`, one file
 per module, and the runner is `tools/mutate.py`. Before that they were
 throwaway scripts in a scratch directory and the numbers in this file were
@@ -123,7 +148,7 @@ can repeat.
 | `sbits` | 17 | 0 | `sscale` | 16 | 1 |
 | `sdiag` | 7 | 1 | `sstate` | 16 | 2 |
 | `sfault` | 16 | 1 | `sstring` | 14 | 4 |
-| `sfilter` | 10 | 0 | `svote` | 16 | 0 |
+| `sfilter` | 11 | 0 | `svote` | 16 | 0 |
 | `sfixed` | 10 | 0 | `swatch` | 16 | 0 |
 | `smath` | 15 | 0 | `smemory` | 4 | 3 |
 
@@ -306,7 +331,41 @@ Three things cannot be verified on this machine, and no claim should be made abo
   What that costs is narrow but real, and it should be stated rather than glossed. The suites cannot see: unaligned access faults (`sarray` and `sdiag` take typed pointers partly to make this the compiler's problem, but a caller can still hand over a misaligned buffer); anything that depends on the target's actual word size or padding; the memory-ordering assumption in `sring`, whose whole barrier argument is about a processor this code has never run on; and the real timing of `smemoryEqualSecure`, which is constant in comparison count but was never measured on a core with a cache.
 
   Do not write "verified on ARM" anywhere. An integrator putting this on a target owns that validation, and the honest claim is that the logic is verified on a host and the code builds clean for the target.
-- **cppcheck, MISRA and doxygen.** None of the three is installed, and there is no `gh` to read the CI results back. Two MISRA deviations are recorded by hand (Rule 11.4 in `sstring`/`sarray`/`smemory`, Rule 11.5 in `smemory`/`sdiag`); no checker has confirmed there are only two.
+- **The CI logs.** There is no `gh`, and the public API refuses job logs and artifacts without admin rights. A job's *conclusion* is public, which is why every reporting job now fails on a finding instead of printing it: the verdict is then readable without the log.
+
+## Static analysis and MISRA
+
+cppcheck's general checks are clean with three style checks suppressed,
+because each contradicts the convention rather than finds anything:
+`variableScope` (locals are declared at the top of a function),
+`unreadVariable` (locals are initialised where they are declared) and
+`staticFunction` (a public function the module also calls itself). One
+finding is suppressed inline in `sdiag.c`: cppcheck does not model
+`volatile`, so it reads the March test's read back as always false.
+
+The first real MISRA run, on 04/11/2026, reported 737 hits in eight rules,
+all in the 10.x and 11.x families, and **one of them was a real defect**:
+`sfilterEmaInit` scaled its initial value with `( int64_t ) initial << shift`,
+which is undefined behaviour for a negative value. No case had ever started
+the filter below zero. UBSan traps it, the suite now starts it at -500,
+`INT32_MIN` and `INT32_MAX`, and `sfilter` M11 puts the shift back to prove
+the suite sees it.
+
+What remains is a decision, not a defect, and is the owner's to take:
+
+| rule | hits | what it is |
+|---|---|---|
+| 10.4 | 636 | a `uint8_t` status compared with an enum member, `TRUE`/`FALSE`, or a signed literal such as `0` |
+| 11.5 | 25 | `void*` to `unsigned char*`, the recorded `smemory`/`sdiag` deviation |
+| 10.8 | 10 | a composite expression cast to a wider or different type |
+| 11.4 | 10 | pointer to integer in the overlap checks, the recorded deviation |
+| 11.6 | 10 | the same overlap checks, `void*` to `uintptr_t`: 11.4's twin, not yet recorded |
+| 10.1 | 9 | shift of a signed value; the positive `1 << n` forms are defined, `sfilter`'s documented right shift is the only real one |
+| 10.2 | 4 | character arithmetic in `sstring`'s number formatting |
+| 10.7 | 3 | `sbits` mixing widths in a shift |
+
+The MISRA step in CI fails until these are either fixed or recorded as
+deviations and suppressed.
 
 Static analysis, using the analyzer built into the ARM compiler:
 
@@ -326,7 +385,9 @@ Cleaning it up needs care, because the ordinary ways of checking for it lie:
 `.github/workflows/ci.yml` runs on every push and pull request to `main`. It is split into two tiers on purpose:
 
 - **Blocking** — `test` (gcc and clang, builds and runs the suite), `sanitizers` (ASan and UBSan, which is where AddressSanitizer actually works), `cross-compile` (arm-none-eabi build, `-fanalyzer`, and the header coexistence check). Every one of these was verified locally before the workflow was written, so a red result is a real regression.
-- **Reporting** (`continue-on-error: true`) — `cppcheck` including the MISRA addon, `host-analyzer` (a newer gcc analyzer than the local arm one), and `docs` (doxygen). None of these tools exist on the development machine, so their first run is a discovery, not a gate. **Flip a reporting job to blocking once a run comes back clean**; until then do not claim the repo is cppcheck-clean, MISRA-checked, or doxygen-warning-free.
+- **Reporting** (`continue-on-error: true`) — `cppcheck` including the MISRA addon, `host-analyzer`, `docs` (doxygen), and the mutation, size and coverage measurements. **Until 04/11/2026 the first three were green whatever they found**: cppcheck piped into `tee`, doxygen only printed its warnings, and the analyzer had no `-Werror`. A green result from those runs proves nothing. Each now exits non zero on a finding and is preceded by a control step that must produce one, so a tool that silently did not run fails rather than passes.
+
+  All three are clean on this machine with newer tool versions than CI's (cppcheck 2.21, doxygen 1.17, gcc 16). The MISRA step is not clean and is not meant to be yet: see "Static analysis and MISRA" below. **Flip a reporting job to blocking once a CI run of it comes back clean**, and read that from the job conclusion, not from the absence of a red workflow.
 
 The MISRA addon prints rule numbers without descriptions, because the rule texts are copyrighted and cannot ship. `misra-c2012-11.4` is expected: it is the pointer-to-integer conversion in `isOverlapping`, already recorded as a deviation in the `sstring.c` banner.
 
@@ -347,7 +408,7 @@ echo "int main(void){return 0;}" >> /tmp/allhdr.c
 arm-none-eabi-gcc -c -Wall $(for d in inc/*/; do echo -n " -I$d"; done) /tmp/allhdr.c -o /dev/null
 ```
 
-Doxygen is not installed here, so `Doxyfile` ships unverified; `WARN_NO_PARAMDOC = YES` is what turns the comment convention into a tool enforced rule when the owner runs it.
+`Doxyfile` produced sixty warnings on its first run, every one an undocumented struct or member: headers stay pure declarations, and nothing documented the structs anywhere else. They are now documented in the paired `.c` with a `@struct` block carrying one `@var` per member, the run is warning free, and `tools/doxcheck.py` enforces the same rule so it holds without doxygen. `template/src/generic.c` shows the form. **Never write `@var` or `@struct` in a banner history line** — doxygen parses it as a command and reports a symbol that does not exist.
 
 `tools/apicheck.py` is the other half of the same idea and checks the
 declarations rather than the comments. Seven rules, and the first is the one
@@ -361,7 +422,7 @@ prototype names a bare `int`. 357 declarations, no findings. A pointer to a
 module's own driver struct is exempt, and those types are read out of each
 header's typedefs so a new module needs no change to the tool.
 
-`tools/doxcheck.py` covers the gap in the meantime, and covers more than doxygen would. It checks every `.c` in the tree — 488 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, and unknown tags. It is a blocking CI job because it runs clean here.
+`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 657 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
 
 **Its most useful rule is one doxygen has no concept of: a `@return` must name every status the body can set, and no status it cannot.** That is what found the only real defect the first full audit turned up. The four `smath` families share one template, so the unsigned ones had inherited the signed text and promised an `SH_UNDERFLOW` that an unsigned addition cannot produce and an `SH_OVERFLOW` that an unsigned subtraction cannot — a caller testing for either was writing a branch that never runs.
 

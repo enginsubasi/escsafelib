@@ -201,8 +201,8 @@ the beginning and measured for the first time here.
 ## doxcheck.py
 
 Not a generator. It checks the Doxygen comments in every `.c` against the
-convention, and it exists because doxygen is not installed on the
-development machine and because the two checks worth most are ones
+convention. It was written when doxygen was not available on the
+development machine, and it stays because the checks worth most are ones
 doxygen would not make anyway:
 
 - a `@param` list has to match the signature in both directions, not just

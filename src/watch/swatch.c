@@ -3,8 +3,8 @@
   *
   * @file      swatch.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      06/08/2026
+  * @version   0.1.1
+  * @date      04/11/2026
   *
   * @brief     Safe deadline and liveness supervision function library file.
   *
@@ -17,6 +17,8 @@
   * @par History
   * 06/08/2026 Created. Deadline and minimum period supervision driven by a @n
   *            caller supplied tick, with early and late counting. @n
+  * 04/11/2026 The driver struct is documented in this file, so the @n
+  *            header stays a pure declaration. @n
   *
   * @note
   * IEC 61508-3 asks for temporal program flow monitoring, and sdiag does not
@@ -93,6 +95,25 @@
 #include <stddef.h>
 
 #include "swatch.h"
+
+/**
+ * @struct  swatch_t
+ * @brief   Deadline and liveness supervisor.
+ * @var     swatch_t::minPeriod
+ *          Fewest ticks allowed between check-ins.
+ * @var     swatch_t::maxPeriod
+ *          Most ticks allowed between check-ins.
+ * @var     swatch_t::lastTick
+ *          Tick of the last accepted check-in, or of Start.
+ * @var     swatch_t::checkIns
+ *          Check-ins that arrived on time.
+ * @var     swatch_t::early
+ *          Check-ins that arrived too soon.
+ * @var     swatch_t::late
+ *          Deadlines missed.
+ * @var     swatch_t::state
+ *          One of the SW_STATE_ values.
+ */
 
 /**
  * @brief   Reports whether a driver has been through a successful Init.

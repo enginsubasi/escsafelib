@@ -496,10 +496,10 @@ jobs:
       - uses: actions/checkout@v4
 
       # Reporting rather than blocking only because it takes a while:
-      # 180 mutants, each a full build and run of one suite. It runs
+      # 203 mutants, each a full build and run of one suite. It runs
       # clean on the development machine, so a survivor here is a real
       # hole in a suite rather than a discovery about a tool nobody had
-      # used. Five mutants are expected to survive and are marked
+      # used. Nineteen mutants are expected to survive and are marked
       # equivalent with the argument for each; the runner requires them
       # to survive, so a wrong argument shows up as RESURRECTED.
       - name: Break every module on purpose
@@ -564,13 +564,40 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cppcheck
 
+      # Until 04/11/2026 every step in this job piped into tee and so
+      # reported success whatever cppcheck found, and nothing here showed
+      # that the tool ran at all. Each check now exits non zero on a
+      # finding, and each is preceded by a control that must produce one.
+      # A green job therefore means something, and its conclusion can be
+      # read from the public API without the logs.
+      - name: Prove cppcheck reports a finding
+        run: |
+          printf 'int f(void)\n{\n    int a[2] = {0, 0};\n    return a[2];\n}\n' > /tmp/cppcheck_control.c
+          if cppcheck --enable=all --std=c99 --error-exitcode=1 \
+               /tmp/cppcheck_control.c; then
+            echo "cppcheck passed a read past the end of an array"
+            exit 1
+          fi
+
+      # Three style checks are suppressed because they contradict the
+      # convention rather than find anything:
+      #   variableScope   every local is declared at the top of its function
+      #   unreadVariable  every local is initialised where it is declared
+      #   staticFunction  a public function the module also calls itself
+      # One finding is suppressed inline in sdiag.c, with the reason.
       - name: General checks
         run: |
+          set -o pipefail
           cppcheck --enable=all --std=c99 --platform=unix32 \
+            --check-level=exhaustive \
+            --error-exitcode=1 \
             --inline-suppr \
             --suppress=missingIncludeSystem \
             --suppress=unusedFunction \
             --suppress=checkersReport \
+            --suppress=variableScope \
+            --suppress=unreadVariable \
+            --suppress=staticFunction \
             -Iinc/string -Iinc/array -Iinc/memory -Iinc/math \
             -Iinc/ring -Iinc/filter -Iinc/fixed -Iinc/diag \
             -Iinc/scale -Iinc/vote -Iinc/fault -Iinc/state -Iinc/watch \
@@ -580,52 +607,29 @@ jobs:
       # The MISRA addon reports rule numbers only. The rule texts are
       # copyrighted and cannot ship here, so a hit looks like
       # "misra violation ... [misra-c2012-11.4]" with no description.
-      # 11.4 is the one deviation both implemented modules already record,
-      # in isOverlapping.
+      #
+      # An addon that cannot start does not fail cppcheck: on one Windows
+      # install --addon=misra printed nothing and returned zero for every
+      # module. The control below is what tells that apart from a clean run.
+      - name: Prove the MISRA addon runs
+        run: |
+          printf 'int f(int x)\n{\n    int y = 010;\n    if (x) goto end;\n    y = x;\nend:\n    return y;\n}\n' > /tmp/misra_control.c
+          cppcheck --addon=misra --std=c99 /tmp/misra_control.c 2>&1 | tee /tmp/misra_control.log
+          grep -q "misra-c2012-15.1" /tmp/misra_control.log
+
       - name: MISRA C 2012 rule numbers
         run: |
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/string src/string/sstring.c 2>&1 | tee misra.log
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/array src/array/sarray.c 2>&1 | tee -a misra.log
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/memory src/memory/smemory.c 2>&1 | tee -a misra.log
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/math src/math/smath.c 2>&1 | tee -a misra.log
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/diag src/diag/sdiag.c 2>&1 | tee -a misra.log
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/ring src/ring/sring.c 2>&1 | tee -a misra.log
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/filter src/filter/sfilter.c 2>&1 | tee -a misra.log
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/fixed src/fixed/sfixed.c 2>&1 | tee -a misra.log
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/scale src/scale/sscale.c 2>&1 | tee -a misra.log
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/vote src/vote/svote.c 2>&1 | tee -a misra.log
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/fault src/fault/sfault.c 2>&1 | tee -a misra.log
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/state src/state/sstate.c 2>&1 | tee -a misra.log
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/watch src/watch/swatch.c 2>&1 | tee -a misra.log
-          cppcheck --addon=misra --std=c99 --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            -Iinc/bits src/bits/sbits.c 2>&1 | tee -a misra.log
+          set -o pipefail
+          : > misra.log
+          for f in src/*/*.c; do
+            d=$(basename $(dirname "$f"))
+            cppcheck --addon=misra --std=c99 --platform=unix32 \
+              --suppress=missingIncludeSystem \
+              -I"inc/$d" "$f" 2>&1 | tee -a misra.log
+          done
+          echo "---- by rule ----"
+          grep -oE "misra-c2012-[0-9.]+" misra.log | sort | uniq -c | sort -rn || true
+          ! grep -q "misra-c2012-" misra.log
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -642,15 +646,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # A newer analyzer than the arm-none-eabi 13.2 used locally, so it
-      # may find things the local run did not.
+      # A warning used to leave this job green. -Werror makes a finding
+      # fail it, and the control shows the analyzer is really running.
+      - name: Prove the analyzer reports a finding
+        run: |
+          printf 'void f(void)\n{\n    int* p = 0;\n    *p = 1;\n}\n' > /tmp/analyzer_control.c
+          if gcc -c -fanalyzer -Werror /tmp/analyzer_control.c -o /tmp/analyzer_control.o; then
+            echo "the analyzer passed a NULL dereference"
+            exit 1
+          fi
+
+      # A different analyzer version from the ones used locally, so it
+      # may find things the local runs did not.
       - name: Run gcc -fanalyzer
         run: |
+          gcc --version | head -1
           for f in src/*/*.c; do
             d=$(basename $(dirname "$f"))
             echo "== $f"
-            gcc -c -Wall -Wextra -Wpedantic -std=c99 -fanalyzer \
-              -I"inc/$d" "$f" -o /dev/null
+            gcc -c -Wall -Wextra -Wpedantic -std=c99 -fanalyzer -Werror \
+              -I"inc/$d" "$f" -o /tmp/analyzer.o
           done
 
   docs:
@@ -665,18 +680,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y doxygen
 
-      # The Doxyfile has never been run. WARN_NO_PARAMDOC is on, so an
-      # undocumented parameter shows up here as a warning.
+      # WARN_NO_PARAMDOC is on, so an undocumented parameter shows up here
+      # as a warning, and any warning fails the job. The structs are
+      # documented from the sources with @struct and @var, which is what
+      # took the first local run from sixty warnings to none.
+      #
+      # An empty warning log would also be what a doxygen that parsed
+      # nothing produces, so the job then checks that a page it can only
+      # have written from a source comment exists and carries that comment.
       - name: Generate the documentation
         run: |
+          doxygen --version
           doxygen Doxyfile 2> doxygen-warnings.log
           echo "---- warnings ----"
           cat doxygen-warnings.log
           if [ -s doxygen-warnings.log ]; then
             echo "Doxygen produced warnings. See the log above."
-          else
-            echo "No warnings."
+            exit 1
           fi
+          grep -q "Sum of the samples held" doc/html/structsfilteravg__t.html
 
       - uses: actions/upload-artifact@v4
         if: always()

@@ -3,8 +3,8 @@
   *
   * @file      sdiag.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      04/11/2026
   *
   * @brief     Self diagnostic function library file without hardware dependencies.
   *
@@ -23,6 +23,10 @@
   *            selfdiag to diag, so that every module is its domain @n
   *            directory with an s in front. The SD_ status prefix is @n
   *            unchanged. @n
+  * 04/11/2026 The read back of a restored word carries a cppcheck @n
+  *            suppression; the analyser does not model volatile. @n
+  * 04/11/2026 The structs are documented in this file, so the header @n
+  *            stays a pure declaration. @n
   *
   * @note
   * Everything here is portable C99 with no hardware dependency, which is
@@ -78,6 +82,24 @@
 #include <stddef.h>
 
 #include "sdiag.h"
+
+/**
+ * @struct  sdiagflow_t
+ * @brief   Running control flow signature, owned by the caller.
+ * @var     sdiagflow_t::signature
+ *          Every checkpoint identifier folded in so far, in order.
+ * @var     sdiagflow_t::count
+ *          How many checkpoints have been folded in since the last reset.
+ */
+
+/**
+ * @struct  sdiagshadow_t
+ * @brief   A word stored twice, once as itself and once inverted.
+ * @var     sdiagshadow_t::value
+ *          The stored word.
+ * @var     sdiagshadow_t::inverse
+ *          The bitwise complement of value; any disagreement is corruption.
+ */
 
 /**
  * @brief   Folds one byte into a running CRC-32 register.
@@ -581,6 +603,10 @@ uint8_t sdiagRamTestNonDestructive ( uint32_t* start, uint32_t words, uint32_t* 
                so a failure does not also lose the data. */
             cells[ i ] = saved;
 
+            /* cppcheck reads this as always false because it does not model
+               volatile: a word written with saved must read back as saved.
+               On failing memory it need not, and that is the whole test. */
+            /* cppcheck-suppress knownConditionTrueFalse */
             if ( ( done == FALSE ) && ( cells[ i ] != saved ) )
             {
                 bad = i;

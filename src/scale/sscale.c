@@ -3,8 +3,8 @@
   *
   * @file      sscale.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      04/11/2026
   *
   * @brief     Safe piecewise linear scaling function library file.
   *
@@ -19,6 +19,8 @@
   *            and the two point map that needs no table. @n
   * 05/08/2026 Documented why Invert cannot report two of the statuses @n
   *            sscaleInit can. @n
+  * 04/11/2026 The driver struct is documented in this file, so the @n
+  *            header stays a pure declaration. @n
   *
   * @note
   * This module turns a raw reading into an engineering value. A datasheet
@@ -92,6 +94,19 @@
 #include <stddef.h>
 
 #include "sscale.h"
+
+/**
+ * @struct  sscale_t
+ * @brief   A breakpoint table validated by sscaleInit.
+ * @var     sscale_t::x
+ *          Input breakpoints, strictly monotonic in one direction.
+ * @var     sscale_t::y
+ *          Output value at each input breakpoint.
+ * @var     sscale_t::count
+ *          Number of breakpoints in each array.
+ * @var     sscale_t::increasing
+ *          TRUE when x ascends, FALSE when it descends.
+ */
 
 /**
  * @brief   Reports whether the product of two spans fits in an int64_t.

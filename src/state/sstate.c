@@ -3,8 +3,8 @@
   *
   * @file      sstate.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      04/11/2026
   *
   * @brief     Safe guarded state machine function library file.
   *
@@ -17,6 +17,8 @@
   * @par History
   * 05/08/2026 Created. Transition table validated at Init, illegal @n
   *            transitions refused and counted, reachability queries. @n
+  * 04/11/2026 The driver struct is documented in this file, so the @n
+  *            header stays a pure declaration. @n
   *
   * @note
   * A state machine written as a switch works until somebody adds a case. The
@@ -96,6 +98,24 @@
 #include <stddef.h>
 
 #include "sstate.h"
+
+/**
+ * @struct  sstate_t
+ * @brief   Guarded state machine.
+ * @var     sstate_t::table
+ *          stateCount by stateCount permissions, row from and column to, each
+ *          TRUE or FALSE.
+ * @var     sstate_t::stateCount
+ *          Number of states, at most SSTATE_MAXSTATES.
+ * @var     sstate_t::transitions
+ *          Transitions taken since Init or Reset.
+ * @var     sstate_t::refusals
+ *          Transitions refused since Init or Reset.
+ * @var     sstate_t::state
+ *          The current state.
+ * @var     sstate_t::initial
+ *          The state Init started in, and the one Reset returns to.
+ */
 
 /**
  * @brief   Reports whether a driver has been through a successful Init.

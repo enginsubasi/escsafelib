@@ -3,8 +3,8 @@
   *
   * @file      sring.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      04/11/2026
   *
   * @brief     Safe byte ring buffer function library file.
   *
@@ -19,6 +19,8 @@
   *            memory barrier injected at Init as a function pointer. @n
   * 05/08/2026 Every function but Init now refuses a ring that never went @n
   *            through Init, rather than computing from a zero capacity. @n
+  * 04/11/2026 The driver struct is documented in this file, so the @n
+  *            header stays a pure declaration. @n
   *
   * @note
   * This is the first module in the library with real state, and it follows
@@ -108,6 +110,22 @@
 #include <stddef.h>
 
 #include "sring.h"
+
+/**
+ * @struct  sringu8_t
+ * @brief   Single producer single consumer byte ring.
+ * @var     sringu8_t::buffer
+ *          Storage, handed over at Init. One byte of it is never used.
+ * @var     sringu8_t::capacity
+ *          Size of buffer in bytes.
+ * @var     sringu8_t::writeIndex
+ *          Next slot to write. Written by the producer only.
+ * @var     sringu8_t::readIndex
+ *          Next slot to read. Written by the consumer only.
+ * @var     sringu8_t::barrier
+ *          Memory barrier issued between moving data and publishing an index,
+ *          or NULL.
+ */
 
 /**
  * @brief   Advances a ring index by one, wrapping at the capacity.

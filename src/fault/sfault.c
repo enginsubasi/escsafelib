@@ -3,8 +3,8 @@
   *
   * @file      sfault.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      04/11/2026
   *
   * @brief     Safe fault qualification function library file.
   *
@@ -17,6 +17,8 @@
   * @par History
   * 05/08/2026 Created. Qualification, healing, latching and occurrence @n
   *            counting for a diagnostic condition. @n
+  * 04/11/2026 The driver struct is documented in this file, so the @n
+  *            header stays a pure declaration. @n
   *
   * @note
   * A diagnostic test that reports a fault the first time it sees one is
@@ -98,6 +100,24 @@
 #include <stddef.h>
 
 #include "sfault.h"
+
+/**
+ * @struct  sfault_t
+ * @brief   One fault qualifier.
+ * @var     sfault_t::confirmLimit
+ *          Cycles the condition must be present for to confirm the fault.
+ * @var     sfault_t::healLimit
+ *          Cycles the condition must be absent for to withdraw it.
+ * @var     sfault_t::counter
+ *          Cycles counted toward the next change of verdict. Discarded, not
+ *          counted down, when the verdict changes.
+ * @var     sfault_t::confirmations
+ *          How many times the fault has been confirmed. Saturates.
+ * @var     sfault_t::state
+ *          One of the SU_STATE_ values.
+ * @var     sfault_t::latching
+ *          TRUE when a confirmed fault never heals on its own.
+ */
 
 /**
  * @brief   Adds to a counter without letting it wrap.

@@ -46,6 +46,14 @@
 #include "generic.h"
 
 /**
+ * @struct  generic_t
+ * @brief   One sentence describing what the struct holds. Documented here
+ *          rather than in the header, which stays a pure declaration.
+ * @var     generic_t::field
+ *          One line per member, and every member documented exactly once.
+ */
+
+/**
  * @brief   One sentence describing what the helper does.
  * @param[in] value  An input parameter.
  * @return  What the caller gets back.

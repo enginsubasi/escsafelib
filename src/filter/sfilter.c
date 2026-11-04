@@ -19,6 +19,8 @@
   *            debounce, slew limit, hysteresis and median. @n
   * 04/11/2026 sfilterEmaInit scales a negative initial value by @n
   *            multiplication; the left shift it used was undefined. @n
+  * 04/11/2026 The structs are documented in this file, so the header @n
+  *            stays a pure declaration. @n
   *
   * @note
   * Every sample in this module is an int32_t, whatever the sensor produced.
@@ -61,6 +63,64 @@
 #include <stddef.h>
 
 #include "sfilter.h"
+
+/**
+ * @struct  sfilteravg_t
+ * @brief   Moving average over a window the caller owns.
+ * @var     sfilteravg_t::buffer
+ *          The window, handed over at Init.
+ * @var     sfilteravg_t::capacity
+ *          Window length in samples.
+ * @var     sfilteravg_t::count
+ *          Samples held so far, up to capacity.
+ * @var     sfilteravg_t::index
+ *          Slot the next sample is written to.
+ * @var     sfilteravg_t::sum
+ *          Sum of the samples held, in 64 bits so it cannot overflow.
+ */
+
+/**
+ * @struct  sfilterema_t
+ * @brief   Exponential moving average.
+ * @var     sfilterema_t::accumulator
+ *          The filtered value scaled by 2^shift, so no fraction is lost
+ *          between steps.
+ * @var     sfilterema_t::shift
+ *          Weight of a new sample as a power of two, 0 to SF_EMA_MAX_SHIFT.
+ */
+
+/**
+ * @struct  sfilterdebounce_t
+ * @brief   Debounce of a two state input.
+ * @var     sfilterdebounce_t::threshold
+ *          Consecutive disagreeing readings needed to change state.
+ * @var     sfilterdebounce_t::counter
+ *          Consecutive readings so far that disagree with the stable state.
+ * @var     sfilterdebounce_t::stable
+ *          The debounced state, TRUE or FALSE.
+ */
+
+/**
+ * @struct  sfilterslew_t
+ * @brief   Slew rate limiter.
+ * @var     sfilterslew_t::maxUp
+ *          Largest rise allowed in one update.
+ * @var     sfilterslew_t::maxDown
+ *          Largest fall allowed in one update.
+ * @var     sfilterslew_t::current
+ *          The limited output.
+ */
+
+/**
+ * @struct  sfilterhyst_t
+ * @brief   Hysteresis comparator.
+ * @var     sfilterhyst_t::low
+ *          Threshold the input must fall to for the state to go FALSE.
+ * @var     sfilterhyst_t::high
+ *          Threshold the input must rise to for the state to go TRUE.
+ * @var     sfilterhyst_t::state
+ *          The output, TRUE or FALSE.
+ */
 
 /**
  * @brief   Returns the middle of three values.

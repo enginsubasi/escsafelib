@@ -3,8 +3,8 @@
   *
   * @file      sstring.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.3.0
-  * @date      05/08/2026
+  * @version   0.3.1
+  * @date      04/11/2026
   *
   * @brief     Safe string handling function library file.
   *
@@ -34,6 +34,8 @@
   * 05/08/2026 sourceLength now lists the status it passes through, and @n
   *            the trim family says why a substring cannot go out of @n
   *            range. Banner date brought up to the history. @n
+  * 04/11/2026 The ASCII case helpers no longer assign retVal the @n
+  *            value it already holds. @n
   *
   * @note
   * Six invariants hold for every function in this file.
@@ -1562,7 +1564,7 @@ static char toUpperAscii ( char ch )
     }
     else
     {
-        retVal = ch;
+        // Intentionally blank.
     }
 
     return ( retVal );
@@ -1584,7 +1586,7 @@ static char toLowerAscii ( char ch )
     }
     else
     {
-        retVal = ch;
+        // Intentionally blank.
     }
 
     return ( retVal );
