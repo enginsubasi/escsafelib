@@ -585,10 +585,16 @@ jobs:
       #   unreadVariable  every local is initialised where it is declared
       #   staticFunction  a public function the module also calls itself
       # One finding is suppressed inline in sdiag.c, with the reason.
+      #
+      # Findings are printed as workflow annotations. Job logs need admin
+      # rights to read through the API and annotations do not, so this is
+      # what lets a finding be read back from the development machine.
       - name: General checks
         run: |
           set -o pipefail
+          cppcheck --version
           cppcheck --enable=all --std=c99 --platform=unix32 \
+            --template='::error file={file},line={line}::[{id}] {message}' \
             --check-level=exhaustive \
             --error-exitcode=1 \
             --inline-suppr \
@@ -612,18 +618,21 @@ jobs:
       # install --addon=misra printed nothing and returned zero for every
       # module. The control below is what tells that apart from a clean run.
       - name: Prove the MISRA addon runs
+        if: always()
         run: |
           printf 'int f(int x)\n{\n    int y = 010;\n    if (x) goto end;\n    y = x;\nend:\n    return y;\n}\n' > /tmp/misra_control.c
           cppcheck --addon=misra --std=c99 /tmp/misra_control.c 2>&1 | tee /tmp/misra_control.log
           grep -q "misra-c2012-15.1" /tmp/misra_control.log
 
       - name: MISRA C 2012 rule numbers
+        if: always()
         run: |
           set -o pipefail
           : > misra.log
           for f in src/*/*.c; do
             d=$(basename $(dirname "$f"))
             cppcheck --addon=misra --std=c99 --platform=unix32 \
+              --template='::error file={file},line={line}::[{id}] {message}' \
               --suppress=missingIncludeSystem \
               -I"inc/$d" "$f" 2>&1 | tee -a misra.log
           done
@@ -695,10 +704,16 @@ jobs:
           echo "---- warnings ----"
           cat doxygen-warnings.log
           if [ -s doxygen-warnings.log ]; then
-            echo "Doxygen produced warnings. See the log above."
+            # One annotation per warning, readable without the log.
+            sed -E "s#^$GITHUB_WORKSPACE/##; s#^([^:]+):([0-9]+): (warning|error): (.*)#::error file=\1,line=\2::\4#" \
+              doxygen-warnings.log
             exit 1
           fi
-          grep -q "Sum of the samples held" doc/html/structsfilteravg__t.html
+          if ! grep -q "Sum of the samples held" doc/html/structsfilteravg__t.html; then
+            echo "::error::doxygen wrote no page carrying the sfilteravg_t member comments"
+            ls doc/html | head -50
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         if: always()
