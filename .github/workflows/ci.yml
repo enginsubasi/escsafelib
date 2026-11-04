@@ -552,10 +552,12 @@ jobs:
           name: coverage
           path: /tmp/escsafelib-coverage/**/*.gcov
 
+  # Blocking since 05/11/2026, once a CI run with a control in front of
+  # each check came back clean: general checks and MISRA with the recorded
+  # deviations.
   cppcheck:
-    name: cppcheck (reporting)
+    name: cppcheck and MISRA C 2012
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -662,10 +664,10 @@ jobs:
               -I"inc/$d" "$f" -o /tmp/analyzer.o
           done
 
+  # Blocking since 05/11/2026, once a CI run came back warning free.
   docs:
-    name: Doxygen (reporting)
+    name: Doxygen
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
