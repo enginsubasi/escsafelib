@@ -61,8 +61,8 @@ MUTANTS = [
     {
         "id": 'M10',
         "what": 'the spread is formed in 32 bits',
-        "old": '        *spread = ( uint32_t ) ( ( int64_t ) highest - ( int64_t ) lowest );',
-        "new": '        *spread = ( uint32_t ) ( highest - lowest );',
+        "old": '        wide = ( int64_t ) highest - ( int64_t ) lowest;',
+        "new": '        wide = ( int64_t ) ( highest - lowest );',
         "ubsan": True,
     },
     {

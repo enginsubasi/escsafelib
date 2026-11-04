@@ -3,8 +3,8 @@
   *
   * @file      svote.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      05/11/2026
   *
   * @brief     Safe redundant channel voting function library file.
   *
@@ -17,6 +17,9 @@
   * @par History
   * 05/08/2026 Created. Agreement, majority, median, mean, spread and @n
   *            outlier reporting over redundant channels. @n
+  * 05/11/2026 The spread is converted from a local, for MISRA C:2012 @n
+  *            Rule 10.8. MISRA C:2012 Rule 10.4 deviation recorded in @n
+  *            the banner. @n
   *
   * @note
   * This module answers one question in several forms: several channels have
@@ -79,6 +82,15 @@
   *    vote at once.
   * 5. Freestanding. stdint.h and stddef.h only. No allocation, no assert,
   *    no logging, and no floating point.
+  *
+  * @note
+  * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
+  * categories. Every status in this library is a uint8_t, and it is
+  * compared with the members of the module's status enum, with TRUE and
+  * FALSE, and with unsuffixed constants such as 0. One status type across
+  * every module is what lets a caller treat them all alike, and none of
+  * these comparisons can change a value through the conversion the rule
+  * guards against.
   *
   ******************************************************************************
   */
@@ -771,6 +783,7 @@ uint8_t svoteSpread ( const int32_t* values, uint32_t size, uint32_t count, uint
     uint8_t retVal = SV_OK;
     int32_t lowest = 0;
     int32_t highest = 0;
+    int64_t wide = 0;
     uint32_t i = 0;
 
     retVal = checkArray ( values, size, count, spread );
@@ -805,7 +818,10 @@ uint8_t svoteSpread ( const int32_t* values, uint32_t size, uint32_t count, uint
             }
         }
 
-        *spread = ( uint32_t ) ( ( int64_t ) highest - ( int64_t ) lowest );
+        /* Formed in 64 bits, where it cannot overflow, and converted from a
+           local: the spread of two int32_t values is at most 2^32 - 1. */
+        wide = ( int64_t ) highest - ( int64_t ) lowest;
+        *spread = ( uint32_t ) wide;
         retVal = SV_OK;
     }
 

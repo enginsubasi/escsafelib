@@ -3,8 +3,8 @@
   *
   * @file      sbits.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      06/08/2026
+  * @version   0.1.1
+  * @date      05/11/2026
   *
   * @brief     Safe bit field packing function library file.
   *
@@ -17,6 +17,9 @@
   * @par History
   * 06/08/2026 Created. Bit field extraction and insertion in a word and @n
   *            across a byte array, with bounds and range checking. @n
+  * 05/11/2026 No signed value is shifted: every power of two is formed @n
+  *            unsigned and converted afterwards. MISRA C:2012 Rule 10.4 @n
+  *            deviation recorded in the banner. @n
   *
   * @note
   * A protocol frame is a row of bit fields, and unpacking one by hand is
@@ -67,6 +70,15 @@
   * 4. No module state. Every function is reentrant.
   * 5. Freestanding. stdint.h and stddef.h only. No allocation, no assert,
   *    no logging, and no floating point.
+  *
+  * @note
+  * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
+  * categories. Every status in this library is a uint8_t, and it is
+  * compared with the members of the module's status enum, with TRUE and
+  * FALSE, and with unsuffixed constants such as 0. One status type across
+  * every module is what lets a caller treat them all alike, and none of
+  * these comparisons can change a value through the conversion the rule
+  * guards against.
   *
   ******************************************************************************
   */
@@ -225,6 +237,8 @@ uint8_t sbitsFitsSigned ( int32_t value, uint8_t width, uint8_t* fits )
     uint8_t retVal = SB_OK;
     int64_t highest = 0;
     int64_t lowest = 0;
+    uint64_t half = 0;
+    uint32_t top = 0;
 
     if ( fits == NULL )
     {
@@ -236,8 +250,13 @@ uint8_t sbitsFitsSigned ( int32_t value, uint8_t width, uint8_t* fits )
     }
     else
     {
-        highest = ( ( int64_t ) 1 << ( width - 1u ) ) - 1;
-        lowest = -( ( int64_t ) 1 << ( width - 1u ) );
+        /* The power of two is formed unsigned, where every shift that can
+           reach here is defined, and only then converted; at most 2^31,
+           it fits int64_t exactly. */
+        top = ( uint32_t ) width - 1u;
+        half = ( uint64_t ) 1u << top;
+        highest = ( int64_t ) half - 1;
+        lowest = -( int64_t ) half;
 
         if ( ( ( int64_t ) value >= lowest ) && ( ( int64_t ) value <= highest ) )
         {
@@ -348,6 +367,8 @@ uint8_t sbitsGeti32 ( uint32_t word, uint8_t position, uint8_t width, int32_t* v
 {
     uint8_t retVal = SB_OK;
     uint32_t raw = 0;
+    uint32_t signBit = 0;
+    uint64_t modulus = 0;
     int64_t wide = 0;
 
     if ( value == NULL )
@@ -362,10 +383,12 @@ uint8_t sbitsGeti32 ( uint32_t word, uint8_t position, uint8_t width, int32_t* v
     {
         raw = ( word >> position ) & lowMask ( width );
         wide = ( int64_t ) raw;
+        signBit = ( uint32_t ) 1u << ( ( uint32_t ) width - 1u );
+        modulus = ( uint64_t ) 1u << width;
 
-        if ( raw >= ( ( uint32_t ) 1u << ( width - 1u ) ) )
+        if ( raw >= signBit )
         {
-            wide = wide - ( ( int64_t ) 1 << width );
+            wide = wide - ( int64_t ) modulus;
         }
         else
         {
@@ -400,6 +423,7 @@ uint8_t sbitsSeti32 ( uint32_t* word, uint8_t position, uint8_t width, int32_t v
     uint8_t fits = FALSE;
     uint32_t raw = 0;
     uint32_t mask = 0;
+    uint64_t modulus = 0;
     int64_t wide = 0;
 
     if ( word == NULL )
@@ -424,7 +448,8 @@ uint8_t sbitsSeti32 ( uint32_t* word, uint8_t position, uint8_t width, int32_t v
 
             if ( wide < 0 )
             {
-                wide = wide + ( ( int64_t ) 1 << width );
+                modulus = ( uint64_t ) 1u << width;
+                wide = wide + ( int64_t ) modulus;
             }
             else
             {

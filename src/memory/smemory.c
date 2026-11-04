@@ -3,8 +3,8 @@
   *
   * @file      smemory.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      04/08/2026
+  * @version   0.1.1
+  * @date      05/11/2026
   *
   * @brief     Safe raw memory handling function library file.
   *
@@ -18,6 +18,9 @@
   * 04/08/2026 Created. Bounded replacements for the mem family of @n
   *            string.h, plus a constant time comparison and an erase @n
   *            the compiler is not allowed to remove. @n
+  * 05/11/2026 The overlap deviation names Rule 11.6, which is the rule @n
+  *            these conversions fall under, rather than 11.4. Rule 10.4 @n
+  *            deviation recorded in the banner. @n
   *
   * @note
   * Six invariants hold for every function in this file. They are the same
@@ -63,12 +66,12 @@
   * capacity larger than the allocation defeats it.
   *
   * @note
-  * MISRA C:2012 deviation, Rule 11.4, conversion between a pointer and an
-  * integer. isOverlapping converts both pointers to uintptr_t so that two
-  * byte ranges can be tested for intersection, and smemoryMove chooses its
-  * copy direction by comparing the same two values. There is no conforming
-  * way to compare pointers into separate objects, and silently corrupting
-  * overlapping buffers is the worse outcome.
+  * MISRA C:2012 deviation, Rule 11.6, conversion between a pointer to void
+  * and an integer. isOverlapping converts both pointers to uintptr_t so that
+  * two byte ranges can be tested for intersection, and smemoryMove chooses
+  * its copy direction by comparing the same two values. There is no
+  * conforming way to compare pointers into separate objects, and silently
+  * corrupting overlapping buffers is the worse outcome.
   *
   * @note
   * MISRA C:2012 deviation, Rule 11.5, conversion from a pointer to void
@@ -78,6 +81,15 @@
   * address the bytes. The standard explicitly permits examining any object
   * through a pointer to unsigned char, so this conversion is the one that
   * is always safe, and it is the only object type this file converts to.
+  *
+  * @note
+  * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
+  * categories. Every status in this library is a uint8_t, and it is
+  * compared with the members of the module's status enum, with TRUE and
+  * FALSE, and with unsuffixed constants such as 0. One status type across
+  * every module is what lets a caller treat them all alike, and none of
+  * these comparisons can change a value through the conversion the rule
+  * guards against.
   *
   ******************************************************************************
   */

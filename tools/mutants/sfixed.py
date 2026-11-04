@@ -55,8 +55,8 @@ MUTANTS = [
     {
         "id": 'M9',
         "what": 'the thousandths of the printable parts are not scaled',
-        "old": '        *milli = ( uint32_t ) ( ( ( magnitude % ( int64_t ) SFIXED_ONE ) * 1000 )\n                                / ( int64_t ) SFIXED_ONE );',
-        "new": '        *milli = ( uint32_t ) ( ( magnitude % ( int64_t ) SFIXED_ONE )\n                                / ( int64_t ) SFIXED_ONE );',
+        "old": '        fraction = ( ( magnitude % ( int64_t ) SFIXED_ONE ) * 1000 ) / ( int64_t ) SFIXED_ONE;',
+        "new": '        fraction = ( magnitude % ( int64_t ) SFIXED_ONE ) / ( int64_t ) SFIXED_ONE;',
     },
     {
         "id": 'M10',

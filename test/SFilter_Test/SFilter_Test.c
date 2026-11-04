@@ -356,6 +356,23 @@ static void testEma ( void )
 
     expectI32 ( "ema: climbs out of a negative initial value exactly", value, 1000 );
 
+    /* The scaled accumulator is brought back down rounding toward minus
+       infinity, which is what the arithmetic right shift this module used to
+       rely on produced. One small sample either side of zero shows the
+       direction: a sixteenth of -1 reads as -1, a sixteenth of +1 as 0. A
+       version rounding toward zero would answer 0 to both. */
+    ( void ) sfilterEmaInit ( &filter, 4, 0 );
+    ( void ) sfilterEmaUpdate ( &filter, -1, &value );
+    expectI32 ( "ema: a small negative step rounds toward minus infinity", value, -1 );
+
+    ( void ) sfilterEmaInit ( &filter, 4, 0 );
+    ( void ) sfilterEmaUpdate ( &filter, 1, &value );
+    expectI32 ( "ema: a small positive step rounds toward minus infinity", value, 0 );
+
+    ( void ) sfilterEmaInit ( &filter, 4, 0 );
+    ( void ) sfilterEmaUpdate ( &filter, -17, &value );
+    expectI32 ( "ema: a negative step that is not a multiple of 2^shift", value, -2 );
+
     /* The case that matters: a constant input must be reached exactly. An
        integer filter without the fractional accumulator stops short of it
        and stays there. */

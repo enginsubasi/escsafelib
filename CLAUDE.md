@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All fourteen modules are implemented — 358 functions and 3711 self-checking test cases across fifteen suites.
+All fourteen modules are implemented — 358 functions and 3714 self-checking test cases across fifteen suites.
 
 ## Working language
 
@@ -98,18 +98,11 @@ doxygen did not exist here; they did, and the first run of each found
 something (see "Static analysis and MISRA" below). gcc 16 is clean under
 the strict warning set and under `-fanalyzer`, with a control for each.
 
-**cppcheck's `--addon=misra` silently does nothing on this machine.** It
-prints `Checking ...`, reports no violation and returns zero for every
-module, including a control file built to break five rules. Run the addon
-by hand instead, through a dump file, and run the control first:
-
-```bash
-cppcheck --dump --std=c99 --platform=unix32 -Iinc/<domain> <copy of the .c>
-python <WinLibs>/share/Cppcheck/addons/misra.py <copy of the .c>.dump
-```
-
-Do it on a copy in the scratchpad: `--dump` writes the `.dump` file next to
-its input.
+**cppcheck's `--addon=misra` silently does nothing**, on this machine and on
+the CI runner alike. It prints `Checking ...`, reports no violation and
+returns zero for every module, including a control file built to break five
+rules. `tools/misra.sh` runs the addon by hand through a dump file instead,
+with the control first; use it rather than `--addon`.
 
 **gcc has no AddressSanitizer either.** MinGW-W64 ships no ASan runtime, so the control does not link. Neither host compiler on this machine can run ASan; the Ubuntu CI runner is still the only place it works, and the guard-page harnesses are still how out-of-bounds reads get proven here.
 
@@ -135,7 +128,7 @@ python tools/mutate.py svote        # one of them
 python tools/mutate.py --list
 ```
 
-**203 mutants across the fourteen modules: 184 killed, 19 equivalent, all
+**205 mutants across the fourteen modules: 185 killed, 20 equivalent, all
 accounted for.** The defects live in `tools/mutants/<module>.py`, one file
 per module, and the runner is `tools/mutate.py`. Before that they were
 throwaway scripts in a scratch directory and the numbers in this file were
@@ -148,7 +141,7 @@ can repeat.
 | `sbits` | 17 | 0 | `sscale` | 16 | 1 |
 | `sdiag` | 7 | 1 | `sstate` | 16 | 2 |
 | `sfault` | 16 | 1 | `sstring` | 14 | 4 |
-| `sfilter` | 11 | 0 | `svote` | 16 | 0 |
+| `sfilter` | 12 | 1 | `svote` | 16 | 0 |
 | `sfixed` | 10 | 0 | `swatch` | 16 | 0 |
 | `smath` | 15 | 0 | `smemory` | 4 | 3 |
 
@@ -351,21 +344,52 @@ the filter below zero. UBSan traps it, the suite now starts it at -500,
 `INT32_MIN` and `INT32_MAX`, and `sfilter` M11 puts the shift back to prove
 the suite sees it.
 
-What remains is a decision, not a defect, and is the owner's to take:
+The rest was settled on 05/11/2026. Twenty six hits were fixed in the code
+and four rules are recorded as deviations:
 
-| rule | hits | what it is |
-|---|---|---|
-| 10.4 | 636 | a `uint8_t` status compared with an enum member, `TRUE`/`FALSE`, or a signed literal such as `0` |
-| 11.5 | 25 | `void*` to `unsigned char*`, the recorded `smemory`/`sdiag` deviation |
-| 10.8 | 10 | a composite expression cast to a wider or different type |
-| 11.4 | 10 | pointer to integer in the overlap checks, the recorded deviation |
-| 11.6 | 10 | the same overlap checks, `void*` to `uintptr_t`: 11.4's twin, not yet recorded |
-| 10.1 | 9 | shift of a signed value; the positive `1 << n` forms are defined, `sfilter`'s documented right shift is the only real one |
-| 10.2 | 4 | character arithmetic in `sstring`'s number formatting |
-| 10.7 | 3 | `sbits` mixing widths in a shift |
+| rule | hits | modules | decision |
+|---|---|---|---|
+| 10.4 | 636 | all | **deviation.** A status is a `uint8_t` compared with enum members, `TRUE`/`FALSE` and unsuffixed literals; one status type across the library is the contract |
+| 11.5 | 25 | `smemory`, `sdiag` | **deviation.** `void*` to `unsigned char*`, the one conversion the standard always allows for reading bytes |
+| 11.4 | 10 | `sarray`, `sstring` | **deviation.** Pointer to integer, to test two ranges for overlap and to choose a copy direction |
+| 11.6 | 10 | `sarray`, `smemory`, `sstring` | **deviation.** The same overlap checks, through `void*` |
+| 10.8 | 10 | `sfixed`, `smath`, `sstring`, `svote` | fixed: the value is formed in a local and the local converted, and `INT32_MIN` is spelt `-INT32_MAX - 1` |
+| 10.1 | 9 | `sbits`, `sfilter`, `sfixed` | fixed: no signed value is shifted anywhere in the library now |
+| 10.2 | 4 | `sstring` | fixed: a digit is added to a character constant as an unsigned value |
+| 10.7 | 3 | `sbits` | fixed with the 10.1 change |
 
-The MISRA step in CI fails until these are either fixed or recorded as
-deviations and suppressed.
+Every deviation is written in the banner of each module it covers, so it
+travels with a module that is copied out, and `template/src/generic.c`
+carries the 10.4 note. Two of the old records were wrong and were caught
+by the run: `sstring` claimed its pointer conversion was confined to one
+function when three use it, and `smemory` recorded Rule 11.4 for what is a
+Rule 11.6 conversion.
+
+**`sfilter` no longer shifts a negative value right.** The exponential
+filter's accumulator is brought back down by `shiftDown`, which shifts the
+magnitude unsigned and puts the sign back, rounding toward minus infinity
+exactly as the arithmetic shift did. It was compared with the host's shift
+over 34 million values including both ends of `int64_t`. Writing it found
+that the suite had never pinned the rounding direction — `sfilter` M12,
+rounding toward zero instead, survived until a case stepped the filter by
+-1 and by -17 — and that the old `@note` claiming truncation would stall
+the filter was not what the suite showed. M13 puts the signed shift back
+and is equivalent by construction: on every compiler the library is built
+with, the shift is arithmetic, so only MISRA can see it.
+
+```bash
+bash tools/misra.sh                 # every module, exits non zero on a finding
+bash tools/misra.sh sfilter svote   # some of them
+bash tools/misra.sh --annotate      # what CI runs
+```
+
+`tools/misra.sh` runs the addon through `--dump`, runs the control first
+and exits 2 if the addon is not live, applies the deviation table, and over
+the whole tree also fails on **a deviation nothing needs any more** — a
+recorded exception the code no longer takes is a claim that has gone stale.
+It was checked against a copy of the tree with one deviation removed, one
+added that nothing uses and one octal constant injected, and reported all
+three. Put WinLibs on `PATH` to run it here.
 
 Static analysis, using the analyzer built into the ARM compiler:
 

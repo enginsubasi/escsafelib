@@ -107,8 +107,8 @@ SOURCE_HEAD = r"""/**
   *
   * @file      sarray.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      04/08/2026
+  * @version   0.1.1
+  * @date      05/11/2026
   *
   * @brief     Safe array handling function library file.
   *
@@ -121,6 +121,9 @@ SOURCE_HEAD = r"""/**
   * @par History
   * 04/08/2026 Created. Four element families, uint8_t, uint16_t, uint32_t @n
   *            and int32_t, each with the same twenty three operations. @n
+  * 05/11/2026 The MISRA deviations are recorded in full: Rule 10.4 for @n
+  *            the status type, Rules 11.4 and 11.6 for the overlap @n
+  *            checks. @n
   *
   * @note
   * Six invariants hold for every function in this file. They are the same
@@ -175,12 +178,22 @@ SOURCE_HEAD = r"""/**
   * bound on a target with a fixed stack.
   *
   * @note
-  * MISRA C:2012 deviation, Rule 11.4, conversion between a pointer and an
-  * integer. isOverlapping converts both pointers to uintptr_t so that two
-  * byte ranges can be tested for intersection, and every sarrayMove chooses
-  * its copy direction by comparing the same two values. There is no
-  * conforming way to compare pointers into separate objects, and silently
-  * corrupting overlapping buffers is the worse outcome.
+  * MISRA C:2012 deviation, Rules 11.4 and 11.6, conversion between a
+  * pointer and an integer. isOverlapping converts both pointers to
+  * uintptr_t so that two byte ranges can be tested for intersection, and
+  * every sarrayMove chooses its copy direction by comparing the same two
+  * values. There is no conforming way to compare pointers into separate
+  * objects, and silently corrupting overlapping buffers is the worse
+  * outcome.
+  *
+  * @note
+  * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
+  * categories. Every status in this library is a uint8_t, and it is
+  * compared with the members of the module's status enum, with TRUE and
+  * FALSE, and with unsuffixed constants such as 0. One status type across
+  * every module is what lets a caller treat them all alike, and none of
+  * these comparisons can change a value through the conversion the rule
+  * guards against.
   *
   ******************************************************************************
   */

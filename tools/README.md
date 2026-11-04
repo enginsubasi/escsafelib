@@ -198,6 +198,32 @@ anywhere in this library, and a number other than zero in either column
 means somebody added some. That invariant was stated in `CLAUDE.md` from
 the beginning and measured for the first time here.
 
+## misra.sh
+
+The cppcheck MISRA C:2012 addon over every module, with the recorded
+deviations applied.
+
+```bash
+bash tools/misra.sh                 # every module, exits non zero on a finding
+bash tools/misra.sh sfilter svote   # some of them
+bash tools/misra.sh --annotate      # findings as GitHub annotations, for CI
+```
+
+It exists because `cppcheck --addon=misra` printed nothing and returned
+zero on the development machine and on the CI runner alike, for a file
+built to break five rules. The script runs `cppcheck --dump` and then the
+addon by hand, which works on both, and it runs that control file first
+every time. If the control does not fire it exits 2 rather than report a
+clean tree.
+
+The deviation table is at the top of the script and has to agree with the
+module banners, where each deviation is argued. Over the whole tree the
+script also fails on a deviation nothing needs any more, the way
+`mutate.py` fails on a resurrected mutant: an exception the code no longer
+takes is a stale claim.
+
+`CPPCHECK`, `MISRA_PY` and `PYTHON` override where the tools are found.
+
 ## doxcheck.py
 
 Not a generator. It checks the Doxygen comments in every `.c` against the

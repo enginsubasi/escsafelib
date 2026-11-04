@@ -117,8 +117,8 @@ SOURCE_HEAD = r"""/**
   *
   * @file      smath.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      05/11/2026
   *
   * @brief     Safe basic arithmetic function library file.
   *
@@ -138,6 +138,9 @@ SOURCE_HEAD = r"""/**
   *            cannot produce. An unsigned sum only overflows, an @n
   *            unsigned difference only underflows, and an unsigned @n
   *            quotient cannot leave its type at all. @n
+  * 05/11/2026 The signed scale guard spells INT32_MIN as a constant, for @n
+  *            MISRA C:2012 Rule 10.8. MISRA C:2012 Rule 10.4 deviation @n
+  *            recorded in the banner. @n
   *
   * @note
   * Five invariants hold for every function in this file.
@@ -181,6 +184,15 @@ SOURCE_HEAD = r"""/**
   * reported as SH_OVERFLOW. INT32_MIN % -1 is undefined for the same
   * reason, although its mathematical value of zero is representable, so it
   * is answered with zero and SH_OK instead of an error.
+  *
+  * @note
+  * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
+  * categories. Every status in this library is a uint8_t, and it is
+  * compared with the members of the module's status enum, with TRUE and
+  * FALSE, and with unsuffixed constants such as 0. One status type across
+  * every module is what lets a caller treat them all alike, and none of
+  * these comparisons can change a value through the conversion the rule
+  * guards against.
   *
   ******************************************************************************
   */
@@ -908,7 +920,7 @@ MOD_GUARD_SIGNED = """    else if ( ( a == ${MIN} ) && ( b == -1 ) )
     }
 """
 
-SCALE_GUARD_SIGNED = """        else if ( wide < ( ${WIDE} ) ${MIN} )
+SCALE_GUARD_SIGNED = """        else if ( wide < ( -( ${WIDE} ) ${MAX} - 1 ) )
         {
             retVal = SH_UNDERFLOW;
         }

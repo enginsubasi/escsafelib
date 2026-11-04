@@ -3,8 +3,8 @@
   *
   * @file      sfilter.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
-  * @date      04/11/2026
+  * @version   0.1.2
+  * @date      05/11/2026
   *
   * @brief     Safe signal conditioning function library file.
   *
@@ -21,6 +21,12 @@
   *            multiplication; the left shift it used was undefined. @n
   * 04/11/2026 The structs are documented in this file, so the header @n
   *            stays a pure declaration. @n
+  * 05/11/2026 No signed value is shifted in either direction. The @n
+  *            exponential filter scales down through shiftDown, which @n
+  *            rounds toward minus infinity exactly as the arithmetic @n
+  *            shift did, without depending on how the compiler shifts a @n
+  *            negative value. @n
+  * 05/11/2026 MISRA C:2012 Rule 10.4 deviation recorded in the banner. @n
   *
   * @note
   * Every sample in this module is an int32_t, whatever the sensor produced.
@@ -56,6 +62,15 @@
   * is the only place this module needs 64 bit arithmetic, and it is what
   * removes the overflow question from the running sum entirely rather than
   * bounding it with a rule the caller has to remember.
+  *
+  * @note
+  * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
+  * categories. Every status in this library is a uint8_t, and it is
+  * compared with the members of the module's status enum, with TRUE and
+  * FALSE, and with unsuffixed constants such as 0. One status type across
+  * every module is what lets a caller treat them all alike, and none of
+  * these comparisons can change a value through the conversion the rule
+  * guards against.
   *
   ******************************************************************************
   */
@@ -336,6 +351,51 @@ uint8_t sfilterAvgCount ( const sfilteravg_t* driver, uint32_t* count )
 }
 
 /**
+ * @brief   Divides by a power of two, rounding toward minus infinity.
+ * @param[in] value  Value to divide.
+ * @param[in] shift  Power of two to divide by, 0 to SF_EMA_MAX_SHIFT.
+ * @return  The largest integer that is not above value / 2^shift.
+ * @note    This is the answer an arithmetic right shift gives, computed
+ *          without shifting a signed value. C99 leaves a right shift of a
+ *          negative value implementation defined, so the magnitude is
+ *          shifted as an unsigned value instead and the sign put back.
+ * @note    The rounding direction is the one the arithmetic shift this
+ *          replaces produced, so every output is the one the filter has
+ *          always given. It is not symmetric: a sixteenth of -1 reads as -1
+ *          and a sixteenth of +1 as 0. The suite pins both.
+ * @note    Every conversion here is exact. The magnitude of the most
+ *          negative int64_t is formed by unsigned negation, which is
+ *          defined, and a shift of at least one leaves at most 2^62, which
+ *          converts back to int64_t unchanged.
+ */
+static int64_t shiftDown ( int64_t value, uint8_t shift )
+{
+    int64_t retVal = 0;
+    uint64_t magnitude = 0;
+    uint64_t roundUp = 0;
+    uint64_t scaled = 0;
+
+    if ( shift == 0u )
+    {
+        retVal = value;
+    }
+    else if ( value >= 0 )
+    {
+        scaled = ( uint64_t ) value >> shift;
+        retVal = ( int64_t ) scaled;
+    }
+    else
+    {
+        magnitude = 0u - ( uint64_t ) value;
+        roundUp = ( ( uint64_t ) 1u << shift ) - 1u;
+        scaled = ( magnitude + roundUp ) >> shift;
+        retVal = -( int64_t ) scaled;
+    }
+
+    return ( retVal );
+}
+
+/**
  * @brief   Prepares an exponential moving average filter for use.
  * @param[out] driver   Filter to set up.
  * @param[in]  shift    Smoothing strength, as a power of two.
@@ -356,6 +416,7 @@ uint8_t sfilterAvgCount ( const sfilteravg_t* driver, uint32_t* count )
 uint8_t sfilterEmaInit ( sfilterema_t* driver, uint8_t shift, int32_t initial )
 {
     uint8_t retVal = SF_OK;
+    uint64_t factor = 0;
 
     if ( driver == NULL )
     {
@@ -372,7 +433,8 @@ uint8_t sfilterEmaInit ( sfilterema_t* driver, uint8_t shift, int32_t initial )
            negative value left is undefined behaviour in C99. The factor is
            formed unsigned, where the shift is always defined, and the
            product is at most 2^31 * 2^16, well inside int64_t. */
-        driver->accumulator = ( int64_t ) initial * ( int64_t ) ( ( uint64_t ) 1u << shift );
+        factor = ( uint64_t ) 1u << shift;
+        driver->accumulator = ( int64_t ) initial * ( int64_t ) factor;
         retVal = SF_OK;
     }
 
@@ -392,15 +454,9 @@ uint8_t sfilterEmaInit ( sfilterema_t* driver, uint8_t shift, int32_t initial )
  *          at a permanent offset.
  * @note    The accumulator is an int64_t, so no combination of shift and
  *          sample can overflow it.
- * @note    The accumulator can be negative and is shifted right, which C99
- *          leaves implementation defined. Every compiler this library is
- *          built with does an arithmetic shift, and the test drives the
- *          filter to a negative constant and requires it to be reached
- *          exactly, so a compiler that did otherwise would fail there rather
- *          than quietly produce a filter that never settles. sfixed avoids
- *          the construct entirely; here it is the whole mechanism, and a
- *          division would round toward zero and stall the filter just above
- *          a negative target.
+ * @note    The accumulator can be negative and is scaled down rounding
+ *          toward minus infinity, by shiftDown, rather than by a right shift
+ *          of the signed value, which C99 leaves implementation defined.
  */
 uint8_t sfilterEmaUpdate ( sfilterema_t* driver, int32_t sample, int32_t* value )
 {
@@ -413,10 +469,10 @@ uint8_t sfilterEmaUpdate ( sfilterema_t* driver, int32_t sample, int32_t* value 
     else
     {
         driver->accumulator = driver->accumulator
-                            - ( driver->accumulator >> driver->shift )
+                            - shiftDown ( driver->accumulator, driver->shift )
                             + ( int64_t ) sample;
 
-        *value = ( int32_t ) ( driver->accumulator >> driver->shift );
+        *value = ( int32_t ) shiftDown ( driver->accumulator, driver->shift );
         retVal = SF_OK;
     }
 
@@ -439,7 +495,7 @@ uint8_t sfilterEmaGet ( const sfilterema_t* driver, int32_t* value )
     }
     else
     {
-        *value = ( int32_t ) ( driver->accumulator >> driver->shift );
+        *value = ( int32_t ) shiftDown ( driver->accumulator, driver->shift );
         retVal = SF_OK;
     }
 

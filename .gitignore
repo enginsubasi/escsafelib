@@ -69,3 +69,6 @@ doc/
 # It is a reserved device name, so git cannot even read it: staging it fails
 # with "mmap failed: Invalid argument".
 nul
+
+# Python bytecode, left behind when a mutant file is imported directly.
+__pycache__/

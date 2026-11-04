@@ -496,10 +496,10 @@ jobs:
       - uses: actions/checkout@v4
 
       # Reporting rather than blocking only because it takes a while:
-      # 203 mutants, each a full build and run of one suite. It runs
+      # 205 mutants, each a full build and run of one suite. It runs
       # clean on the development machine, so a survivor here is a real
       # hole in a suite rather than a discovery about a tool nobody had
-      # used. Nineteen mutants are expected to survive and are marked
+      # used. Twenty mutants are expected to survive and are marked
       # equivalent with the argument for each; the runner requires them
       # to survive, so a wrong argument shows up as RESURRECTED.
       - name: Break every module on purpose
@@ -584,6 +584,8 @@ jobs:
       #   variableScope   every local is declared at the top of its function
       #   unreadVariable  every local is initialised where it is declared
       #   staticFunction  a public function the module also calls itself
+      # Older cppcheck releases do not know staticFunction and report its
+      # suppression as unmatched, hence unmatchedSuppression.
       # One finding is suppressed inline in sdiag.c, with the reason.
       #
       # Findings are printed as workflow annotations. Job logs need admin
@@ -604,41 +606,23 @@ jobs:
             --suppress=variableScope \
             --suppress=unreadVariable \
             --suppress=staticFunction \
+            --suppress=unmatchedSuppression \
             -Iinc/string -Iinc/array -Iinc/memory -Iinc/math \
             -Iinc/ring -Iinc/filter -Iinc/fixed -Iinc/diag \
             -Iinc/scale -Iinc/vote -Iinc/fault -Iinc/state -Iinc/watch \
             -Iinc/bits \
             src/ 2>&1 | tee cppcheck.log
 
-      # The MISRA addon reports rule numbers only. The rule texts are
-      # copyrighted and cannot ship here, so a hit looks like
-      # "misra violation ... [misra-c2012-11.4]" with no description.
-      #
-      # An addon that cannot start does not fail cppcheck: on one Windows
-      # install --addon=misra printed nothing and returned zero for every
-      # module. The control below is what tells that apart from a clean run.
-      - name: Prove the MISRA addon runs
-        if: always()
-        run: |
-          printf 'int f(int x)\n{\n    int y = 010;\n    if (x) goto end;\n    y = x;\nend:\n    return y;\n}\n' > /tmp/misra_control.c
-          cppcheck --addon=misra --std=c99 /tmp/misra_control.c 2>&1 | tee /tmp/misra_control.log
-          grep -q "misra-c2012-15.1" /tmp/misra_control.log
-
-      - name: MISRA C 2012 rule numbers
+      # tools/misra.sh runs the addon through cppcheck --dump, applies the
+      # deviations recorded in CLAUDE.md and the module banners, and fails
+      # on anything else. It runs a control first, because --addon=misra
+      # printed nothing and returned zero here as well as on the
+      # development machine, for a file built to break five rules.
+      - name: MISRA C 2012
         if: always()
         run: |
           set -o pipefail
-          : > misra.log
-          for f in src/*/*.c; do
-            d=$(basename $(dirname "$f"))
-            cppcheck --addon=misra --std=c99 --platform=unix32 \
-              --template='::error file={file},line={line}::[{id}] {message}' \
-              --suppress=missingIncludeSystem \
-              -I"inc/$d" "$f" 2>&1 | tee -a misra.log
-          done
-          echo "---- by rule ----"
-          grep -oE "misra-c2012-[0-9.]+" misra.log | sort | uniq -c | sort -rn || true
-          ! grep -q "misra-c2012-" misra.log
+          bash tools/misra.sh --annotate 2>&1 | tee misra.log
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -648,10 +632,11 @@ jobs:
             cppcheck.log
             misra.log
 
+  # Blocking since 05/11/2026: the first run with -Werror and a control
+  # came back clean on CI, which is the condition for flipping it.
   host-analyzer:
-    name: Host gcc analyzer (reporting)
+    name: Host gcc analyzer
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -687,7 +672,7 @@ jobs:
       - name: Install doxygen
         run: |
           sudo apt-get update
-          sudo apt-get install -y doxygen
+          sudo apt-get install -y doxygen graphviz
 
       # WARN_NO_PARAMDOC is on, so an undocumented parameter shows up here
       # as a warning, and any warning fails the job. The structs are

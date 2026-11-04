@@ -3,8 +3,8 @@
   *
   * @file      sfixed.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      05/11/2026
   *
   * @brief     Safe Q16.16 fixed point arithmetic function library file.
   *
@@ -19,6 +19,10 @@
   *            interpolation and square root in Q16.16. @n
   * 05/08/2026 Documented why the range check in Floor, Ceil, Lerp and @n
   *            Sqrt cannot report the statuses it is able to form. @n
+  * 05/11/2026 The range check spells INT32_MIN as a constant, the root @n
+  *            starts from a constant bit and sfixedToParts converts its @n
+  *            fraction from a local, for MISRA C:2012 Rule 10.8. Rule @n
+  *            10.4 deviation recorded in the banner. @n
   *
   * @note
   * One format, Q16.16: an int32_t holding the real value multiplied by
@@ -73,6 +77,15 @@
   * sfixedToInt truncates, sfixedToIntRound rounds to nearest, and
   * sfixedFloor, sfixedCeil and sfixedRound do what they say for both signs.
   *
+  * @note
+  * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
+  * categories. Every status in this library is a uint8_t, and it is
+  * compared with the members of the module's status enum, with TRUE and
+  * FALSE, and with unsuffixed constants such as 0. One status type across
+  * every module is what lets a caller treat them all alike, and none of
+  * these comparisons can change a value through the conversion the rule
+  * guards against.
+  *
   ******************************************************************************
   */
 
@@ -92,11 +105,14 @@ static uint8_t fitsFixed ( int64_t wide )
 {
     uint8_t retVal = SX_OK;
 
+    /* INT32_MIN is spelt as -INT32_MAX - 1 below so that the conversion
+       applies to a constant rather than to the expression the macro
+       expands to (MISRA C:2012 Rule 10.8). */
     if ( wide > ( int64_t ) INT32_MAX )
     {
         retVal = SX_OVERFLOW;
     }
-    else if ( wide < ( int64_t ) INT32_MIN )
+    else if ( wide < ( -( int64_t ) INT32_MAX - 1 ) )
     {
         retVal = SX_UNDERFLOW;
     }
@@ -121,7 +137,7 @@ static int64_t integerSqrt64 ( int64_t value )
 {
     int64_t remainder = value;
     int64_t root = 0;
-    int64_t bit = ( ( int64_t ) 1 ) << 62;
+    int64_t bit = ( int64_t ) 0x4000000000000000;
     uint32_t i = 0;
 
     for ( i = 0; i < 32u; ++i )
@@ -311,6 +327,7 @@ uint8_t sfixedToParts ( sfixed_t value, uint8_t* negative, int32_t* whole, uint3
 {
     uint8_t retVal = SX_OK;
     int64_t magnitude = 0;
+    int64_t fraction = 0;
 
     if ( ( negative == NULL ) || ( whole == NULL ) || ( milli == NULL ) )
     {
@@ -331,9 +348,11 @@ uint8_t sfixedToParts ( sfixed_t value, uint8_t* negative, int32_t* whole, uint3
             *negative = FALSE;
         }
 
+        /* Formed in a signed local and converted from there: the fraction
+           is 0 to 999, so the conversion cannot change its value. */
+        fraction = ( ( magnitude % ( int64_t ) SFIXED_ONE ) * 1000 ) / ( int64_t ) SFIXED_ONE;
         *whole = ( int32_t ) ( magnitude / ( int64_t ) SFIXED_ONE );
-        *milli = ( uint32_t ) ( ( ( magnitude % ( int64_t ) SFIXED_ONE ) * 1000 )
-                                / ( int64_t ) SFIXED_ONE );
+        *milli = ( uint32_t ) fraction;
         retVal = SX_OK;
     }
 

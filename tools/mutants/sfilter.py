@@ -13,7 +13,7 @@ MUTANTS = [
     {
         "id": 'M2',
         "what": 'the exponential filter keeps no fraction',
-        "old": '        driver->accumulator = ( int64_t ) initial * ( int64_t ) ( ( uint64_t ) 1u << shift );',
+        "old": '        driver->accumulator = ( int64_t ) initial * ( int64_t ) factor;',
         "new": '        driver->accumulator = ( int64_t ) initial;',
     },
     {
@@ -68,7 +68,20 @@ MUTANTS = [
         "id": 'M11',
         "what": 'the exponential filter scales its start by a signed left shift',
         "ubsan": True,
-        "old": '        driver->accumulator = ( int64_t ) initial * ( int64_t ) ( ( uint64_t ) 1u << shift );',
+        "old": '        driver->accumulator = ( int64_t ) initial * ( int64_t ) factor;',
         "new": '        driver->accumulator = ( ( int64_t ) initial ) << shift;',
+    },
+    {
+        "id": 'M12',
+        "what": 'a negative accumulator is scaled down rounding toward zero',
+        "old": '        scaled = ( magnitude + roundUp ) >> shift;',
+        "new": '        scaled = magnitude >> shift;',
+    },
+    {
+        "id": 'M13',
+        "what": 'the exponential filter scales down with a signed right shift',
+        "equivalent": 'On every compiler this library is built with, a right shift of a negative int64_t is arithmetic, which is exactly what shiftDown computes. The mutant reintroduces implementation-defined behaviour, not a wrong answer, so no host test can see it; MISRA Rule 10.1 does, and that is why shiftDown exists.',
+        "old": '        *value = ( int32_t ) shiftDown ( driver->accumulator, driver->shift );\n        retVal = SF_OK;\n    }\n\n    return ( retVal );\n}\n\n/**\n * @brief   Reads',
+        "new": '        *value = ( int32_t ) ( driver->accumulator >> driver->shift );\n        retVal = SF_OK;\n    }\n\n    return ( retVal );\n}\n\n/**\n * @brief   Reads',
     },
 ]

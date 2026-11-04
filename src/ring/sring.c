@@ -3,8 +3,8 @@
   *
   * @file      sring.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
-  * @date      04/11/2026
+  * @version   0.1.2
+  * @date      05/11/2026
   *
   * @brief     Safe byte ring buffer function library file.
   *
@@ -21,6 +21,7 @@
   *            through Init, rather than computing from a zero capacity. @n
   * 04/11/2026 The driver struct is documented in this file, so the @n
   *            header stays a pure declaration. @n
+  * 05/11/2026 MISRA C:2012 Rule 10.4 deviation recorded in the banner. @n
   *
   * @note
   * This is the first module in the library with real state, and it follows
@@ -103,6 +104,15 @@
   * No modulo anywhere. An index that reaches the capacity is compared and
   * reset rather than divided, because a division is a called routine on a
   * Cortex-M0 and this code runs in an interrupt.
+  *
+  * @note
+  * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
+  * categories. Every status in this library is a uint8_t, and it is
+  * compared with the members of the module's status enum, with TRUE and
+  * FALSE, and with unsuffixed constants such as 0. One status type across
+  * every module is what lets a caller treat them all alike, and none of
+  * these comparisons can change a value through the conversion the rule
+  * guards against.
   *
   ******************************************************************************
   */

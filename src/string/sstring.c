@@ -3,8 +3,8 @@
   *
   * @file      sstring.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.3.1
-  * @date      04/11/2026
+  * @version   0.3.2
+  * @date      05/11/2026
   *
   * @brief     Safe string handling function library file.
   *
@@ -36,6 +36,12 @@
   *            range. Banner date brought up to the history. @n
   * 04/11/2026 The ASCII case helpers no longer assign retVal the @n
   *            value it already holds. @n
+  * 05/11/2026 A digit is added to a character constant as an unsigned @n
+  *            value, and a digit value is formed from converted @n
+  *            characters, for MISRA C:2012 Rules 10.2 and 10.8. The @n
+  *            overlap deviation now names Rule 11.6 as well and every @n
+  *            function it covers. Rule 10.4 deviation recorded in the @n
+  *            banner. @n
   *
   * @note
   * Six invariants hold for every function in this file.
@@ -72,12 +78,22 @@
   * sstringLength counts bytes rather than characters.
   *
   * @note
-  * MISRA C:2012 deviation, Rule 11.4, conversion between a pointer and an
-  * integer. isOverlapping converts both pointers to uintptr_t so that two
-  * byte ranges can be tested for intersection. There is no conforming way
-  * to compare pointers into separate objects, and silently corrupting
-  * overlapping buffers is the worse outcome. The conversion is confined to
-  * that one function.
+  * MISRA C:2012 deviation, Rules 11.4 and 11.6, conversion between a
+  * pointer and an integer. isOverlapping and isUnsafeOverlap convert
+  * pointers to uintptr_t so that two byte ranges can be tested for
+  * intersection, and sstringMove chooses its copy direction by comparing
+  * the same two values. There is no conforming way to compare pointers into
+  * separate objects, and silently corrupting overlapping buffers is the
+  * worse outcome.
+  *
+  * @note
+  * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
+  * categories. Every status in this library is a uint8_t, and it is
+  * compared with the members of the module's status enum, with TRUE and
+  * FALSE, and with unsuffixed constants such as 0. One status type across
+  * every module is what lets a caller treat them all alike, and none of
+  * these comparisons can change a value through the conversion the rule
+  * guards against.
   *
   ******************************************************************************
   */
@@ -2651,12 +2667,12 @@ static uint8_t hexDigitValue ( char ch, uint32_t* value )
 
     if ( isDigitAscii ( ch ) == TRUE )
     {
-        *value = ( uint32_t ) ( ch - '0' );
+        *value = ( uint32_t ) ch - ( uint32_t ) '0';
         retVal = TRUE;
     }
     else if ( ( folded >= 'a' ) && ( folded <= 'f' ) )
     {
-        *value = ( uint32_t ) ( ( folded - 'a' ) + 10 );
+        *value = ( ( uint32_t ) folded - ( uint32_t ) 'a' ) + 10u;
         retVal = TRUE;
     }
     else
@@ -2718,7 +2734,7 @@ uint8_t sstringToU32 ( const char* str, uint32_t strSize, uint32_t* value )
                     }
                     else
                     {
-                        digit = ( uint32_t ) ( str[ i ] - '0' );
+                        digit = ( uint32_t ) str[ i ] - ( uint32_t ) '0';
 
                         if ( accumulator > ( ( 0xFFFFFFFFu - digit ) / 10u ) )
                         {
@@ -2818,7 +2834,7 @@ uint8_t sstringToI32 ( const char* str, uint32_t strSize, int32_t* value )
                     }
                     else
                     {
-                        digit = ( uint32_t ) ( str[ i ] - '0' );
+                        digit = ( uint32_t ) str[ i ] - ( uint32_t ) '0';
 
                         if ( accumulator > ( ( 0xFFFFFFFFu - digit ) / 10u ) )
                         {
@@ -2989,7 +3005,7 @@ uint8_t sstringFromU32 ( char* dest, uint32_t destSize, uint32_t value )
         {
             if ( ( work != 0u ) || ( digits == 0u ) )
             {
-                scratch[ digits ] = ( char ) ( '0' + ( char ) ( work % 10u ) );
+                scratch[ digits ] = ( char ) ( '0' + ( work % 10u ) );
                 work = work / 10u;
                 ++digits;
             }
@@ -3069,7 +3085,7 @@ uint8_t sstringFromI32 ( char* dest, uint32_t destSize, int32_t value )
         {
             if ( ( work != 0u ) || ( digits == 0u ) )
             {
-                scratch[ digits ] = ( char ) ( '0' + ( char ) ( work % 10u ) );
+                scratch[ digits ] = ( char ) ( '0' + ( work % 10u ) );
                 work = work / 10u;
                 ++digits;
             }
@@ -3162,11 +3178,11 @@ uint8_t sstringFromU32Hex ( char* dest, uint32_t destSize, uint32_t value, uint8
 
                 if ( nibble < 10u )
                 {
-                    scratch[ produced ] = ( char ) ( '0' + ( char ) nibble );
+                    scratch[ produced ] = ( char ) ( '0' + nibble );
                 }
                 else
                 {
-                    scratch[ produced ] = ( char ) ( 'a' + ( char ) ( nibble - 10u ) );
+                    scratch[ produced ] = ( char ) ( 'a' + ( nibble - 10u ) );
                 }
 
                 work = work / 16u;
