@@ -172,15 +172,6 @@ Writing the tool found four things the numbers had been hiding:
   reach. It now targets the operations: the sort, the rotation, the binary
   search, insertion and removal.
 
-Two results from the older runs are still worth keeping in mind:
-
-- Masking `smemoryEqualSecure` down to the low bit of each difference still
-  passes every naive equality case. Only the deliberate high-bit-only case
-  catches it.
-- **`sdiag`'s two March memory tests still cannot have their failure paths
-  reached by anything portable.** See "Untestable here" below, and
-  `test/harness/aliasing.c`, which reaches four of the twenty two lines.
-
 `tools/mutate.py` suppresses the Windows crash dialog and treats a suite
 that does not finish as killed. Without the first, the run stops dead on
 the mutant that removes the guard against `INT32_MIN / -1`: the SIGFPE
@@ -188,13 +179,14 @@ raises a dialog and waits for a mouse.
 
 One `svote` mutant is worth knowing about because of *how* it dies. Forming the channel spread as `highest - lowest` in 32 bits rather than 64 produces the same bits on this host, so every assertion still passes — but it is signed overflow, and **UBSan traps it**. The suite is run under `-fsanitize=undefined -fsanitize-trap=undefined` by `tools/run_all.sh` and by CI, so the sanitizer is part of the kill criterion and not an extra. A mutant that only the sanitizer catches is still killed; one that nothing catches is a hole.
 
-`sring` counts 12 because the unready-driver guard was added after the first eleven. Only three of those eleven were re-run against the new source, and that is enough: the guard adds one early branch that returns TRUE for every driver a successful `Init` produced, so for the cases those mutants exercise the control flow is bit-identical.
-
 The `sring` run is the one that shows mutation testing paying for itself directly. A mutant that made `sringPutBlocku8` compute one byte too much free space passed the whole suite, because no case put *exactly* the usable size through the block form. That mutant is a real bug: it fills the buffer completely, which makes the two indices equal, which is the encoding for empty — so the ring would report holding nothing straight after being handed a full load. The boundary cases that kill it were written because the mutant survived, not the other way round.
 
-Two results from those runs are worth keeping in mind:
+Results from the mutation runs that are worth keeping in mind:
 
 - Masking `smemoryEqualSecure` down to the low bit of each difference still passes every naive equality case. Only the deliberate high-bit-only case catches it.
+- **`sdiag`'s two March memory tests still cannot have their failure paths
+  reached by anything portable.** See "Untestable here" below, and
+  `test/harness/aliasing.c`, which reaches four of the twenty two lines.
 - **One `sscale` mutant survives and is provably equivalent.** Removing
   the up-front refusal of a flat first pair and widening the direction
   test from `>` to `>=` changes nothing observable: the only table it
@@ -576,7 +568,7 @@ Start a new module by copying `template/`, never by copying an existing module.
 
 GPL-3.0-or-later. **Every header carries `/* SPDX-License-Identifier: GPL-3.0-or-later */` as its first line and every source carries a `@par License` block in its banner**, because a module is consumed by copying its pair out and a licence named only in this repository does not travel with the copy. `tools/doxcheck.py` enforces both, so a new module cannot ship without them; `template/` already has them, which is another reason to start there.
 
-The verbatim licence text is **not** in the repository yet and belongs in a file named `LICENSE`, taken exactly from <https://www.gnu.org/licenses/gpl-3.0.txt>. It is missing on purpose rather than by oversight: a copy of the GPL is only the GPL if it is exact, and one written out from memory that differs by a clause is a different licence wearing the same name. `COPYING.md` records that and everything else about the licence.
+The verbatim licence text is in `LICENSE` at the root, and has been since the initial commit. On 04/11/2026 it was compared against <https://www.gnu.org/licenses/gpl-3.0.txt> and the committed blob is byte-identical to it; the working copy differs only by CRLF line endings, which git adds on checkout. A copy of the GPL is only the GPL if it is exact, so **never edit `LICENSE` by hand** — replace it only with a fresh official copy. `COPYING.md` records everything else about the licence.
 
 ## Safety rules
 

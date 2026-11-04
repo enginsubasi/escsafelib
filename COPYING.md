@@ -38,19 +38,22 @@ ship without one.
 
 ## The full text
 
-**The verbatim licence text belongs in a file named `LICENSE` at the root
-of this repository, and it is not here yet.**
+**The verbatim licence text is in `LICENSE` at the root of this
+repository.**
 
-That gap is deliberate rather than forgotten. The GPL is a legal document
-and a copy of it is only the GPL if it is exact; a text reproduced from
-memory that differs by a clause is a different licence with the same name.
-It has to be the official copy, taken from:
+The GPL is a legal document and a copy of it is only the GPL if it is
+exact; a text reproduced from memory that differs by a clause is a
+different licence with the same name. The file in this repository is the
+official copy, and on 04/11/2026 it was compared byte for byte against
 
     https://www.gnu.org/licenses/gpl-3.0.txt
 
-Save it verbatim as `LICENSE`. Nothing else in this repository needs to
-change: the SPDX identifiers already name the licence unambiguously, and
-they are what a licence scanner and a downstream integrator read.
+and found identical. A working copy checked out on Windows may carry CRLF
+line endings; the committed text does not. Never edit `LICENSE` by hand.
+If it ever has to change, replace it with a fresh official copy.
+
+The SPDX identifiers in each file name the licence unambiguously, and they
+are what a licence scanner and a downstream integrator read.
 
 ## What GPLv3 means for someone integrating this
 
