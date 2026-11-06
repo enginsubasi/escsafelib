@@ -23,6 +23,7 @@
 # the places cppcheck installs it.
 
 set -u
+set -o pipefail
 set -f   # the deviation table holds a literal *, which must not glob
 
 ANNOTATE=0
@@ -79,6 +80,10 @@ echo "addon: $MISRA_PY"
 
 printf 'int f(int x)\n{\n    int y = 010;\n    if (x) goto end;\n    y = x;\nend:\n    return y;\n}\n' > "$WORK/control.c"
 "$CPPCHECK" --dump --std=c99 "$(native "$WORK/control.c")" > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "CONTROL FAILED: cppcheck could not create the control dump"
+    exit 2
+fi
 "$PYTHON" "$(native "$MISRA_PY")" "$(native "$WORK/control.c.dump")" > "$WORK/control.log" 2>&1
 if ! grep -q "misra-c2012-7.1" "$WORK/control.log" || ! grep -q "misra-c2012-15.1" "$WORK/control.log"; then
     echo "CONTROL FAILED: the MISRA addon did not report a file built to break it"
@@ -92,6 +97,7 @@ echo "control: the addon reports 7.1 and 15.1 on a file built to break them"
 #
 # rule  modules (or *)  -- the argument for each is recorded in CLAUDE.md
 # and, for the per-module ones, in that module's source banner.
+# Rule 10.4 is matched against tools/misra_10_4.tsv by source-line hash.
 #
 #   10.4  every module. A status is a uint8_t and is compared with the
 #         module's enum members, with TRUE and FALSE, and with unsuffixed
@@ -106,7 +112,6 @@ echo "control: the addon reports 7.1 and 15.1 on a file built to break them"
 #         allows for examining the bytes of an object.
 
 DEVIATIONS="
-10.4 *
 11.4 sarray sstring
 11.6 sarray smemory sstring
 11.5 sdiag smemory
@@ -142,6 +147,8 @@ fi
 
 : > "$WORK/findings"
 : > "$WORK/deviated"
+: > "$WORK/rule_10_4"
+status=0
 
 for m in "${MODULES[@]}"; do
     set +f
@@ -152,10 +159,16 @@ for m in "${MODULES[@]}"; do
     cp "$src" "$WORK/$m.c"
     "$CPPCHECK" --dump --std=c99 --platform=unix32 --suppress=missingIncludeSystem \
         -I"$(native "$REPO/inc/$d")" "$(native "$WORK/$m.c")" > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        echo "MISRA FAILED: cppcheck could not create a dump for $m"
+        exit 2
+    fi
     "$PYTHON" "$(native "$MISRA_PY")" "$(native "$WORK/$m.c.dump")" 2>&1 \
         | sed -nE 's/^\[[^]]*[\\/]'"$m"'\.c:([0-9]+)\].*\[misra-c2012-([0-9.]+)\].*$/\1 \2/p' \
         | while read -r line rule; do
-              if deviated "$rule" "$m"; then
+              if [ "$rule" = "10.4" ]; then
+                  printf '%s\t%s\n' "$m" "$line" >> "$WORK/rule_10_4"
+              elif deviated "$rule" "$m"; then
                   echo "$rule $m" >> "$WORK/deviated"
               else
                   echo "$src $line $rule" >> "$WORK/findings"
@@ -163,9 +176,26 @@ for m in "${MODULES[@]}"; do
           done
 done
 
-# ------------------------------------------------------------------- report
+if [ "$WHOLE" -eq 1 ]; then
+        if ! "$PYTHON" "$(native "$REPO/tools/misra_occurrences.py")" \
+        --repo "$(native "$REPO")" \
+        --manifest "$(native "$REPO/tools/misra_10_4.tsv")" \
+        --actual "$(native "$WORK/rule_10_4")"; then
+            status=1
+        fi
+    else
+        if ! "$PYTHON" "$(native "$REPO/tools/misra_occurrences.py")" \
+            --repo "$(native "$REPO")" \
+            --manifest "$(native "$REPO/tools/misra_10_4.tsv")" \
+            --actual "$(native "$WORK/rule_10_4")" \
+            --modules "${MODULES[@]}"; then
+            status=1
+        else
+            :
+        fi
+fi
 
-status=0
+# ------------------------------------------------------------------- report
 
 if [ -s "$WORK/findings" ]; then
     status=1
@@ -185,6 +215,7 @@ echo "by rule, outside the deviations:"
 awk '{ print $3 }' "$WORK/findings" | sort | uniq -c | sort -rn
 echo "by rule, inside the deviations:"
 awk '{ print $1 }' "$WORK/deviated" | sort | uniq -c | sort -rn
+echo "matched Rule 10.4 allowlist occurrences: $(wc -l < "$WORK/rule_10_4")"
 
 # A deviation nothing needs any more is a claim the code no longer makes,
 # and the record should go. Only meaningful over the whole tree.

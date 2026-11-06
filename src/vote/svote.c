@@ -3,8 +3,8 @@
   *
   * @file      svote.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
-  * @date      05/11/2026
+  * @version   0.1.2
+  * @date      06/11/2026
   *
   * @brief     Safe redundant channel voting function library file.
   *
@@ -20,6 +20,7 @@
   * 05/11/2026 The spread is converted from a local, for MISRA C:2012 @n
   *            Rule 10.8. MISRA C:2012 Rule 10.4 deviation recorded in @n
   *            the banner. @n
+  * 06/11/2026 Unsigned zero constants used for unsigned counts. @n
   *
   * @note
   * This module answers one question in several forms: several channels have
@@ -207,7 +208,7 @@ static uint8_t checkArray ( const int32_t* values, uint32_t size, uint32_t count
     {
         retVal = SV_NULLPTR;
     }
-    else if ( count == 0 )
+    else if ( count == 0u )
     {
         retVal = SV_INVALIDSIZE;
     }
@@ -538,7 +539,7 @@ uint8_t svoteMajority ( const int32_t* values, uint32_t size, uint32_t count, in
     {
         retVal = SV_INVALIDPARAM;
     }
-    else if ( ( required == 0 ) || ( required > count ) )
+    else if ( ( required == 0u ) || ( required > count ) )
     {
         retVal = SV_INVALIDPARAM;
     }
@@ -601,7 +602,7 @@ uint8_t svoteOutliers ( const int32_t* values, uint32_t size, uint32_t count, in
     {
         retVal = SV_INVALIDPARAM;
     }
-    else if ( ( required == 0 ) || ( required > count ) )
+    else if ( ( required == 0u ) || ( required > count ) )
     {
         retVal = SV_INVALIDPARAM;
     }

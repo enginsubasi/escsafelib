@@ -2,6 +2,27 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Shared context with Codex
+
+This repository is maintained with both Claude and Codex. The technical
+guidance in this file applies to both; Codex enters through
+[AGENTS.md](AGENTS.md), which points here rather than duplicating it.
+
+At the start of each session, read and follow the
+[shared workflow](docs/ai/WORKFLOW.md) and read the
+[current handoff](docs/ai/HANDOFF.md). Before finishing work that changes the
+repository, update the handoff with changes, decisions, actual verification
+results and remaining steps. Keep shared context in these repository files
+so the other assistant can continue without access to this conversation.
+For durable milestones and prior findings, consult and maintain
+[the shared work history](docs/ai/HISTORY.md); keep immediate next steps in
+the handoff rather than copying the full history there.
+
+For standards-related work, read the [standards application notes](docs/standards/README.md).
+They record selected local editions, source locators and repository evidence
+limits. Keep interpretations distinct from normative requirements and do
+not turn these notes or historical test results into a compliance claim.
+
 ## What this repo is
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
@@ -349,7 +370,7 @@ and four rules are recorded as deviations:
 
 | rule | hits | modules | decision |
 |---|---|---|---|
-| 10.4 | 636 | all | **deviation.** A status is a `uint8_t` compared with enum members, `TRUE`/`FALSE` and unsuffixed literals; one status type across the library is the contract |
+| 10.4 | 621 currently matched (636 at baseline) | all | **known-finding allowlist.** The recorded rationale is status comparisons with enums and Boolean values. Fifteen unsigned zero comparisons were corrected to `0u`; remaining entries are fingerprinted, but still require source-level rationale review before being treated as justified deviations. |
 | 11.5 | 25 | `smemory`, `sdiag` | **deviation.** `void*` to `unsigned char*`, the one conversion the standard always allows for reading bytes |
 | 11.4 | 10 | `sarray`, `sstring` | **deviation.** Pointer to integer, to test two ranges for overlap and to choose a copy direction |
 | 11.6 | 10 | `sarray`, `smemory`, `sstring` | **deviation.** The same overlap checks, through `void*` |
@@ -358,10 +379,13 @@ and four rules are recorded as deviations:
 | 10.2 | 4 | `sstring` | fixed: a digit is added to a character constant as an unsigned value |
 | 10.7 | 3 | `sbits` | fixed with the 10.1 change |
 
-Every deviation is written in the banner of each module it covers, so it
-travels with a module that is copied out, and `template/src/generic.c`
-carries the 10.4 note. Two of the old records were wrong and were caught
-by the run: `sstring` claimed its pointer conversion was confined to one
+Module-scoped deviations are written in the banner of each module they cover,
+so they travel with a copied module. Rule 10.4 occurrences are pinned in
+`tools/misra_10_4.tsv` by module, source line, line hash and duplicate count;
+the manifest is a checker baseline, not formal deviation approval.
+`template/src/generic.c` carries the 10.4 rationale for new modules. Two old
+records were wrong and were caught by the run: `sstring` claimed its pointer
+conversion was confined to one
 function when three use it, and `smemory` recorded Rule 11.4 for what is a
 Rule 11.6 conversion.
 

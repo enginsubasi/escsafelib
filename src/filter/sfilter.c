@@ -3,8 +3,8 @@
   *
   * @file      sfilter.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.2
-  * @date      05/11/2026
+  * @version   0.1.3
+  * @date      06/11/2026
   *
   * @brief     Safe signal conditioning function library file.
   *
@@ -27,6 +27,7 @@
   *            shift did, without depending on how the compiler shifts a @n
   *            negative value. @n
   * 05/11/2026 MISRA C:2012 Rule 10.4 deviation recorded in the banner. @n
+  * 06/11/2026 Unsigned zero constants used for unsigned limits and counts. @n
   *
   * @note
   * Every sample in this module is an int32_t, whatever the sensor produced.
@@ -192,7 +193,7 @@ uint8_t sfilterAvgInit ( sfilteravg_t* driver, int32_t* buffer, uint32_t capacit
     {
         retVal = SF_NULLPTR;
     }
-    else if ( ( capacity == 0 ) || ( capacity > 0x7FFFFFFFu ) )
+    else if ( ( capacity == 0u ) || ( capacity > 0x7FFFFFFFu ) )
     {
         retVal = SF_INVALIDSIZE;
     }
@@ -257,7 +258,7 @@ uint8_t sfilterAvgAdd ( sfilteravg_t* driver, int32_t sample )
     {
         retVal = SF_NULLPTR;
     }
-    else if ( ( driver->buffer == NULL ) || ( driver->capacity == 0 ) )
+    else if ( ( driver->buffer == NULL ) || ( driver->capacity == 0u ) )
     {
         retVal = SF_INVALIDSIZE;
     }
@@ -312,7 +313,7 @@ uint8_t sfilterAvgGet ( const sfilteravg_t* driver, int32_t* value )
     {
         retVal = SF_NULLPTR;
     }
-    else if ( driver->count == 0 )
+    else if ( driver->count == 0u )
     {
         retVal = SF_EMPTY;
     }
@@ -523,7 +524,7 @@ uint8_t sfilterDebounceInit ( sfilterdebounce_t* driver, uint32_t threshold, uin
     {
         retVal = SF_NULLPTR;
     }
-    else if ( threshold == 0 )
+    else if ( threshold == 0u )
     {
         retVal = SF_INVALIDPARAM;
     }
@@ -924,7 +925,7 @@ uint8_t sfilterMedian ( int32_t* samples, uint32_t count, int32_t* result )
     {
         retVal = SF_NULLPTR;
     }
-    else if ( count == 0 )
+    else if ( count == 0u )
     {
         retVal = SF_INVALIDSIZE;
     }

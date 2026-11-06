@@ -3,8 +3,8 @@
   *
   * @file      sfault.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.2
-  * @date      05/11/2026
+  * @version   0.1.3
+  * @date      06/11/2026
   *
   * @brief     Safe fault qualification function library file.
   *
@@ -20,6 +20,7 @@
   * 04/11/2026 The driver struct is documented in this file, so the @n
   *            header stays a pure declaration. @n
   * 05/11/2026 MISRA C:2012 Rule 10.4 deviation recorded in the banner. @n
+  * 06/11/2026 Unsigned zero constants used for unsigned limits and counts. @n
   *
   * @note
   * A diagnostic test that reports a fault the first time it sees one is
@@ -168,7 +169,7 @@ static uint8_t isReady ( const sfault_t* driver )
 {
     uint8_t retVal = FALSE;
 
-    if ( ( driver->confirmLimit == 0 ) || ( driver->healLimit == 0 ) )
+    if ( ( driver->confirmLimit == 0u ) || ( driver->healLimit == 0u ) )
     {
         retVal = FALSE;
     }
@@ -313,7 +314,7 @@ uint8_t sfaultInit ( sfault_t* driver, uint32_t confirmLimit, uint32_t healLimit
     {
         retVal = SU_NULLPTR;
     }
-    else if ( ( confirmLimit == 0 ) || ( healLimit == 0 ) )
+    else if ( ( confirmLimit == 0u ) || ( healLimit == 0u ) )
     {
         retVal = SU_INVALIDPARAM;
     }
@@ -459,7 +460,7 @@ uint8_t sfaultUpdateN ( sfault_t* driver, uint8_t present, uint32_t cycles )
     {
         retVal = SU_INVALIDPARAM;
     }
-    else if ( cycles == 0 )
+    else if ( cycles == 0u )
     {
         retVal = SU_INVALIDPARAM;
     }
@@ -677,7 +678,7 @@ uint8_t sfaultAnyConfirmed ( const sfault_t* faults, uint32_t size, uint32_t cou
     {
         retVal = SU_NULLPTR;
     }
-    else if ( ( count == 0 ) || ( count > size ) )
+    else if ( ( count == 0u ) || ( count > size ) )
     {
         retVal = SU_INVALIDSIZE;
     }
@@ -745,7 +746,7 @@ uint8_t sfaultCountConfirmed ( const sfault_t* faults, uint32_t size, uint32_t c
     {
         retVal = SU_NULLPTR;
     }
-    else if ( ( count == 0 ) || ( count > size ) )
+    else if ( ( count == 0u ) || ( count > size ) )
     {
         retVal = SU_INVALIDSIZE;
     }

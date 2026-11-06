@@ -262,3 +262,7 @@ for a product that ships one of these modules.
 # Coding Reference
 
 The library coding references are defined in codingReference.md file.
+
+Selected IEC 61508, ISO 26262 and MISRA C:2012 application notes, with source
+editions and repository evidence limits, are in [docs/standards/](docs/standards/README.md).
+They are engineering references, not a certification or compliance declaration.

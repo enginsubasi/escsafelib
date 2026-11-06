@@ -216,11 +216,17 @@ addon by hand, which works on both, and it runs that control file first
 every time. If the control does not fire it exits 2 rather than report a
 clean tree.
 
-The deviation table is at the top of the script and has to agree with the
-module banners, where each deviation is argued. Over the whole tree the
-script also fails on a deviation nothing needs any more, the way
-`mutate.py` fails on a resurrected mutant: an exception the code no longer
-takes is a stale claim.
+Rules 11.4, 11.5 and 11.6 remain scoped by module in the script and source
+banners. Rule 10.4 uses `misra_10_4.tsv`: each record stores the module, line,
+SHA-256 of the source line and expected duplicate count. A full-tree run fails
+on new, changed or stale occurrences. Partial-module runs check only the
+selected modules. The manifest pins observed findings; it does not approve a
+formal deviation or prove each finding's rationale.
+
+`misra_occurrences.py --self-test` checks matching, added, removed, duplicate
+and changed-fingerprint cases. Do not update the manifest as part of an
+ordinary check; review the source and rationale before recording a new
+baseline.
 
 `CPPCHECK`, `MISRA_PY` and `PYTHON` override where the tools are found.
 
