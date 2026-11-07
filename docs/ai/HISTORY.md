@@ -202,6 +202,14 @@ ARM hardware; cross-compile, `-fanalyzer` and `size.sh` as before).
   20 equivalent), 406 Rule 10.4 occurrences all inside the rationale by
   expression.
 
+## 2026-11-07 — sstate time in state and sscale 2D map (Claude)
+
+- `sstateTick`/`sstateGetDwell`, and a bilinear `sscalemap_t` with one
+  rounding and per-cell overflow checks at Init and Apply. MC/DC showed the
+  map's segment search lower-bound test was unreachable; it was removed
+  rather than classified. Final: 399 functions, 4800 cases, 318 mutants
+  (297 killed, 21 equivalent), 420 Rule 10.4 occurrences.
+
 ## Open work carried forward
 
 See [HANDOFF.md](HANDOFF.md).

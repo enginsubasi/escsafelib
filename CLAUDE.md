@@ -27,7 +27,7 @@ not turn these notes or historical test results into a compliance claim.
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All nineteen modules are implemented — 394 functions and 4664 self-checking test cases across twenty suites: 4588 in the nineteen module suites and 76 in the integration suite. Every status a function's `@return` promises is expected by at least one case in its own suite, or recorded with its reason in `tools/trace_exceptions.tsv`; `tools/tracecheck.py` checks it.
+All nineteen modules are implemented — 399 functions and 4800 self-checking test cases across twenty suites: 4724 in the nineteen module suites and 76 in the integration suite. Every status a function's `@return` promises is expected by at least one case in its own suite, or recorded with its reason in `tools/trace_exceptions.tsv`; `tools/tracecheck.py` checks it.
 
 ## Working language
 
@@ -164,7 +164,7 @@ python tools/mutate.py svote        # one of them
 python tools/mutate.py --list
 ```
 
-**302 mutants across the nineteen modules: 282 killed, 20 equivalent, all
+**318 mutants across the nineteen modules: 297 killed, 21 equivalent, all
 accounted for.** The defects live in `tools/mutants/<module>.py`, one file
 per module, and the runner is `tools/mutate.py`. Before that they were
 throwaway scripts in a scratch directory and the numbers in this file were
@@ -174,8 +174,8 @@ can repeat.
 | module | killed | equivalent | module | killed | equivalent |
 |---|---|---|---|---|---|
 | `sarray` | 19 | 6 | `sring` | 13 | 1 |
-| `sbits` | 24 | 0 | `sscale` | 18 | 1 |
-| `sdiag` | 11 | 1 | `sstate` | 16 | 2 |
+| `sbits` | 24 | 0 | `sscale` | 28 | 2 |
+| `sdiag` | 11 | 1 | `sstate` | 21 | 2 |
 | `sfault` | 16 | 1 | `sstring` | 17 | 4 |
 | `sfilter` | 14 | 1 | `svote` | 16 | 0 |
 | `sfixed` | 10 | 0 | `swatch` | 16 | 0 |
@@ -276,13 +276,13 @@ What that first run found, and what closing it cost:
 | `sdiag` | 82.2% | 87.8% | 92.2% |
 | `sstring` | 83.0% | 99.4% | 99.8% |
 | `sfixed` | 86.0% | 97.4% | 100% |
-| `sscale` | 89.9% | 96.8% | 98.7% |
+| `sscale` | 89.9% | 97.9% | 99.2% |
 | `smath` | 91.3% | 97.9% | 98.9% |
 | `sring` | 91.5% | 99.1% | 99.5% |
 | `sfilter` | 92.3% | 99.3% | 100% |
 | `sbits` | — | **100%** | 100% |
 | `sfault` | — | 99.3% | 100% |
-| `sstate` | — | 97.5% | 99.5% |
+| `sstate` | — | 97.7% | 99.5% |
 | `svote` | — | **100%** | 100% |
 | `swatch` | — | **100%** | 100% |
 | `ssignal` | — | **100%** | 100% |
@@ -357,7 +357,8 @@ which is a comment. What remains is all of the second kind:
 - `smath`: the unsigned saturating forms saturating toward the end they cannot
   reach — the same impossibility recorded in their `@return` blocks.
 - `sring`, `sscale`, `sfault`, `sstate`, `sfilter`: the redundant half of
-  `isReady` (inline in `sfilterAvgAdd`). Either condition alone catches a
+  `isReady` (inline in `sfilterAvgAdd`), and `sscale`'s `mapReady` beyond
+  the conditions the suite reaches with drivers damaged by hand. Either condition alone catches a
   zeroed driver, which is why both survive mutation. `sstateIsReachable`'s
   pass bound, which a breadth first walk always finishes inside.
 - `sscale`: `SC_INVALIDTABLE` out of `FindSegment`, and the search's own
@@ -430,7 +431,7 @@ and four rules are recorded as deviations:
 
 | rule | hits | modules | decision |
 |---|---|---|---|
-| 10.4 | 406 (636 at baseline) | all | **deviation, narrowed on 07/11/2026.** A status, state or flag is a `uint8_t` compared with the module's enum members and with `TRUE`/`FALSE`; that is all the deviation covers. The 277 hits that compared or combined an unsigned value with an unsuffixed constant were fixed with a `u` suffix. `tools/misra_occurrences.py` checks every remaining hit by expression: the operator the addon reports must be `==` or `!=` with `TRUE`, `FALSE` or one of the module's own enum members as an operand, or the run fails. All 406 are |
+| 10.4 | 420 (636 at baseline) | all | **deviation, narrowed on 07/11/2026.** A status, state or flag is a `uint8_t` compared with the module's enum members and with `TRUE`/`FALSE`; that is all the deviation covers. The 277 hits that compared or combined an unsigned value with an unsuffixed constant were fixed with a `u` suffix. `tools/misra_occurrences.py` checks every remaining hit by expression: the operator the addon reports must be `==` or `!=` with `TRUE`, `FALSE` or one of the module's own enum members as an operand, or the run fails. All 420 are |
 | 11.5 | 26 | `smemory`, `sdiag` | **deviation.** `void*` to `unsigned char*`, the one conversion the standard always allows for reading bytes |
 | 11.4 | 10 | `sarray`, `sstring` | **deviation.** Pointer to integer, to test two ranges for overlap and to choose a copy direction |
 | 11.6 | 10 | `sarray`, `smemory`, `sstring` | **deviation.** The same overlap checks, through `void*` |
@@ -531,7 +532,7 @@ was about, and until this existed nothing checked that the fix stayed
 applied. It also checks that a size named `<x>Size` sits next to `<x>`, that
 every public function returns `uint8_t`, that names carry their module's
 prefix, that enum members carry their module's status prefix, and that no
-prototype names a bare `int`. 394 declarations, no findings, which is every
+prototype names a bare `int`. 399 declarations, no findings, which is every
 prototype in the tree: **until 07/11/2026 the tool skipped any prototype
 wrapped onto a second line**, because its pattern stopped at a line end.
 `sstringToken` had never been checked, nor the longest declaration of each
@@ -541,7 +542,7 @@ fires. A pointer to a
 module's own driver struct is exempt, and those types are read out of each
 header's typedefs so a new module needs no change to the tool.
 
-`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 808 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
+`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 822 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
 
 **Its most useful rule is one doxygen has no concept of: a `@return` must name every status the body can set, and no status it cannot.** That is what found the only real defect the first full audit turned up. The four `smath` families share one template, so the unsigned ones had inherited the signed text and promised an `SH_UNDERFLOW` that an unsigned addition cannot produce and an `SH_OVERFLOW` that an unsigned subtraction cannot — a caller testing for either was writing a branch that never runs.
 
@@ -665,7 +666,7 @@ Three rules hold it together:
 
 Its test suite contains **no floating point at all** — checking a fixed-point module against float would check it against the very thing it exists to avoid. Expected values are written as integers in the format, and the sweeps assert properties (multiplying by one is the identity, floor never exceeds the input, a root squared never exceeds the input) rather than comparing against a second implementation.
 
-`sscale` is 12 functions of piecewise linear scaling — a breakpoint table from a datasheet, and everything between the breakpoints taken to be a straight line. Thermistor counts to degrees, load cell counts to newtons.
+`sscale` is 15 functions of piecewise linear scaling — a breakpoint table from a datasheet, and everything between the breakpoints taken to be a straight line. Thermistor counts to degrees, load cell counts to newtons.
 
 It is the second module built around the driver struct, and unlike `sring` the reason is safety rather than state. **`sscaleInit` is the only function that validates the table, and no other function can be reached without it having succeeded.** A caller cannot interpolate through an unchecked table, cannot swap the two arrays by accident, and cannot pass a count that disagrees with the one the table was validated against. That is worth more here than the parameter list it saves.
 
@@ -677,6 +678,13 @@ Four things in it are easy to get wrong:
 - **The rounding is written with a remainder, not by adding half the denominator.** That addition would itself overflow when the numerator is near the top of the type. Twice a remainder cannot.
 
 The `y` array is deliberately *not* required to be monotonic — a calibration curve may fold back and still be a function of its input. That is also why `sscaleInvert`, which builds the reverse map by exchanging the two arrays, can fail: the inverse of a folded curve is not a function. It is one call into `sscaleInit`, so the requirement is enforced by the same code that enforces it for a forward table.
+
+**The two dimensional map**, added on 07/11/2026, is three more functions on its own driver, `sscalemap_t`: `sscaleMapInit`, `sscaleMapApply` and `sscaleMapApplyClamped`, bilinear interpolation over a grid of up to `SSCALE_MAPMAX` breakpoints per axis. Four things about it:
+
+- **Both axes must increase.** A calibration tool writes its axes in order; a falling one would be a different table.
+- **One division, one rounding.** The four corners are weighted by areas and divided once, to nearest with halves away from zero as the 1D table does. Interpolating along x and then along y would round twice and could be a count off. The suite checks every integer point of a cell with mixed corners against the exact rational answer, grouped the other way round.
+- **Every cell is checked for overflow at Init**, as the 1D table's spans are: the largest corner times the cell's area must fit `int64_t`, and the suite pins both sides of that bound (an area of 2^32 - 1 against a corner of 2^31 fits, one row more does not). Apply checks the cell it uses again, so a map changed after Init reaches `SC_INVALIDTABLE` rather than undefined behaviour.
+- **The segment search tests only each segment's upper end.** Given that the input is not below the first breakpoint, that is enough for any axis, a changed one included, so the search cannot fail. A value on an inner breakpoint goes to the segment below; `sscale` M30, which sends it above, is equivalent, because two cells sharing an edge agree on it exactly.
 
 Its test suite contains **no floating point**, for the same reason `sfixed`'s does not. The rounding rule is verified by cross multiplication in `int64_t`: a result is correct to nearest when twice its error has a magnitude no greater than the denominator.
 
@@ -710,7 +718,7 @@ The four states matter and collapsing them to a flag loses the point. PENDING is
 
 A presence flag has to be `TRUE` or `FALSE` and anything else is refused. Every C comparison already yields one of those two, so a third value means the caller passed something that was not a verdict, and guessing either way would be wrong.
 
-`sstate` is 12 functions of guarded state machine. The legal transitions are a table, the table is checked once at Init, and every transition the table does not permit is refused and counted.
+`sstate` is 14 functions of guarded state machine. The legal transitions are a table, the table is checked once at Init, and every transition the table does not permit is refused and counted.
 
 **It is not the same thing as `sdiag`'s flow signatures and the two do not overlap.** A signature says the path taken was the path expected; a transition table says the path was permitted at all. A program can follow exactly the sequence its signature expects and still have reached somewhere it should never have been able to get to. IEC 61508-3 asks for both kinds of program sequence monitoring.
 
@@ -722,6 +730,8 @@ Four things to know:
 - **`sstateIsReachable` walks the whole table, not one row.** It is the question a design review asks and a single row cannot answer: once the machine has reached its safe state, is there a path back out. The walk is a breadth first pass over a `uint32_t` bitmask, which is why `SSTATE_MAXSTATES` is 32.
 
 A state is not reachable from itself unless a permitted path leads back to it. Answering `TRUE` by definition would discard a real question.
+
+**Time in state**, added on 07/11/2026: `sstateTick` counts one cycle in the current state, saturating, and `sstateGetDwell` reads it. Every successful transition starts the count again, a forced one and a self loop included, because the state was entered; a refused one does not, because the machine never left. A timeout in a state is then a comparison of the dwell against a number of cycles, with the cycle being whatever the caller ticks on, as in `sfault` and `swatch`.
 
 One comment in it was wrong until mutation testing said so. The pruning of already-expanded rows in the reachability walk was described as what prevents an endless walk; removing it changed no answer, because the pass bound is what guarantees termination and the pruning only saves work. The comment now says that.
 
@@ -860,7 +870,7 @@ Beyond the shared esclib style, this library adds:
   `uint8_t` statuses, states and flags compared with enum members and
   `TRUE`/`FALSE`, and nothing else; `tools/misra.sh` fails on any other hit.
   A signed operand keeps its plain constant (`value < 0`).
-- No module state, so every function is reentrant. **`tools/size.sh` measures this rather than trusting it**: every module is required to show `.data` and `.bss` of zero and the script goes red otherwise. All nineteen do. The whole library is about 27 KB of flash on a Cortex-M0+ and 24 KB on a Cortex-M4, measured whole, which is an upper bound because a project linking with `--gc-sections` pays only for the functions it calls.
+- No module state, so every function is reentrant. **`tools/size.sh` measures this rather than trusting it**: every module is required to show `.data` and `.bss` of zero and the script goes red otherwise. All nineteen do. The whole library is about 28 KB of flash on a Cortex-M0+ and 25 KB on a Cortex-M4, measured whole, which is an upper bound because a project linking with `--gc-sections` pays only for the functions it calls.
 
 ## The driver-struct pattern
 

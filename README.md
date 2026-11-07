@@ -22,7 +22,7 @@ fails leaves its destination untouched.
 | `inc/ring/sring.h` | 12 functions. Single producer single consumer byte ring buffer. Lock free for an interrupt filling it while the main loop drains it. |
 | `inc/filter/sfilter.h` | 19 functions. Moving average, exponential average, debounce, slew limit, hysteresis and median. |
 | `inc/fixed/sfixed.h` | 19 functions. Q16.16 fixed point: conversion, checked arithmetic, rounding, interpolation and square root. No floating point. |
-| `inc/scale/sscale.h` | 12 functions. Piecewise linear scaling: a validated breakpoint table in either direction, its inverse, and the two point map that needs no table. |
+| `inc/scale/sscale.h` | 15 functions. Piecewise linear scaling: a validated breakpoint table in either direction, its inverse, the two point map that needs no table, and a two dimensional bilinear map with every cell checked at Init. |
 | `inc/bits/sbits.h` | 18 functions. Bit field packing in a word and across a byte array, and integers of one to four bytes in an explicitly named byte order, with the position, the width and the value all checked. No shift by the width of the type, and no right shift of a signed value. |
 | `inc/e2e/se2e.h` | 5 functions. End to end protection: a counter and an injected eight bit CRC over an implicit data identifier, and a receiver that tells in sequence, lost, repeated, out of sequence and corrupted apart. sdiag's CRC-8s plug in directly. |
 | `inc/log/slog.h` | 9 functions. Fault event memory: one entry per identifier in a caller owned table, with occurrence count and first and last cycle, and a full table policy chosen at Init. Lost events are counted, and a saved table can be adopted back after a reset. |
@@ -30,7 +30,7 @@ fails leaves its destination untouched.
 | `inc/store/sstore.h` | 3 functions. Record integrity: a versioned, sequenced, CRC-32 protected record in a byte buffer, and the choice between two copies across a torn write. sdiag's CRC-32 plugs in directly. |
 | `inc/signal/ssignal.h` | 7 functions. Signal plausibility: range and gradient checks that say below or above, two sensor correlation without rounding, and a stuck signal detector. Observation only; qualification is `sfault`'s. |
 | `inc/watch/swatch.h` | 12 functions. Deadline and liveness supervision driven by a caller supplied tick: too late and too soon are both faults, and the arithmetic survives the tick counter wrapping. |
-| `inc/state/sstate.h` | 12 functions. Guarded state machine: a transition table validated at Init, illegal transitions refused and counted, and reachability queries over the whole table. |
+| `inc/state/sstate.h` | 14 functions. Guarded state machine: a transition table validated at Init, illegal transitions refused and counted, reachability queries over the whole table, and the time spent in the current state. |
 | `inc/fault/sfault.h` | 12 functions. Fault qualification: a condition must be present for a number of cycles to confirm and absent for a number to heal, with latching and occurrence counting. |
 | `inc/vote/svote.h` | 12 functions. Redundant channel voting: agreement within a tolerance, majority, median, mean, spread, outlier reporting and fail safe selection. |
 | `inc/diag/sdiag.h` | 20 functions. CRC-32, CRC-16 and two CRC-8s, checksum, March memory tests, stack usage measurement, control flow monitoring and redundant storage. No hardware dependency. |

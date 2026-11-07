@@ -3,7 +3,7 @@
   *
   * @file      sscale.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.3
+  * @version   0.2.0
   * @date      07/11/2026
   *
   * @brief     Safe piecewise linear scaling function library file.
@@ -24,6 +24,8 @@
   * 05/11/2026 MISRA C:2012 Rule 10.4 deviation recorded in the banner. @n
   * 07/11/2026 MISRA C:2012 Rule 10.4 deviation narrowed to enum and Boolean @n
   *            comparisons. @n
+  * 07/11/2026 A two dimensional map: bilinear interpolation over a validated @n
+  *            grid, with one rounding and every cell checked at Init. @n
   *
   * @note
   * This module turns a raw reading into an engineering value. A datasheet
@@ -120,6 +122,21 @@
  *          Number of breakpoints in each array.
  * @var     sscale_t::increasing
  *          TRUE when x ascends, FALSE when it descends.
+ */
+
+/**
+ * @struct  sscalemap_t
+ * @brief   A two dimensional map validated by sscaleMapInit.
+ * @var     sscalemap_t::x
+ *          First axis breakpoints, strictly increasing.
+ * @var     sscalemap_t::y
+ *          Second axis breakpoints, strictly increasing.
+ * @var     sscalemap_t::z
+ *          Values, row by row: z[ iy * nx + ix ] at x[ ix ], y[ iy ].
+ * @var     sscalemap_t::nx
+ *          Breakpoints on the first axis.
+ * @var     sscalemap_t::ny
+ *          Breakpoints on the second axis.
  */
 
 /**
@@ -1115,6 +1132,481 @@ uint8_t sscaleLinearClamped ( int32_t input, int32_t inLow, int32_t inHigh, int3
         if ( interpolate ( inLow, inHigh, outLow, outHigh, clamped, &scratch ) == FALSE )
         {
             retVal = SC_OVERFLOW;
+        }
+        else
+        {
+            *result = scratch;
+            retVal = SC_OK;
+        }
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Reports whether a map driver has been through a successful Init.
+ * @param[in] driver  Map to test.
+ * @return  TRUE when it holds three arrays and two axes of at least two
+ *          breakpoints, FALSE otherwise.
+ * @note    Catches a zeroed driver, as isReady does for sscale_t; it cannot
+ *          catch one in automatic storage that was never initialised.
+ */
+static uint8_t mapReady ( const sscalemap_t* driver )
+{
+    uint8_t retVal = FALSE;
+
+    if ( ( driver->x == NULL ) || ( driver->y == NULL ) || ( driver->z == NULL ) )
+    {
+        retVal = FALSE;
+    }
+    else if ( ( driver->nx < 2u ) || ( driver->ny < 2u ) )
+    {
+        retVal = FALSE;
+    }
+    else
+    {
+        retVal = TRUE;
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Magnitude of a signed value, as an unsigned 64 bit number.
+ * @param[in] value  Value.
+ * @return  |value|, exact for INT32_MIN too.
+ */
+static uint64_t magnitude ( int32_t value )
+{
+    uint64_t retVal = 0u;
+
+    if ( value < 0 )
+    {
+        retVal = ( uint64_t ) ( -( int64_t ) value );
+    }
+    else
+    {
+        retVal = ( uint64_t ) value;
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Reports whether one map cell can be interpolated without
+ *          overflow.
+ * @param[in] x0   Lower x breakpoint of the cell.
+ * @param[in] x1   Upper x breakpoint of the cell.
+ * @param[in] y0   Lower y breakpoint of the cell.
+ * @param[in] y1   Upper y breakpoint of the cell.
+ * @param[in] z00  Value at x0, y0.
+ * @param[in] z10  Value at x1, y0.
+ * @param[in] z01  Value at x0, y1.
+ * @param[in] z11  Value at x1, y1.
+ * @return  TRUE when both spans are positive and the largest corner
+ *          magnitude times the cell area stays within int64_t.
+ * @note    The bilinear numerator is the four corners weighted by areas
+ *          that are never negative and add up to the cell area, so no
+ *          partial sum can exceed the largest corner times that area. That
+ *          is the only bound needed. The area of two spans below 2^32 fits
+ *          a uint64_t, and the comparison is made by division so the check
+ *          cannot overflow either.
+ */
+static uint8_t cellFits ( int32_t x0, int32_t x1, int32_t y0, int32_t y1,
+                          int32_t z00, int32_t z10, int32_t z01, int32_t z11 )
+{
+    uint8_t retVal = FALSE;
+    int64_t spanX = 0;
+    int64_t spanY = 0;
+    uint64_t area = 0u;
+    uint64_t largest = 0u;
+
+    if ( ( x1 <= x0 ) || ( y1 <= y0 ) )
+    {
+        retVal = FALSE;
+    }
+    else
+    {
+        spanX = ( int64_t ) x1 - ( int64_t ) x0;
+        spanY = ( int64_t ) y1 - ( int64_t ) y0;
+        area = ( uint64_t ) spanX * ( uint64_t ) spanY;
+        largest = magnitude ( z00 );
+
+        if ( magnitude ( z10 ) > largest )
+        {
+            largest = magnitude ( z10 );
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+
+        if ( magnitude ( z01 ) > largest )
+        {
+            largest = magnitude ( z01 );
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+
+        if ( magnitude ( z11 ) > largest )
+        {
+            largest = magnitude ( z11 );
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+
+        if ( area > 0x7FFFFFFFFFFFFFFFu )
+        {
+            retVal = FALSE;
+        }
+        else if ( ( largest != 0u ) && ( area > ( 0x7FFFFFFFFFFFFFFFu / largest ) ) )
+        {
+            retVal = FALSE;
+        }
+        else
+        {
+            retVal = TRUE;
+        }
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Finds the segment of an axis that holds a value.
+ * @param[in] axis   Breakpoints.
+ * @param[in] count  Number of breakpoints, at least two.
+ * @param[in] value  Value between the first and the last breakpoint.
+ * @return  Lower breakpoint of the first segment whose upper breakpoint is
+ *          not below value, or the last segment when none is.
+ * @note    Only the upper end is tested. The caller has checked value is
+ *          not below the first breakpoint, and every segment passed over
+ *          had an upper end below value, so value is above the lower end
+ *          of the one chosen whatever the axis holds. The last segment is
+ *          always reached for a value not above the last breakpoint, so
+ *          there is no failure to report, even for an axis changed after
+ *          Init; whether the cell is still usable is cellFits' question.
+ * @note    A value on a breakpoint belongs to the segment below it.
+ */
+static uint32_t mapSegment ( const int32_t* axis, uint32_t count, int32_t value )
+{
+    uint32_t retVal = count - 2u;
+    uint8_t found = FALSE;
+    uint32_t i = 0;
+
+    for ( i = 0; ( i < ( count - 2u ) ) && ( found == FALSE ); ++i )
+    {
+        if ( value <= axis[ i + 1u ] )
+        {
+            retVal = i;
+            found = TRUE;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Interpolates a map at a point inside its domain.
+ * @param[in] driver  Validated map.
+ * @param[in] xin     First input, inside the x axis.
+ * @param[in] yin     Second input, inside the y axis.
+ * @param[out] result Interpolated value, written only when TRUE.
+ * @return  TRUE on success, FALSE when the cell no longer passes the check
+ *          Init made, which only a table changed after Init can cause.
+ * @note    One division and one rounding, to nearest with halves away from
+ *          zero as sscaleApply does. Interpolating along x and then along y
+ *          would round twice and could be a count off.
+ * @note    The result is a weighted average of the four corners, so it lies
+ *          between the smallest and the largest of them and always fits an
+ *          int32_t.
+ */
+static uint8_t mapAt ( const sscalemap_t* driver, int32_t xin, int32_t yin, int32_t* result )
+{
+    uint8_t retVal = FALSE;
+    uint32_t ix = 0;
+    uint32_t iy = 0;
+    uint32_t row = 0;
+    int32_t z00 = 0;
+    int32_t z10 = 0;
+    int32_t z01 = 0;
+    int32_t z11 = 0;
+    int64_t left = 0;
+    int64_t right = 0;
+    int64_t below = 0;
+    int64_t above = 0;
+    int64_t den = 0;
+    int64_t num = 0;
+    int64_t quotient = 0;
+    int64_t remainder = 0;
+
+    ix = mapSegment ( driver->x, driver->nx, xin );
+    iy = mapSegment ( driver->y, driver->ny, yin );
+    row = iy * driver->nx;
+    z00 = driver->z[ row + ix ];
+    z10 = driver->z[ row + ix + 1u ];
+    z01 = driver->z[ row + driver->nx + ix ];
+    z11 = driver->z[ row + driver->nx + ix + 1u ];
+
+    if ( cellFits ( driver->x[ ix ], driver->x[ ix + 1u ], driver->y[ iy ], driver->y[ iy + 1u ],
+                    z00, z10, z01, z11 ) == TRUE )
+    {
+        left = ( int64_t ) xin - ( int64_t ) driver->x[ ix ];
+        right = ( int64_t ) driver->x[ ix + 1u ] - ( int64_t ) xin;
+        below = ( int64_t ) yin - ( int64_t ) driver->y[ iy ];
+        above = ( int64_t ) driver->y[ iy + 1u ] - ( int64_t ) yin;
+        den = ( left + right ) * ( below + above );
+
+        num = ( ( int64_t ) z00 * ( right * above ) )
+            + ( ( int64_t ) z10 * ( left * above ) )
+            + ( ( int64_t ) z01 * ( right * below ) )
+            + ( ( int64_t ) z11 * ( left * below ) );
+
+        quotient = num / den;
+        remainder = num % den;
+
+        if ( ( remainder > 0 ) && ( remainder >= ( den - remainder ) ) )
+        {
+            ++quotient;
+        }
+        else if ( ( remainder < 0 ) && ( -remainder >= ( den + remainder ) ) )
+        {
+            --quotient;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+
+        *result = ( int32_t ) quotient;
+        retVal = TRUE;
+    }
+    else
+    {
+        // Intentionally blank.
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Validates a two dimensional map and binds it to a driver.
+ * @param[out] driver  Map to prepare.
+ * @param[in] x        First axis breakpoints, strictly increasing.
+ * @param[in] xSize    Number of elements the x array holds.
+ * @param[in] y        Second axis breakpoints, strictly increasing.
+ * @param[in] ySize    Number of elements the y array holds.
+ * @param[in] z        Values, one row of nx per y breakpoint:
+ *                     z[ iy * nx + ix ] is the value at x[ ix ], y[ iy ].
+ * @param[in] zSize    Number of elements the z array holds.
+ * @param[in] nx       Breakpoints on the x axis, 2 to SSCALE_MAPMAX.
+ * @param[in] ny       Breakpoints on the y axis, 2 to SSCALE_MAPMAX.
+ * @return  SC_OK on success, SC_NULLPTR when a pointer is NULL,
+ *          SC_INVALIDSIZE when an axis has fewer than two or more than
+ *          SSCALE_MAPMAX breakpoints or an array is too small for them,
+ *          SC_INVALIDTABLE when an axis is not strictly increasing,
+ *          SC_OVERFLOW when a cell could overflow during interpolation.
+ * @note    Both axes must increase. A map is usually a table from a
+ *          calibration tool, which writes its axes in order; one axis
+ *          falling would be a different table, not a different map.
+ * @note    Every cell is checked here, so interpolation never has to refuse
+ *          a validated map: a bad map is a configuration error found at
+ *          start up rather than a runtime failure found by whichever input
+ *          first reached the cell, the same choice sscaleInit makes.
+ * @note    The arrays are not copied. The driver is written only on SC_OK.
+ */
+uint8_t sscaleMapInit ( sscalemap_t* driver, const int32_t* x, uint32_t xSize, const int32_t* y, uint32_t ySize,
+                        const int32_t* z, uint32_t zSize, uint32_t nx, uint32_t ny )
+{
+    uint8_t retVal = SC_OK;
+    uint32_t ix = 0;
+    uint32_t iy = 0;
+    uint32_t row = 0;
+
+    if ( ( driver == NULL ) || ( x == NULL ) || ( y == NULL ) || ( z == NULL ) )
+    {
+        retVal = SC_NULLPTR;
+    }
+    else if ( ( nx < 2u ) || ( ny < 2u ) || ( nx > SSCALE_MAPMAX ) || ( ny > SSCALE_MAPMAX ) )
+    {
+        retVal = SC_INVALIDSIZE;
+    }
+    else if ( ( xSize < nx ) || ( ySize < ny ) || ( zSize < ( nx * ny ) ) )
+    {
+        retVal = SC_INVALIDSIZE;
+    }
+    else
+    {
+        for ( ix = 0; ( ix < ( nx - 1u ) ) && ( retVal == SC_OK ); ++ix )
+        {
+            if ( x[ ix + 1u ] <= x[ ix ] )
+            {
+                retVal = SC_INVALIDTABLE;
+            }
+            else
+            {
+                // Intentionally blank.
+            }
+        }
+
+        for ( iy = 0; ( iy < ( ny - 1u ) ) && ( retVal == SC_OK ); ++iy )
+        {
+            if ( y[ iy + 1u ] <= y[ iy ] )
+            {
+                retVal = SC_INVALIDTABLE;
+            }
+            else
+            {
+                // Intentionally blank.
+            }
+        }
+
+        for ( iy = 0; ( iy < ( ny - 1u ) ) && ( retVal == SC_OK ); ++iy )
+        {
+            row = iy * nx;
+
+            for ( ix = 0; ( ix < ( nx - 1u ) ) && ( retVal == SC_OK ); ++ix )
+            {
+                if ( cellFits ( x[ ix ], x[ ix + 1u ], y[ iy ], y[ iy + 1u ],
+                                z[ row + ix ], z[ row + ix + 1u ],
+                                z[ row + nx + ix ], z[ row + nx + ix + 1u ] ) == FALSE )
+                {
+                    retVal = SC_OVERFLOW;
+                }
+                else
+                {
+                    // Intentionally blank.
+                }
+            }
+        }
+
+        if ( retVal == SC_OK )
+        {
+            driver->x = x;
+            driver->y = y;
+            driver->z = z;
+            driver->nx = nx;
+            driver->ny = ny;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Interpolates a map at a point, refusing one outside it.
+ * @param[in] driver   Map, prepared by sscaleMapInit.
+ * @param[in] xin      First input.
+ * @param[in] yin      Second input.
+ * @param[out] result  Interpolated value, written only on SC_OK.
+ * @return  SC_OK on success, SC_NULLPTR when a pointer is NULL or the map
+ *          never went through Init, SC_OUTOFRANGE when either input is
+ *          outside its axis, SC_INVALIDTABLE when the map was changed after
+ *          Init so that the cell no longer passes its check.
+ * @note    Bilinear: exact at every breakpoint pair, linear along each edge
+ *          of a cell, and a smooth blend inside it.
+ */
+uint8_t sscaleMapApply ( const sscalemap_t* driver, int32_t xin, int32_t yin, int32_t* result )
+{
+    uint8_t retVal = SC_OK;
+    int32_t scratch = 0;
+
+    if ( ( driver == NULL ) || ( result == NULL ) )
+    {
+        retVal = SC_NULLPTR;
+    }
+    else if ( mapReady ( driver ) == FALSE )
+    {
+        retVal = SC_NULLPTR;
+    }
+    else if ( ( xin < driver->x[ 0 ] ) || ( xin > driver->x[ driver->nx - 1u ] ) ||
+              ( yin < driver->y[ 0 ] ) || ( yin > driver->y[ driver->ny - 1u ] ) )
+    {
+        retVal = SC_OUTOFRANGE;
+    }
+    else if ( mapAt ( driver, xin, yin, &scratch ) == FALSE )
+    {
+        retVal = SC_INVALIDTABLE;
+    }
+    else
+    {
+        *result = scratch;
+        retVal = SC_OK;
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Interpolates a map at a point, holding each input to its axis.
+ * @param[in] driver   Map, prepared by sscaleMapInit.
+ * @param[in] xin      First input.
+ * @param[in] yin      Second input.
+ * @param[out] result  Interpolated value, written only on SC_OK.
+ * @return  SC_OK on success, SC_NULLPTR when a pointer is NULL or the map
+ *          never went through Init, SC_INVALIDTABLE when the map was
+ *          changed after Init so that the cell no longer passes its check.
+ * @note    Each input is clamped to its own axis independently, so a point
+ *          past one edge reads along that edge.
+ */
+uint8_t sscaleMapApplyClamped ( const sscalemap_t* driver, int32_t xin, int32_t yin, int32_t* result )
+{
+    uint8_t retVal = SC_OK;
+    int32_t scratch = 0;
+    int32_t xc = xin;
+    int32_t yc = yin;
+
+    if ( ( driver == NULL ) || ( result == NULL ) )
+    {
+        retVal = SC_NULLPTR;
+    }
+    else if ( mapReady ( driver ) == FALSE )
+    {
+        retVal = SC_NULLPTR;
+    }
+    else
+    {
+        if ( xc < driver->x[ 0 ] )
+        {
+            xc = driver->x[ 0 ];
+        }
+        else if ( xc > driver->x[ driver->nx - 1u ] )
+        {
+            xc = driver->x[ driver->nx - 1u ];
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+
+        if ( yc < driver->y[ 0 ] )
+        {
+            yc = driver->y[ 0 ];
+        }
+        else if ( yc > driver->y[ driver->ny - 1u ] )
+        {
+            yc = driver->y[ driver->ny - 1u ];
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+
+        if ( mapAt ( driver, xc, yc, &scratch ) == FALSE )
+        {
+            retVal = SC_INVALIDTABLE;
         }
         else
         {

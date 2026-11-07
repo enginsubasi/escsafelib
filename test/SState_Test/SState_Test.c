@@ -3,8 +3,8 @@
   *
   * @file      SState_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.2.0
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the sstate module.
   *
@@ -13,6 +13,7 @@
   *
   * @par History
   * 05/08/2026 Created. @n
+  * 07/11/2026 Cases for the time spent in a state. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -555,6 +556,83 @@ static void testNoWriteOnFailure ( void )
 }
 
 /**
+ * @brief   Checks the time spent in a state.
+ * @note    Every way of entering a state starts the count again, and the
+ *          one way of failing to leave, a refused transition, does not. A
+ *          self loop is an entry; the table here has one so that is seen.
+ */
+static void testDwell ( void )
+{
+    static sstate_t zeroed;
+    /* Two states: 0 may stay in 0 or go to 1, and 1 may go back to 0. */
+    static const uint8_t loop[ 4 ] = { TRUE, TRUE, TRUE, FALSE };
+    sstate_t driver;
+    uint32_t cycles = 0xA5A5A5A5u;
+    uint32_t i = 0;
+
+    expectStatus ( "dwell: init", sstateInit ( &driver, machine, 16u, 4u, OFF ), ST_OK );
+    expectStatus ( "dwell: read", sstateGetDwell ( &driver, &cycles ), ST_OK );
+    expectU32 ( "dwell: none after Init", cycles, 0u );
+
+    for ( i = 0; i < 5u; ++i )
+    {
+        ( void ) sstateTick ( &driver );
+    }
+
+    expectStatus ( "dwell: tick", sstateTick ( &driver ), ST_OK );
+    expectStatus ( "dwell: read after six", sstateGetDwell ( &driver, &cycles ), ST_OK );
+    expectU32 ( "dwell: six", cycles, 6u );
+
+    expectStatus ( "dwell: a refused transition", sstateTo ( &driver, RUN ), ST_REFUSED );
+    expectStatus ( "dwell: read after the refusal", sstateGetDwell ( &driver, &cycles ), ST_OK );
+    expectU32 ( "dwell: the machine never left", cycles, 6u );
+
+    expectStatus ( "dwell: a permitted transition", sstateTo ( &driver, INIT ), ST_OK );
+    expectStatus ( "dwell: read after it", sstateGetDwell ( &driver, &cycles ), ST_OK );
+    expectU32 ( "dwell: starts again", cycles, 0u );
+
+    ( void ) sstateTick ( &driver );
+    ( void ) sstateTick ( &driver );
+    expectStatus ( "dwell: a forced transition", sstateForceTo ( &driver, OFF ), ST_OK );
+    expectStatus ( "dwell: read after it", sstateGetDwell ( &driver, &cycles ), ST_OK );
+    expectU32 ( "dwell: a forced entry starts again too", cycles, 0u );
+
+    ( void ) sstateTick ( &driver );
+    expectStatus ( "dwell: reset", sstateReset ( &driver ), ST_OK );
+    expectStatus ( "dwell: read after reset", sstateGetDwell ( &driver, &cycles ), ST_OK );
+    expectU32 ( "dwell: reset clears it", cycles, 0u );
+
+    expectStatus ( "dwell: a machine with a self loop", sstateInit ( &driver, loop, 4u, 2u, 0u ), ST_OK );
+    ( void ) sstateTick ( &driver );
+    ( void ) sstateTick ( &driver );
+    expectStatus ( "dwell: stay by the self loop", sstateTo ( &driver, 0u ), ST_OK );
+    expectStatus ( "dwell: read after the self loop", sstateGetDwell ( &driver, &cycles ), ST_OK );
+    expectU32 ( "dwell: re-entering a state starts again", cycles, 0u );
+
+    /* Init starts the count, whatever was in the struct. */
+    driver.dwell = 99u;
+    expectStatus ( "dwell: init over an old count", sstateInit ( &driver, loop, 4u, 2u, 1u ), ST_OK );
+    expectStatus ( "dwell: read after init", sstateGetDwell ( &driver, &cycles ), ST_OK );
+    expectU32 ( "dwell: Init starts it at zero", cycles, 0u );
+
+    /* Saturation. */
+    driver.dwell = 0xFFFFFFFEu;
+    expectStatus ( "dwell: one below the top", sstateTick ( &driver ), ST_OK );
+    expectStatus ( "dwell: at the top", sstateTick ( &driver ), ST_OK );
+    expectStatus ( "dwell: read the top", sstateGetDwell ( &driver, &cycles ), ST_OK );
+    expectU32 ( "dwell: saturates rather than wraps", cycles, 0xFFFFFFFFu );
+
+    cycles = 0xA5A5A5A5u;
+    expectStatus ( "dwell: tick NULL", sstateTick ( NULL ), ST_NULLPTR );
+    expectStatus ( "dwell: tick a zeroed machine", sstateTick ( &zeroed ), ST_NULLPTR );
+    expectStatus ( "dwell: read NULL driver", sstateGetDwell ( NULL, &cycles ), ST_NULLPTR );
+    expectStatus ( "dwell: read NULL output", sstateGetDwell ( &driver, NULL ), ST_NULLPTR );
+    expectStatus ( "dwell: read a zeroed machine", sstateGetDwell ( &zeroed, &cycles ), ST_NULLPTR );
+    expectU32 ( "dwell: no refusal wrote the output", cycles, 0xA5A5A5A5u );
+    expectU32 ( "dwell: the zeroed machine did not count", zeroed.dwell, 0u );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -566,6 +644,7 @@ int main ( void )
     testForce ( );
     testQueries ( );
     testNoWriteOnFailure ( );
+    testDwell ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

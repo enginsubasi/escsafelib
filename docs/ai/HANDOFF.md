@@ -29,7 +29,8 @@ Historical milestones and prior findings are recorded in
      byte buffer; choose the valid and newer of two copies. **Done.**
   7. `spid` (prefix `SP_`): Q16.16 PID with anti-windup and output limits,
      its own arithmetic. **Done.**
-  Optional, only if the owner asks: `sscale` 2D map, `sstate` time in state.
+  8. `sstate` time in state and 9. `sscale` 2D map, asked for by the owner
+     after 1-7. **Done.**
 
 ## Piece 1: `sdiag` CRC-8
 
@@ -164,11 +165,26 @@ Historical milestones and prior findings are recorded in
   differences after four reviewed records (406 in all); cppcheck,
   analyzers, ARM, headers clean; `.data`/`.bss` 0; `run_all.sh` ALL GREEN.
 
+## Pieces 8 and 9: `sstate` time in state, `sscale` 2D map
+
+- `sstateTick` / `sstateGetDwell` on a new `dwell` field: saturating;
+  reset by Init, Reset and every successful transition (forced and self
+  loop included), not by a refused one. M19-M23; M8's anchor updated.
+- `sscalemap_t` with `sscaleMapInit`, `sscaleMapApply`,
+  `sscaleMapApplyClamped`: bilinear, both axes strictly increasing, up to
+  `SSCALE_MAPMAX` (256) per axis, z row by row. One division and one
+  rounding (nearest, halves away from zero); every cell's area times its
+  largest corner checked against int64 at Init and again in Apply, so a
+  map changed after Init is `SC_INVALIDTABLE`. The segment search tests only
+  upper ends and cannot fail (redundant lower test removed after MC/DC
+  showed it unreachable). MISRA 10.8 in the first draft fixed with locals.
+  M20-M30, M30 equivalent with its argument; M16's anchor made unique.
+- Verified: sstate 177 and sscale 350 cases on zig with UBSan and gcc 14
+  strict; mutation all accounted for; map functions at 100% MC/DC, the
+  rest of sscale and sstate the classified residue; MISRA 0 differences
+  (420); cppcheck, analyzers, ARM, headers clean; `run_all.sh` ALL GREEN.
+
 ## Remaining work
 
-CI run `42352223713` of `8093f17` (`spid`): every job success; so were the
-runs of every earlier piece except `ca747f9`, fixed by `647b066`.
-
-1. Optional, only if the owner asks: `sscale` 2D map, `sstate` time in
-   state.
+1. Read the CI run of this commit.
 2. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.

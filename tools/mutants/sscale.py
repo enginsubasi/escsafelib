@@ -105,8 +105,8 @@ MUTANTS = [
     {
         "id": 'M16',
         "what": 'Init commits the driver even when the table was refused',
-        "old": '        if ( retVal == SC_OK )\n        {\n            driver->x = x;',
-        "new": '        if ( TRUE )\n        {\n            driver->x = x;',
+        "old": '        if ( retVal == SC_OK )\n        {\n            driver->x = x;\n            driver->y = y;\n            driver->count = count;',
+        "new": '        if ( TRUE )\n        {\n            driver->x = x;\n            driver->y = y;\n            driver->count = count;',
     },
     {
         "id": 'M18',
@@ -119,5 +119,77 @@ MUTANTS = [
         "what": 'a falling linear map forgets its lower end',
         "old": 'uint8_t sscaleLinear ( int32_t input, int32_t inLow, int32_t inHigh, int32_t outLow, int32_t outHigh, int32_t* result )\n{\n    uint8_t retVal = SC_OK;\n    int32_t scratch = 0;\n    uint8_t inside = FALSE;\n\n    if ( result == NULL )\n    {\n        retVal = SC_NULLPTR;\n    }\n    else if ( inLow == inHigh )\n    {\n        retVal = SC_INVALIDRANGE;\n    }\n    else\n    {\n        if ( inLow < inHigh )\n        {\n            if ( ( input >= inLow ) && ( input <= inHigh ) )\n            {\n                inside = TRUE;\n            }\n            else\n            {\n                inside = FALSE;\n            }\n        }\n        else\n        {\n            if ( ( input <= inLow ) && ( input >= inHigh ) )',
         "new": 'uint8_t sscaleLinear ( int32_t input, int32_t inLow, int32_t inHigh, int32_t outLow, int32_t outHigh, int32_t* result )\n{\n    uint8_t retVal = SC_OK;\n    int32_t scratch = 0;\n    uint8_t inside = FALSE;\n\n    if ( result == NULL )\n    {\n        retVal = SC_NULLPTR;\n    }\n    else if ( inLow == inHigh )\n    {\n        retVal = SC_INVALIDRANGE;\n    }\n    else\n    {\n        if ( inLow < inHigh )\n        {\n            if ( ( input >= inLow ) && ( input <= inHigh ) )\n            {\n                inside = TRUE;\n            }\n            else\n            {\n                inside = FALSE;\n            }\n        }\n        else\n        {\n            if ( ( input <= inLow ) && ( TRUE ) )',
+    },
+    {
+        "id": 'M20',
+        "what": 'the map rounds a positive half down',
+        "old": '        if ( ( remainder > 0 ) && ( remainder >= ( den - remainder ) ) )',
+        "new": '        if ( ( remainder > 0 ) && ( remainder > ( den - remainder ) ) )',
+    },
+    {
+        "id": 'M21',
+        "what": 'the map rounds a negative half toward zero',
+        "old": '        else if ( ( remainder < 0 ) && ( -remainder >= ( den + remainder ) ) )',
+        "new": '        else if ( ( remainder < 0 ) && ( -remainder > ( den + remainder ) ) )',
+    },
+    {
+        "id": 'M22',
+        "what": 'the map cell check ignores the size of the values',
+        "old": '        else if ( ( largest != 0u ) && ( area > ( 0x7FFFFFFFFFFFFFFFu / largest ) ) )',
+        "new": '        else if ( FALSE )',
+    },
+    {
+        "id": 'M23',
+        "what": 'the map trusts a cell changed after Init',
+        "old": '    if ( cellFits ( driver->x[ ix ], driver->x[ ix + 1u ], driver->y[ iy ], driver->y[ iy + 1u ],\n                    z00, z10, z01, z11 ) == TRUE )',
+        "new": '    if ( TRUE )',
+    },
+    {
+        "id": 'M24',
+        "what": 'the map reads its rows as columns',
+        "old": '    z10 = driver->z[ row + ix + 1u ];\n    z01 = driver->z[ row + driver->nx + ix ];',
+        "new": '    z01 = driver->z[ row + ix + 1u ];\n    z10 = driver->z[ row + driver->nx + ix ];',
+    },
+    {
+        "id": 'M25',
+        "what": 'the map y axis is not checked for order',
+        "old": '            if ( y[ iy + 1u ] <= y[ iy ] )',
+        "new": '            if ( FALSE )',
+    },
+    {
+        "id": 'M26',
+        "what": 'the clamped map does not hold x to its upper end',
+        "old": '        else if ( xc > driver->x[ driver->nx - 1u ] )',
+        "new": '        else if ( FALSE )',
+    },
+    {
+        "id": 'M27',
+        "what": 'the map accepts a y above its axis',
+        "old": '              ( yin < driver->y[ 0 ] ) || ( yin > driver->y[ driver->ny - 1u ] ) )',
+        "new": '              ( yin < driver->y[ 0 ] ) || ( FALSE ) )',
+    },
+    {
+        "id": 'M28',
+        "what": 'the map accepts a value array one short',
+        "old": '    else if ( ( xSize < nx ) || ( ySize < ny ) || ( zSize < ( nx * ny ) ) )',
+        "new": '    else if ( ( xSize < nx ) || ( ySize < ny ) || ( zSize < ( ( nx * ny ) - 1u ) ) )',
+    },
+    {
+        "id": 'M29',
+        "what": 'the map cell check misses a collapsed y span',
+        "old": '    if ( ( x1 <= x0 ) || ( y1 <= y0 ) )',
+        "new": '    if ( x1 <= x0 )',
+    },
+    {
+        "id": 'M30',
+        "what": 'a value on a breakpoint goes to the segment above it',
+        "equivalent":
+            'A value on an inner breakpoint lies on the edge two cells share, and bilinear '
+            'interpolation along that edge depends only on its two shared corners, so either '
+            'cell gives the same answer on a validated map. The last breakpoint falls to the '
+            'last segment either way. Only a map changed after Init in the cell beyond could tell '
+            'the two apart.',
+        "old": '        if ( value <= axis[ i + 1u ] )',
+        "new": '        if ( value < axis[ i + 1u ] )',
     },
 ]

@@ -3,7 +3,7 @@
   *
   * @file      sstate.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.3
+  * @version   0.2.0
   * @date      07/11/2026
   *
   * @brief     Safe guarded state machine function library file.
@@ -23,6 +23,7 @@
   * 07/11/2026 Unsigned operands are compared and combined with unsigned @n
   *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
   *            is narrowed to enum and Boolean comparisons. @n
+  * 07/11/2026 Time in state: sstateTick and sstateGetDwell. @n
   *
   * @note
   * A state machine written as a switch works until somebody adds a case. The
@@ -126,6 +127,8 @@
  *          Transitions taken since Init or Reset.
  * @var     sstate_t::refusals
  *          Transitions refused since Init or Reset.
+ * @var     sstate_t::dwell
+ *          Ticks since the current state was entered, saturating.
  * @var     sstate_t::state
  *          The current state.
  * @var     sstate_t::initial
@@ -267,6 +270,7 @@ uint8_t sstateInit ( sstate_t* driver, const uint8_t* table, uint32_t tableSize,
                 driver->stateCount = stateCount;
                 driver->transitions = 0;
                 driver->refusals = 0;
+                driver->dwell = 0u;
                 driver->state = initial;
                 driver->initial = initial;
             }
@@ -306,6 +310,7 @@ uint8_t sstateReset ( sstate_t* driver )
         driver->state = driver->initial;
         driver->transitions = 0;
         driver->refusals = 0;
+        driver->dwell = 0u;
         retVal = ST_OK;
     }
 
@@ -355,6 +360,7 @@ uint8_t sstateTo ( sstate_t* driver, uint8_t next )
     {
         driver->state = next;
         driver->transitions = driver->transitions + 1u;
+        driver->dwell = 0u;
         retVal = ST_OK;
     }
 
@@ -400,6 +406,7 @@ uint8_t sstateForceTo ( sstate_t* driver, uint8_t next )
     {
         driver->state = next;
         driver->transitions = driver->transitions + 1u;
+        driver->dwell = 0u;
         retVal = ST_OK;
     }
 
@@ -557,6 +564,82 @@ uint8_t sstateGetRefusals ( const sstate_t* driver, uint32_t* refusals )
     else
     {
         *refusals = driver->refusals;
+        retVal = ST_OK;
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Counts one cycle spent in the current state.
+ * @param[in,out] driver  Machine to advance.
+ * @return  ST_OK on success, ST_NULLPTR when driver is NULL or the machine
+ *          never went through Init.
+ * @note    The cycle is whatever the caller calls this on, as in sfault and
+ *          swatch: the module reads no clock. Call it once per cycle,
+ *          before or after the transition logic but always in the same
+ *          place, and a timeout in a state is a comparison of
+ *          sstateGetDwell against a number of cycles.
+ * @note    The count saturates. A machine that has sat in one state for
+ *          2^32 cycles must not suddenly read as having just arrived.
+ */
+uint8_t sstateTick ( sstate_t* driver )
+{
+    uint8_t retVal = ST_OK;
+
+    if ( driver == NULL )
+    {
+        retVal = ST_NULLPTR;
+    }
+    else if ( isReady ( driver ) == FALSE )
+    {
+        retVal = ST_NULLPTR;
+    }
+    else
+    {
+        if ( driver->dwell < 0xFFFFFFFFu )
+        {
+            ++driver->dwell;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+
+        retVal = ST_OK;
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Reports how many cycles the machine has spent in its current
+ *          state.
+ * @param[in] driver   Machine to read.
+ * @param[out] cycles  Ticks since the state was entered, written only on
+ *                     ST_OK.
+ * @return  ST_OK on success, ST_NULLPTR when a pointer is NULL or the
+ *          machine never went through Init.
+ * @note    Every transition that succeeds starts the count again, a forced
+ *          one and one from a state to itself included: the state was
+ *          entered, so the time in it starts over. A refused transition
+ *          does not, because the machine never left.
+ */
+uint8_t sstateGetDwell ( const sstate_t* driver, uint32_t* cycles )
+{
+    uint8_t retVal = ST_OK;
+
+    if ( ( driver == NULL ) || ( cycles == NULL ) )
+    {
+        retVal = ST_NULLPTR;
+    }
+    else if ( isReady ( driver ) == FALSE )
+    {
+        retVal = ST_NULLPTR;
+    }
+    else
+    {
+        *cycles = driver->dwell;
         retVal = ST_OK;
     }
 

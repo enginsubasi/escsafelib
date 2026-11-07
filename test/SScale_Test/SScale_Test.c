@@ -3,7 +3,7 @@
   *
   * @file      SScale_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.2
+  * @version   0.2.0
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the sscale module.
@@ -16,6 +16,7 @@
   * 07/11/2026 A table changed by its caller after Init, which no case had @n
   *            reached, as tools/tracecheck.py requires. @n
   * 07/11/2026 MC/DC cases: single pointer refusals and the inside of a falling map. @n
+  * 07/11/2026 Cases for the two dimensional map. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -1212,6 +1213,288 @@ static void testConditionCoverage ( void )
 }
 
 /**
+ * @brief   Checks one map value against the exact rational answer.
+ * @param[in] x0      Lower x of the cell.
+ * @param[in] x1      Upper x of the cell.
+ * @param[in] y0      Lower y of the cell.
+ * @param[in] y1      Upper y of the cell.
+ * @param[in] corner  The four corners: x0y0, x1y0, x0y1, x1y1.
+ * @param[in] xin     First input.
+ * @param[in] yin     Second input.
+ * @param[in] value   Value the module produced.
+ * @return  TRUE when value is the nearest integer, halves away from zero.
+ * @note    The exact answer is grouped differently here, along x first and
+ *          then along y, and the check is made by cross multiplication:
+ *          twice the error times the denominator is at most the
+ *          denominator, and on a tie the value lies away from zero.
+ */
+static uint8_t mapNearest ( int32_t x0, int32_t x1, int32_t y0, int32_t y1, const int32_t* corner,
+                            int32_t xin, int32_t yin, int32_t value )
+{
+    uint8_t retVal = FALSE;
+    int64_t dx = ( int64_t ) x1 - ( int64_t ) x0;
+    int64_t dy = ( int64_t ) y1 - ( int64_t ) y0;
+    int64_t lower = ( ( int64_t ) corner[ 0 ] * ( x1 - xin ) ) + ( ( int64_t ) corner[ 1 ] * ( xin - x0 ) );
+    int64_t upper = ( ( int64_t ) corner[ 2 ] * ( x1 - xin ) ) + ( ( int64_t ) corner[ 3 ] * ( xin - x0 ) );
+    int64_t num = ( lower * ( y1 - yin ) ) + ( upper * ( yin - y0 ) );
+    int64_t den = dx * dy;
+    int64_t error = ( ( int64_t ) value * den ) - num;
+    int64_t twice = 2 * error;
+
+    if ( twice < 0 )
+    {
+        twice = -twice;
+    }
+    else
+    {
+        // Intentionally blank.
+    }
+
+    if ( twice < den )
+    {
+        retVal = TRUE;
+    }
+    else if ( twice == den )
+    {
+        /* A tie: the value must be the one further from zero. */
+        retVal = ( uint8_t ) ( ( ( num > 0 ) && ( error > 0 ) ) || ( ( num < 0 ) && ( error < 0 ) ) );
+    }
+    else
+    {
+        retVal = FALSE;
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Checks the two dimensional map.
+ */
+static void testMap ( void )
+{
+    static const int32_t gx[ 3 ] = { 0, 10, 20 };
+    static const int32_t gy[ 3 ] = { 0, 100, 200 };
+    /* z = x + y, a plane, which bilinear reproduces exactly. */
+    static const int32_t plane[ 9 ] = { 0, 10, 20, 100, 110, 120, 200, 210, 220 };
+    static const int32_t cx[ 2 ] = { 0, 10 };
+    static const int32_t cy[ 2 ] = { 0, 10 };
+    static const int32_t peak[ 4 ] = { 0, 0, 0, 100 };
+    static const int32_t one[ 4 ] = { 0, 0, 0, 1 };
+    static const int32_t minusOne[ 4 ] = { 0, 0, 0, -1 };
+    static const int32_t sx[ 2 ] = { -3, 6 };
+    static const int32_t sy[ 2 ] = { 5, 12 };
+    static const int32_t mixed[ 4 ] = { -7, 13, 29, -31 };
+    sscalemap_t map;
+    int32_t out = 0;
+    int32_t xin = 0;
+    int32_t yin = 0;
+    uint32_t bad = 0;
+
+    expectStatus ( "map: init a plane", sscaleMapInit ( &map, gx, 3u, gy, 3u, plane, 9u, 3u, 3u ), SC_OK );
+    expectStatus ( "map: at a breakpoint pair", sscaleMapApply ( &map, 10, 100, &out ), SC_OK );
+    expectI32 ( "map: exact there", out, 110 );
+    expectStatus ( "map: at the far corner", sscaleMapApply ( &map, 20, 200, &out ), SC_OK );
+    expectI32 ( "map: exact there too", out, 220 );
+    expectStatus ( "map: inside the first cell", sscaleMapApply ( &map, 5, 50, &out ), SC_OK );
+    expectI32 ( "map: a plane is reproduced", out, 55 );
+    expectStatus ( "map: inside the last cell", sscaleMapApply ( &map, 15, 150, &out ), SC_OK );
+    expectI32 ( "map: there too", out, 165 );
+    expectStatus ( "map: on an inner edge", sscaleMapApply ( &map, 10, 150, &out ), SC_OK );
+    expectI32 ( "map: linear along it", out, 160 );
+
+    /* One raised corner: the blend is the product of the two fractions. */
+    expectStatus ( "map: init a peak", sscaleMapInit ( &map, cx, 2u, cy, 2u, peak, 4u, 2u, 2u ), SC_OK );
+    expectStatus ( "map: peak middle", sscaleMapApply ( &map, 5, 5, &out ), SC_OK );
+    expectI32 ( "map: a quarter of the peak", out, 25 );
+    expectStatus ( "map: peak near the low corner", sscaleMapApply ( &map, 3, 3, &out ), SC_OK );
+    expectI32 ( "map: nine hundredths", out, 9 );
+
+    /* Halves: one count at the corner, read half way along its edges. */
+    expectStatus ( "map: init a single count", sscaleMapInit ( &map, cx, 2u, cy, 2u, one, 4u, 2u, 2u ), SC_OK );
+    expectStatus ( "map: half a count", sscaleMapApply ( &map, 10, 5, &out ), SC_OK );
+    expectI32 ( "map: a half rounds away from zero", out, 1 );
+    expectStatus ( "map: a quarter of a count", sscaleMapApply ( &map, 5, 5, &out ), SC_OK );
+    expectI32 ( "map: a quarter rounds down", out, 0 );
+    expectStatus ( "map: init minus one count", sscaleMapInit ( &map, cx, 2u, cy, 2u, minusOne, 4u, 2u, 2u ), SC_OK );
+    expectStatus ( "map: minus half a count", sscaleMapApply ( &map, 10, 5, &out ), SC_OK );
+    expectI32 ( "map: a negative half rounds away from zero", out, -1 );
+    expectStatus ( "map: minus a quarter", sscaleMapApply ( &map, 5, 5, &out ), SC_OK );
+    expectI32 ( "map: a negative quarter rounds to zero", out, 0 );
+
+    /* Every integer point of a cell with mixed corners. */
+    expectStatus ( "map: init mixed corners", sscaleMapInit ( &map, sx, 2u, sy, 2u, mixed, 4u, 2u, 2u ), SC_OK );
+
+    for ( xin = -3; xin <= 6; ++xin )
+    {
+        for ( yin = 5; yin <= 12; ++yin )
+        {
+            if ( ( sscaleMapApply ( &map, xin, yin, &out ) != SC_OK ) ||
+                 ( mapNearest ( -3, 6, 5, 12, mixed, xin, yin, out ) == FALSE ) )
+            {
+                ++bad;
+            }
+            else
+            {
+                // Intentionally blank.
+            }
+        }
+    }
+
+    expectU32 ( "map: every point of the cell is the nearest integer", bad, 0u );
+
+    /* Outside, refused; clamped, read along the edge. */
+    expectStatus ( "map: init the plane again", sscaleMapInit ( &map, gx, 3u, gy, 3u, plane, 9u, 3u, 3u ), SC_OK );
+    out = 777;
+    expectStatus ( "map: left of the x axis", sscaleMapApply ( &map, -1, 50, &out ), SC_OUTOFRANGE );
+    expectStatus ( "map: right of it", sscaleMapApply ( &map, 21, 50, &out ), SC_OUTOFRANGE );
+    expectStatus ( "map: below the y axis", sscaleMapApply ( &map, 5, -1, &out ), SC_OUTOFRANGE );
+    expectStatus ( "map: above it", sscaleMapApply ( &map, 5, 201, &out ), SC_OUTOFRANGE );
+    expectI32 ( "map: no refusal wrote the result", out, 777 );
+    expectStatus ( "map: clamped left", sscaleMapApplyClamped ( &map, -50, 50, &out ), SC_OK );
+    expectI32 ( "map: reads the left edge", out, 50 );
+    expectStatus ( "map: clamped right", sscaleMapApplyClamped ( &map, 99, 50, &out ), SC_OK );
+    expectI32 ( "map: reads the right edge", out, 70 );
+    expectStatus ( "map: clamped below", sscaleMapApplyClamped ( &map, 5, -9, &out ), SC_OK );
+    expectI32 ( "map: reads the bottom edge", out, 5 );
+    expectStatus ( "map: clamped above", sscaleMapApplyClamped ( &map, 5, 999, &out ), SC_OK );
+    expectI32 ( "map: reads the top edge", out, 205 );
+    expectStatus ( "map: clamped inside", sscaleMapApplyClamped ( &map, 15, 150, &out ), SC_OK );
+    expectI32 ( "map: inside the clamp changes nothing", out, 165 );
+}
+
+/**
+ * @brief   Checks the map's Init refusals, the overflow bound and a map
+ *          changed after Init.
+ */
+static void testMapLimits ( void )
+{
+    static sscalemap_t zeroed;
+    static const int32_t gx[ 3 ] = { 0, 10, 20 };
+    static const int32_t gy[ 3 ] = { 0, 100, 200 };
+    static const int32_t plane[ 9 ] = { 0, 10, 20, 100, 110, 120, 200, 210, 220 };
+    static const int32_t flatX[ 3 ] = { 0, 10, 10 };
+    static const int32_t backY[ 3 ] = { 0, 100, 50 };
+    static const int32_t wideX[ 2 ] = { 0, 65535 };
+    static const int32_t fitY[ 2 ] = { 0, 65537 };
+    static const int32_t pastY[ 2 ] = { 0, 65538 };
+    static const int32_t railX[ 2 ] = { -2147483647 - 1, 2147483647 };
+    static const int32_t deep[ 4 ] = { -2147483647 - 1, 0, 0, 2147483647 };
+    static const int32_t small[ 4 ] = { 1, 2, 3, 4 };
+    static const int32_t cx[ 2 ] = { 0, 10 };
+    static const int32_t zeros[ 4 ] = { 0, 0, 0, 0 };
+    static const int32_t fourX[ 4 ] = { 0, 10, 20, 30 };
+    static const int32_t cy[ 2 ] = { 0, 10 };
+    /* z = x + y over x 0..30 and y 0..10. */
+    static const int32_t fourZ[ 8 ] = { 0, 10, 20, 30, 10, 20, 30, 40 };
+    static const int32_t flatFirst[ 3 ] = { 0, 0, 10 };
+    static const int32_t threeX[ 3 ] = { 0, 65535, 65536 };
+    static const int32_t firstDeep[ 6 ] = { -2147483647 - 1, 0, 0, 0, 0, 0 };
+    int32_t changing[ 4 ] = { 1, 2, 3, 4 };
+    int32_t movingX[ 2 ] = { 0, 10 };
+    int32_t movingY[ 2 ] = { 0, 100 };
+    sscalemap_t map;
+    int32_t out = 777;
+
+    map.nx = 77u;
+    expectStatus ( "map limits: NULL driver", sscaleMapInit ( NULL, gx, 3u, gy, 3u, plane, 9u, 3u, 3u ), SC_NULLPTR );
+    expectStatus ( "map limits: NULL x", sscaleMapInit ( &map, NULL, 3u, gy, 3u, plane, 9u, 3u, 3u ), SC_NULLPTR );
+    expectStatus ( "map limits: NULL y", sscaleMapInit ( &map, gx, 3u, NULL, 3u, plane, 9u, 3u, 3u ), SC_NULLPTR );
+    expectStatus ( "map limits: NULL z", sscaleMapInit ( &map, gx, 3u, gy, 3u, NULL, 9u, 3u, 3u ), SC_NULLPTR );
+    expectStatus ( "map limits: one x breakpoint", sscaleMapInit ( &map, gx, 3u, gy, 3u, plane, 9u, 1u, 3u ), SC_INVALIDSIZE );
+    expectStatus ( "map limits: one y breakpoint", sscaleMapInit ( &map, gx, 3u, gy, 3u, plane, 9u, 3u, 1u ), SC_INVALIDSIZE );
+    expectStatus ( "map limits: too many x breakpoints",
+                   sscaleMapInit ( &map, gx, 3u, gy, 3u, plane, 9u, SSCALE_MAPMAX + 1u, 3u ), SC_INVALIDSIZE );
+    expectStatus ( "map limits: too many y breakpoints",
+                   sscaleMapInit ( &map, gx, 3u, gy, 3u, plane, 9u, 3u, SSCALE_MAPMAX + 1u ), SC_INVALIDSIZE );
+    expectStatus ( "map limits: x array too small", sscaleMapInit ( &map, gx, 2u, gy, 3u, plane, 9u, 3u, 3u ), SC_INVALIDSIZE );
+    expectStatus ( "map limits: y array too small", sscaleMapInit ( &map, gx, 3u, gy, 2u, plane, 9u, 3u, 3u ), SC_INVALIDSIZE );
+    expectStatus ( "map limits: z array too small", sscaleMapInit ( &map, gx, 3u, gy, 3u, plane, 8u, 3u, 3u ), SC_INVALIDSIZE );
+    expectStatus ( "map limits: a flat x segment", sscaleMapInit ( &map, flatX, 3u, gy, 3u, plane, 9u, 3u, 3u ), SC_INVALIDTABLE );
+    expectStatus ( "map limits: a y axis turning back", sscaleMapInit ( &map, gx, 3u, backY, 3u, plane, 9u, 3u, 3u ), SC_INVALIDTABLE );
+    expectStatus ( "map limits: rail to rail on both axes",
+                   sscaleMapInit ( &map, railX, 2u, railX, 2u, small, 4u, 2u, 2u ), SC_OVERFLOW );
+    expectI32 ( "map limits: no refusal wrote the driver", ( int32_t ) map.nx, 77 );
+
+    /* The bound: an area of 2^32 - 1 times a corner of 2^31 fits; one more
+       row of area does not. */
+    expectStatus ( "map limits: the largest cell that fits", sscaleMapInit ( &map, wideX, 2u, fitY, 2u, deep, 4u, 2u, 2u ), SC_OK );
+    expectStatus ( "map limits: interpolate in it", sscaleMapApply ( &map, 65535, 65537, &out ), SC_OK );
+    expectI32 ( "map limits: the top corner", out, 2147483647 );
+    expectStatus ( "map limits: and at the bottom", sscaleMapApply ( &map, 0, 0, &out ), SC_OK );
+    expectI32 ( "map limits: the bottom corner", out, -2147483647 - 1 );
+    expectStatus ( "map limits: the middle", sscaleMapApply ( &map, 32767, 32768, &out ), SC_OK );
+    expectStatus ( "map limits: one row of area too many",
+                   sscaleMapInit ( &map, wideX, 2u, pastY, 2u, deep, 4u, 2u, 2u ), SC_OVERFLOW );
+    expectStatus ( "map limits: small values fit a cell too wide for large ones",
+                   sscaleMapInit ( &map, wideX, 2u, pastY, 2u, ( const int32_t* ) changing, 4u, 2u, 2u ), SC_OK );
+
+    /* Changed after Init: a corner grown past the bound, then an axis
+       collapsed. Neither may reach the arithmetic. */
+    expectStatus ( "map limits: a small map on a wide cell",
+                   sscaleMapInit ( &map, wideX, 2u, pastY, 2u, changing, 4u, 2u, 2u ), SC_OK );
+    changing[ 3 ] = -2147483647 - 1;
+    out = 777;
+    expectStatus ( "map limits: a corner grown after Init", sscaleMapApply ( &map, 1, 1, &out ), SC_INVALIDTABLE );
+    expectStatus ( "map limits: clamped too", sscaleMapApplyClamped ( &map, 1, 1, &out ), SC_INVALIDTABLE );
+    expectI32 ( "map limits: no refusal wrote the result", out, 777 );
+    changing[ 3 ] = 4;
+    expectStatus ( "map limits: on a narrow cell", sscaleMapInit ( &map, movingX, 2u, gy, 2u, changing, 4u, 2u, 2u ), SC_OK );
+    movingX[ 1 ] = 0;
+    expectStatus ( "map limits: an axis collapsed after Init", sscaleMapApply ( &map, 0, 50, &out ), SC_INVALIDTABLE );
+    expectStatus ( "map limits: on a cell whose y will collapse",
+                   sscaleMapInit ( &map, cx, 2u, movingY, 2u, changing, 4u, 2u, 2u ), SC_OK );
+    movingY[ 1 ] = 0;
+    expectStatus ( "map limits: the y axis collapsed after Init", sscaleMapApply ( &map, 5, 0, &out ), SC_INVALIDTABLE );
+
+    /* A map of zeros fits any cell: the bound is never divided by zero. */
+    expectStatus ( "map limits: zeros on the widest cell",
+                   sscaleMapInit ( &map, railX, 2u, wideX, 2u, zeros, 4u, 2u, 2u ), SC_OK );
+    expectStatus ( "map limits: interpolate zeros", sscaleMapApply ( &map, 0, 100, &out ), SC_OK );
+    expectI32 ( "map limits: zero", out, 0 );
+
+    /* Refusals found early, with more of the map still to check. */
+    expectStatus ( "map limits: a flat first x segment", sscaleMapInit ( &map, flatFirst, 3u, gy, 3u, plane, 9u, 3u, 3u ),
+                   SC_INVALIDTABLE );
+    expectStatus ( "map limits: a flat first y segment", sscaleMapInit ( &map, gx, 3u, flatFirst, 3u, plane, 9u, 3u, 3u ),
+                   SC_INVALIDTABLE );
+    expectStatus ( "map limits: the first cell of a row overflows",
+                   sscaleMapInit ( &map, threeX, 3u, pastY, 2u, firstDeep, 6u, 3u, 2u ), SC_OVERFLOW );
+
+    /* A longer axis: the segment is found before the scan reaches its end. */
+    expectStatus ( "map limits: four breakpoints", sscaleMapInit ( &map, fourX, 4u, cy, 2u, fourZ, 8u, 4u, 2u ), SC_OK );
+    expectStatus ( "map limits: in the first segment", sscaleMapApply ( &map, 5, 0, &out ), SC_OK );
+    expectI32 ( "map limits: first segment value", out, 5 );
+    expectStatus ( "map limits: in the second segment", sscaleMapApply ( &map, 15, 10, &out ), SC_OK );
+    expectI32 ( "map limits: second segment value", out, 25 );
+    expectStatus ( "map limits: on the last breakpoint", sscaleMapApply ( &map, 30, 10, &out ), SC_OK );
+    expectI32 ( "map limits: last breakpoint value", out, 40 );
+
+    /* Drivers written by hand with one part missing. */
+    expectStatus ( "map limits: valid before the damage", sscaleMapInit ( &map, gx, 3u, gy, 3u, plane, 9u, 3u, 3u ), SC_OK );
+    map.y = NULL;
+    expectStatus ( "map limits: no y axis", sscaleMapApply ( &map, 5, 5, &out ), SC_NULLPTR );
+    map.y = gy;
+    map.z = NULL;
+    expectStatus ( "map limits: no values", sscaleMapApply ( &map, 5, 5, &out ), SC_NULLPTR );
+    map.z = plane;
+    map.nx = 1u;
+    expectStatus ( "map limits: one x breakpoint by hand", sscaleMapApply ( &map, 5, 5, &out ), SC_NULLPTR );
+    map.nx = 3u;
+    map.ny = 1u;
+    expectStatus ( "map limits: one y breakpoint by hand", sscaleMapApplyClamped ( &map, 5, 5, &out ), SC_NULLPTR );
+    map.ny = 3u;
+
+    out = 777;
+    expectStatus ( "map limits: apply a zeroed map", sscaleMapApply ( &zeroed, 0, 0, &out ), SC_NULLPTR );
+    expectStatus ( "map limits: clamp a zeroed map", sscaleMapApplyClamped ( &zeroed, 0, 0, &out ), SC_NULLPTR );
+    expectStatus ( "map limits: apply NULL driver", sscaleMapApply ( NULL, 0, 0, &out ), SC_NULLPTR );
+    expectStatus ( "map limits: apply NULL result", sscaleMapApply ( &map, 0, 0, NULL ), SC_NULLPTR );
+    expectStatus ( "map limits: clamp NULL driver", sscaleMapApplyClamped ( NULL, 0, 0, &out ), SC_NULLPTR );
+    expectStatus ( "map limits: clamp NULL result", sscaleMapApplyClamped ( &map, 0, 0, NULL ), SC_NULLPTR );
+    expectI32 ( "map limits: no refusal wrote it either", out, 777 );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -1235,6 +1518,8 @@ int main ( void )
     testUncoveredBranches ( );
     testTableChangedAfterInit ( );
     testConditionCoverage ( );
+    testMap ( );
+    testMapLimits ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

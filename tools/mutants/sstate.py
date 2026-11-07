@@ -51,8 +51,8 @@ MUTANTS = [
     {
         "id": 'M8',
         "what": 'forcing does not check that the state exists',
-        "old": '    else if ( ( uint32_t ) next >= driver->stateCount )\n    {\n        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n        retVal = ST_OK;\n    }\n\n    return ( retVal );\n}\n\n/**\n * @brief   Asks whether a transition would be permitted',
-        "new": '    else if ( FALSE )\n    {\n        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n        retVal = ST_OK;\n    }\n\n    return ( retVal );\n}\n\n/**\n * @brief   Asks whether a transition would be permitted',
+        "old": '    else if ( ( uint32_t ) next >= driver->stateCount )\n    {\n        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n        driver->dwell = 0u;\n        retVal = ST_OK;\n    }\n\n    return ( retVal );\n}\n\n/**\n * @brief   Asks whether a transition would be permitted',
+        "new": '    else if ( FALSE )\n    {\n        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n        driver->dwell = 0u;\n        retVal = ST_OK;\n    }\n\n    return ( retVal );\n}\n\n/**\n * @brief   Asks whether a transition would be permitted',
     },
     {
         "id": 'M9',
@@ -115,5 +115,35 @@ MUTANTS = [
         "what": 'the state count limit is not enforced',
         "old": '    else if ( ( stateCount == 0u ) || ( stateCount > SSTATE_MAXSTATES ) )',
         "new": '    else if ( stateCount == 0u )',
+    },
+    {
+        "id": 'M19',
+        "what": 'a permitted transition keeps the old time in state',
+        "old": '        driver->refusals = driver->refusals + 1u;\n        retVal = ST_REFUSED;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n        driver->dwell = 0u;\n',
+        "new": '        driver->refusals = driver->refusals + 1u;\n        retVal = ST_REFUSED;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n',
+    },
+    {
+        "id": 'M20',
+        "what": 'a forced transition keeps the old time in state',
+        "old": '        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n        driver->dwell = 0u;\n',
+        "new": '        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n',
+    },
+    {
+        "id": 'M21',
+        "what": 'Reset keeps the time in state',
+        "old": '        driver->refusals = 0;\n        driver->dwell = 0u;\n        retVal = ST_OK;',
+        "new": '        driver->refusals = 0;\n        retVal = ST_OK;',
+    },
+    {
+        "id": 'M22',
+        "what": 'Init keeps whatever time in state the struct held',
+        "old": '                driver->dwell = 0u;\n',
+        "new": '',
+    },
+    {
+        "id": 'M23',
+        "what": 'the time in state wraps instead of saturating',
+        "old": '        if ( driver->dwell < 0xFFFFFFFFu )',
+        "new": '        if ( TRUE )',
     },
 ]

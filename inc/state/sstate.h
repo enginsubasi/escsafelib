@@ -32,6 +32,7 @@ typedef struct
     uint32_t        stateCount;
     uint32_t        transitions;
     uint32_t        refusals;
+    uint32_t        dwell;
     uint8_t         state;
     uint8_t         initial;
 } sstate_t;
@@ -63,6 +64,9 @@ uint8_t sstateGet ( const sstate_t* driver, uint8_t* state );
 uint8_t sstateStateCount ( const sstate_t* driver, uint32_t* stateCount );
 uint8_t sstateGetTransitions ( const sstate_t* driver, uint32_t* transitions );
 uint8_t sstateGetRefusals ( const sstate_t* driver, uint32_t* refusals );
+
+uint8_t sstateTick ( sstate_t* driver );
+uint8_t sstateGetDwell ( const sstate_t* driver, uint32_t* cycles );
 
 uint8_t sstateOutgoing ( const sstate_t* driver, uint8_t from, uint32_t* mask );
 uint8_t sstateIsTerminal ( const sstate_t* driver, uint8_t state, uint8_t* terminal );

@@ -20,6 +20,8 @@
 #define FALSE 0
 #endif
 
+#define SSCALE_MAPMAX       256u
+
 /* TYPEDEFS */
 
 /* STRUCTURES */
@@ -31,6 +33,15 @@ typedef struct
     uint32_t        count;
     uint8_t         increasing;
 } sscale_t;
+
+typedef struct
+{
+    const int32_t*  x;
+    const int32_t*  y;
+    const int32_t*  z;
+    uint32_t        nx;
+    uint32_t        ny;
+} sscalemap_t;
 
 /* ENUMS */
 
@@ -65,6 +76,11 @@ uint8_t sscaleIsIncreasing ( const sscale_t* driver, uint8_t* increasing );
 
 uint8_t sscaleLinear ( int32_t input, int32_t inLow, int32_t inHigh, int32_t outLow, int32_t outHigh, int32_t* result );
 uint8_t sscaleLinearClamped ( int32_t input, int32_t inLow, int32_t inHigh, int32_t outLow, int32_t outHigh, int32_t* result );
+
+uint8_t sscaleMapInit ( sscalemap_t* driver, const int32_t* x, uint32_t xSize, const int32_t* y, uint32_t ySize,
+                        const int32_t* z, uint32_t zSize, uint32_t nx, uint32_t ny );
+uint8_t sscaleMapApply ( const sscalemap_t* driver, int32_t xin, int32_t yin, int32_t* result );
+uint8_t sscaleMapApplyClamped ( const sscalemap_t* driver, int32_t xin, int32_t yin, int32_t* result );
 
 #ifdef __cplusplus
 }
