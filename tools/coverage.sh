@@ -77,6 +77,7 @@ MODULES=(
   "string   sstring       SString"
   "vote     svote         SVote"
   "watch    swatch        SWatch"
+  "signal   ssignal       SSignal"
 )
 
 fail=0

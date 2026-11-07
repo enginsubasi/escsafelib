@@ -59,6 +59,7 @@ MODULES=(
   "state    sstate        SState"
   "vote     svote         SVote"
   "watch    swatch        SWatch"
+  "signal   ssignal       SSignal"
 )
 
 fail=0

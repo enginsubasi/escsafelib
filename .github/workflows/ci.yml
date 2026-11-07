@@ -178,6 +178,16 @@ jobs:
       - name: Run the sbits test program
         run: ./sbits_test
 
+      - name: Build the ssignal test program
+        run: |
+          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
+            -Iinc/signal \
+            test/SSignal_Test/SSignal_Test.c src/signal/ssignal.c \
+            -o ssignal_test
+
+      - name: Run the ssignal test program
+        run: ./ssignal_test
+
       # The generated modules must still be exactly what their generator
       # produces. A non empty diff means somebody edited the output by hand
       # and the next generator run would silently revert it.
@@ -367,6 +377,18 @@ jobs:
 
       - name: Run sbits under sanitizers
         run: ./sbits_san
+
+      - name: Build ssignal with sanitizers
+        run: |
+          clang -Wall -Wextra -std=c99 -g \
+            -fsanitize=address,undefined -fno-sanitize-recover=all \
+            -fno-omit-frame-pointer \
+            -Iinc/signal \
+            test/SSignal_Test/SSignal_Test.c src/signal/ssignal.c \
+            -o ssignal_san
+
+      - name: Run ssignal under sanitizers
+        run: ./ssignal_san
 
   cross-compile:
     name: Cross compile for ARM
@@ -633,7 +655,7 @@ jobs:
             -Iinc/string -Iinc/array -Iinc/memory -Iinc/math \
             -Iinc/ring -Iinc/filter -Iinc/fixed -Iinc/diag \
             -Iinc/scale -Iinc/vote -Iinc/fault -Iinc/state -Iinc/watch \
-            -Iinc/bits \
+            -Iinc/bits -Iinc/signal \
             src/ 2>&1 | tee cppcheck.log
 
       # tools/misra.sh runs the addon through cppcheck --dump, applies the

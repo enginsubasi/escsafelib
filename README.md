@@ -24,6 +24,7 @@ fails leaves its destination untouched.
 | `inc/fixed/sfixed.h` | 19 functions. Q16.16 fixed point: conversion, checked arithmetic, rounding, interpolation and square root. No floating point. |
 | `inc/scale/sscale.h` | 12 functions. Piecewise linear scaling: a validated breakpoint table in either direction, its inverse, and the two point map that needs no table. |
 | `inc/bits/sbits.h` | 18 functions. Bit field packing in a word and across a byte array, and integers of one to four bytes in an explicitly named byte order, with the position, the width and the value all checked. No shift by the width of the type, and no right shift of a signed value. |
+| `inc/signal/ssignal.h` | 7 functions. Signal plausibility: range and gradient checks that say below or above, two sensor correlation without rounding, and a stuck signal detector. Observation only; qualification is `sfault`'s. |
 | `inc/watch/swatch.h` | 12 functions. Deadline and liveness supervision driven by a caller supplied tick: too late and too soon are both faults, and the arithmetic survives the tick counter wrapping. |
 | `inc/state/sstate.h` | 12 functions. Guarded state machine: a transition table validated at Init, illegal transitions refused and counted, and reachability queries over the whole table. |
 | `inc/fault/sfault.h` | 12 functions. Fault qualification: a condition must be present for a number of cycles to confirm and absent for a number to heal, with latching and occurrence counting. |
@@ -191,6 +192,9 @@ gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/watch \
 
 gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/bits \
   test/SBits_Test/SBits_Test.c src/bits/sbits.c -o sbits_test && ./sbits_test
+
+gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/signal \
+  test/SSignal_Test/SSignal_Test.c src/signal/ssignal.c -o ssignal_test && ./ssignal_test
 ```
 
 ## The modules together

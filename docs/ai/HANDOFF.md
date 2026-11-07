@@ -18,6 +18,7 @@ Historical milestones and prior findings are recorded in
      **Done.**
   3. `ssignal` (prefix `SG_`): range, gradient, stuck-at and two-sensor
      plausibility. Observation only; qualification stays in `sfault`.
+     **Done.**
   4. `se2e` (prefix `SE_`): counter, data ID and injected CRC on send; a
      receiver state machine telling repetition, loss, wrong order,
      corruption and timeout apart. No compatibility claim with any
@@ -64,7 +65,32 @@ Historical milestones and prior findings are recorded in
   MC/DC; ARM M0+ `-fanalyzer` clean; MISRA full tree 0 differences after
   four reviewed `retVal == SB_OK`-style records were added (363 in all).
 
+## Piece 3: `ssignal`
+
+- New module `inc/signal/ssignal.h`, `src/signal/ssignal.c`, from
+  `template/`: `ssignalCheckRange`, `ssignalCheckGradient`,
+  `ssignalCorrelate` (stateless), `ssignalStuckInit`/`Update`/`Reset`/
+  `Count` on `ssignalstuck_t`. Status enum `SSIGNALSTATUS` (`SG_`), verdict
+  enum `SSIGNALVERDICT` (`SG_VERDICT_BELOW`/`INSIDE`/`ABOVE`).
+- Decisions: verdicts rather than flags (below and above are different
+  faults); 64-bit differences; correlation by cross multiplication with the
+  gain limited to `SSIGNAL_MAXGAIN` (65535) so products stay under 2^47;
+  stuck runs measured against the run's first sample, saturating, limit at
+  least two; zeroed driver refused with `SG_NULLPTR`.
+- Registered in `run_all.sh`, `coverage.sh`, the CI test matrix, the CI
+  sanitizer job and the CI cppcheck include list. MISRA, size, the ARM
+  steps and the header check discover modules on their own.
+- Verified: 115 cases on zig with UBSan and gcc 14 strict; M1-M13 all
+  killed; coverage 100% lines, branches and MC/DC; tracecheck, doxcheck,
+  apicheck 0; MISRA full tree 0 differences after three reviewed
+  `isReady ( driver ) == FALSE` records (366 in all); cppcheck general 0;
+  gcc 16 `-fanalyzer -Werror` and ARM M0+/M4 `-fanalyzer` clean; header
+  coexistence clean; `.data`/`.bss` 0, 460 B on M0+; `run_all.sh` ALL
+  GREEN.
+
 ## Remaining work
 
-1. Pieces 3-7 above, in order.
+1. Pieces 4-7 above, in order.
+2. Read the CI run of the `ssignal` commit: first run of the new matrix
+   and sanitizer steps.
 2. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.

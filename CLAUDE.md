@@ -27,7 +27,7 @@ not turn these notes or historical test results into a compliance claim.
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All fourteen modules are implemented — 366 functions and 4136 self-checking test cases across fifteen suites: 4098 in the fourteen module suites and 38 in the integration suite. Every status a function's `@return` promises is expected by at least one case in its own suite, or recorded with its reason in `tools/trace_exceptions.tsv`; `tools/tracecheck.py` checks it.
+All fifteen modules are implemented — 373 functions and 4251 self-checking test cases across sixteen suites: 4213 in the fifteen module suites and 38 in the integration suite. Every status a function's `@return` promises is expected by at least one case in its own suite, or recorded with its reason in `tools/trace_exceptions.tsv`; `tools/tracecheck.py` checks it.
 
 ## Working language
 
@@ -95,6 +95,9 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/watch \
 
 python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/bits \
   test/SBits_Test/SBits_Test.c src/bits/sbits.c -o sbits_test && ./sbits_test
+
+python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/signal \
+  test/SSignal_Test/SSignal_Test.c src/signal/ssignal.c -o ssignal_test && ./ssignal_test
 ```
 
 Run the tests before claiming anything passes. Compiling is not passing.
@@ -127,7 +130,7 @@ with the control first; use it rather than `--addon`.
 
 **gcc has no AddressSanitizer either.** MinGW-W64 ships no ASan runtime, so the control does not link. Neither host compiler on this machine can run ASan; the Ubuntu CI runner is still the only place it works, and the guard-page harnesses are still how out-of-bounds reads get proven here.
 
-All fourteen modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
+All fifteen modules are clean under a much stricter warning set than the project normally uses, confirmed independently by clang 21 via zig **and** gcc 14.2.0:
 
 ```bash
 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wcast-qual \
@@ -135,7 +138,7 @@ All fourteen modules are clean under a much stricter warning set than the projec
 -Wundef -Wwrite-strings
 ```
 
-Zero warnings across all fourteen. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
+Zero warnings across all fifteen. Confirm the flags are live before trusting that — a control with an implicit narrowing conversion produces two warnings under the same command line.
 
 A suite that passes on the first run has not yet been shown to check
 anything. Mutate the module — flip a bounds test to off by one, delete an
@@ -149,7 +152,7 @@ python tools/mutate.py svote        # one of them
 python tools/mutate.py --list
 ```
 
-**232 mutants across the fourteen modules: 212 killed, 20 equivalent, all
+**245 mutants across the fifteen modules: 225 killed, 20 equivalent, all
 accounted for.** The defects live in `tools/mutants/<module>.py`, one file
 per module, and the runner is `tools/mutate.py`. Before that they were
 throwaway scripts in a scratch directory and the numbers in this file were
@@ -165,6 +168,7 @@ can repeat.
 | `sfilter` | 14 | 1 | `svote` | 16 | 0 |
 | `sfixed` | 10 | 0 | `swatch` | 16 | 0 |
 | `smath` | 16 | 0 | `smemory` | 6 | 3 |
+| `ssignal` | 13 | 0 | | | |
 
 `sarray`, `smath` and `sstring` were the thinnest measurement here for a
 while: five, eight and seven real mutants against ninety two, sixty eight
@@ -267,11 +271,12 @@ What that first run found, and what closing it cost:
 | `sstate` | — | 97.5% | 99.5% |
 | `svote` | — | **100%** | 100% |
 | `swatch` | — | **100%** | 100% |
+| `ssignal` | — | **100%** | 100% |
 
 The "now" column is from 07/11/2026, after the cases `tools/tracecheck.py`
 and the MC/DC classification asked for. MC/DC on the same run equals branch
 coverage in every module but `sdiag` (87.2%); its gaps are written to
-`<module>.conditions.txt`, and **every one of them, in all fourteen modules,
+`<module>.conditions.txt`, and **every one of them, in all fifteen modules,
 has been classified.** 128 condition outcomes were cases nobody had written, and they
 are in the suites now. Most were one argument of a guard that had only been
 refused alongside another — `( dest == NULL ) || ( src == NULL )` tested
@@ -407,7 +412,7 @@ and four rules are recorded as deviations:
 
 | rule | hits | modules | decision |
 |---|---|---|---|
-| 10.4 | 363 (636 at baseline) | all | **deviation, narrowed on 07/11/2026.** A status, state or flag is a `uint8_t` compared with the module's enum members and with `TRUE`/`FALSE`; that is all the deviation covers. The 277 hits that compared or combined an unsigned value with an unsuffixed constant were fixed with a `u` suffix. `tools/misra_occurrences.py` checks every remaining hit by expression: the operator the addon reports must be `==` or `!=` with `TRUE`, `FALSE` or one of the module's own enum members as an operand, or the run fails. All 363 are |
+| 10.4 | 366 (636 at baseline) | all | **deviation, narrowed on 07/11/2026.** A status, state or flag is a `uint8_t` compared with the module's enum members and with `TRUE`/`FALSE`; that is all the deviation covers. The 277 hits that compared or combined an unsigned value with an unsuffixed constant were fixed with a `u` suffix. `tools/misra_occurrences.py` checks every remaining hit by expression: the operator the addon reports must be `==` or `!=` with `TRUE`, `FALSE` or one of the module's own enum members as an operand, or the run fails. All 366 are |
 | 11.5 | 26 | `smemory`, `sdiag` | **deviation.** `void*` to `unsigned char*`, the one conversion the standard always allows for reading bytes |
 | 11.4 | 10 | `sarray`, `sstring` | **deviation.** Pointer to integer, to test two ranges for overlap and to choose a copy direction |
 | 11.6 | 10 | `sarray`, `smemory`, `sstring` | **deviation.** The same overlap checks, through `void*` |
@@ -508,11 +513,11 @@ was about, and until this existed nothing checked that the fix stayed
 applied. It also checks that a size named `<x>Size` sits next to `<x>`, that
 every public function returns `uint8_t`, that names carry their module's
 prefix, that enum members carry their module's status prefix, and that no
-prototype names a bare `int`. 365 declarations, no findings. A pointer to a
+prototype names a bare `int`. 371 declarations, no findings. A pointer to a
 module's own driver struct is exempt, and those types are read out of each
 header's typedefs so a new module needs no change to the tool.
 
-`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 690 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
+`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 713 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
 
 **Its most useful rule is one doxygen has no concept of: a `@return` must name every status the body can set, and no status it cannot.** That is what found the only real defect the first full audit turned up. The four `smath` families share one template, so the unsigned ones had inherited the signed text and promised an `SH_UNDERFLOW` that an unsigned addition cannot produce and an `SH_OVERFLOW` that an unsigned subtraction cannot — a caller testing for either was writing a branch that never runs.
 
@@ -562,7 +567,7 @@ test/<Name>_Test/<Name>_Test.c                        self-checking test main
 template/inc/generic.h, template/src/generic.c        copy these to start a new module
 ```
 
-Domains: `array`, `bits`, `diag`, `fault`, `filter`, `fixed`, `math`, `memory`, `ring`, `scale`, `state`, `string`, `vote`, `watch`.
+Domains: `array`, `bits`, `diag`, `fault`, `filter`, `fixed`, `math`, `memory`, `ring`, `scale`, `signal`, `state`, `string`, `vote`, `watch`.
 
 **A module is named after its domain directory with an `s` in front, without
 exception.** `array`/`sarray`, `diag`/`sdiag`, `math`/`smath`, and so on. Two
@@ -585,6 +590,7 @@ to compile in one translation unit and CI checks it:
 | `SM_` | `smemory` | `SV_` | `svote` |
 | `SU_` | `sfault` (`SF_` was taken) | `ST_` | `sstate` |
 | `SW_` | `swatch` | `SB_` | `sbits` |
+| `SG_` | `ssignal` (`SS_` was taken) | | |
 
 Two prefixes could not be the obvious abbreviation. `sfixed` takes the `X` of
 fi**x**ed because `sfilter` already held `SF_`, and `smath` takes the `H` of
@@ -592,7 +598,7 @@ mat**h** because `smemory` already held `SM_`. `SM_` was deliberately left
 with `smemory` rather than moved: renaming a shipped module's prefix to free
 a letter is churn paid by every existing call site.
 
-All fourteen modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
+All fifteen modules are implemented. `sstring` is the reference: 41 functions covering length, copy, move, concatenate, compare, clear, search, tokenize, transform, validate and number conversion. Its design is written up in `docs/superpowers/specs/2026-08-02-sstring-design.md`. **Do not write further spec documents or implementation plans for this repo** — the owner wants the design agreed in chat and then implemented directly.
 
 `sarray` is 92 functions: twenty three operations repeated across four element families, `uint8_t`, `uint16_t`, `uint32_t` and `int32_t`. Two things about it differ from `sstring` and will bite if forgotten:
 
@@ -710,6 +716,17 @@ The writer checks the size, the position, the width *and* the value before it wr
 
 **Byte order is a separate question from bit order, and the owner chose on 07/11/2026 to answer it.** `sbitsReadLE`, `sbitsReadBE`, `sbitsWriteLE` and `sbitsWriteBE` move unsigned integers of one to four bytes, with the order in the name so both ends of a link state it at the call. That does not reopen the bit ordering decision above: the bit fields stay Intel only. They move one byte at a time, so neither the processor's byte order nor its alignment enters, which is what makes them verifiable on a host for an ARM target. A writer refuses a value too big for its slot rather than keeping its low bytes, because the low bytes of a wrong number are a plausible number. A signed reading is the unsigned one followed by `sbitsGeti32` at eight times the byte count; there is no signed reader, because that would be a second sign extension to keep in step with the first.
 
+`ssignal` is 7 functions of signal plausibility, added on 07/11/2026: a range check, a gradient check, a two sensor correlation and a stuck signal detector. They are the four questions every project asks of a sensor reading, and the module answers those and nothing else.
+
+**It observes; it does not decide.** Whether a reading outside its range three cycles running is a fault is qualification, which is `sfault`'s job, and which input to use instead is `svote`'s. Only the stuck detector holds state, because stuck is a property of a run of samples, not of one.
+
+Four things in it are easy to get wrong:
+
+- **The range and gradient checks answer below, inside or above**, through `SG_VERDICT_*`, not a flag. Below and above usually mean different faults — a short to ground and a short to supply — and a flag throws that away.
+- **Every difference is formed in 64 bits**, as in `svote`. A jump from `INT32_MIN` to `INT32_MAX` is minus one in 32 bits and would read as a signal that barely moved. The gradient's rise and fall limits are separate and the suite tests a step between them, because a mutant that used the wrong one survives everything else.
+- **The correlation never divides.** Two sensors agree when `b` is within the tolerance of `a * gainNum / gainDen + offset`; both sides are multiplied by the denominator and compared in `int64_t`, so the prediction is never rounded. The gain is limited to `SSIGNAL_MAXGAIN` either way, which is what keeps every product under 2^47.
+- **The stuck detector compares each sample with the first sample of its run, not with the previous one.** Against the previous sample a slow ramp moving less than the tolerance each step reads as stuck for ever; the suite drives exactly that ramp, and `ssignal` M9 is the mutant that measures against the previous sample. The run length saturates. A limit below two is refused at Init, and a zeroed driver is refused with `SG_NULLPTR`.
+
 `smemory` is 17 functions, the untyped half of the library: bounded replacements for the `mem` family of `<string.h>`. **The line between it and `sarray` is whether the operation has to know what the bytes mean.** Copy, move, set, compare and search do not, so they take a `void*` and live here. A sum, a minimum or an ordering by magnitude does, so it lives in `sarray`. When adding a function, that question decides the module — do not add a typed operation to `smemory` or a byte-blind one to `sarray`.
 
 Two `smemory` functions have no `<string.h>` counterpart and exist for reasons that are easy to undo by accident:
@@ -771,7 +788,7 @@ Beyond the shared esclib style, this library adds:
   `uint8_t` statuses, states and flags compared with enum members and
   `TRUE`/`FALSE`, and nothing else; `tools/misra.sh` fails on any other hit.
   A signed operand keeps its plain constant (`value < 0`).
-- No module state, so every function is reentrant. **`tools/size.sh` measures this rather than trusting it**: every module is required to show `.data` and `.bss` of zero and the script goes red otherwise. All fourteen do. The whole library is about 23 KB of flash on a Cortex-M0+ and 21 KB on a Cortex-M4, measured whole, which is an upper bound because a project linking with `--gc-sections` pays only for the functions it calls.
+- No module state, so every function is reentrant. **`tools/size.sh` measures this rather than trusting it**: every module is required to show `.data` and `.bss` of zero and the script goes red otherwise. All fifteen do. The whole library is about 24 KB of flash on a Cortex-M0+ and 22 KB on a Cortex-M4, measured whole, which is an upper bound because a project linking with `--gc-sections` pays only for the functions it calls.
 
 ## The driver-struct pattern
 
@@ -785,9 +802,9 @@ For stateful modules (from esclib, applies here as new modules gain state):
 
 `sring` is the worked example of all of it: `sringu8_t` holds every field, `driver` is the first parameter of all twelve functions, the buffer is handed to `sringInitu8`, the names are `sringInitu8` / `sringPutu8` / `sringGetu8` / `sringCountu8`, the type suffix is there because the module is width-specific, and the memory barrier — the one piece of processor behaviour it needs — is a function pointer stored at `Init` instead of a call into a HAL. Copy its shape when adding a stateful module.
 
-Six modules now hold state and all six refuse a driver that never went
+Seven modules now hold state and all seven refuse a driver that never went
 through `Init`, through a static `isReady` helper: `sring`, `sscale`,
-`sfault`, `sstate`, `swatch` and `sfilter`. **Five of them report that as
+`sfault`, `sstate`, `swatch`, `ssignal` and `sfilter`. **Six of them report that as
 `*_NULLPTR` and `sfilter` reports `SF_INVALIDSIZE`, which is deliberate and
 stays that way.** A zeroed `sfilteravg_t` has both a NULL buffer and a
 capacity of zero, and for a moving average the size is the more useful of
