@@ -54,4 +54,28 @@ MUTANTS = [
         "equivalent":
             'The volatile qualifier stops the compiler caching or folding the two reads, which is what makes the check see the memory rather than what the compiler believes is in it. Whether it did so cannot be observed from inside the same program; only the generated code shows it.',
     },
+    {
+        "id": 'M9',
+        "what": 'the J1850 CRC-8 uses the other polynomial',
+        "old": '    retVal = crc8Block ( data, size, seed, 0x1Du, crc );',
+        "new": '    retVal = crc8Block ( data, size, seed, 0x2Fu, crc );',
+    },
+    {
+        "id": 'M10',
+        "what": 'the CRC-8 result is not inverted',
+        "old": '        *crc = ( uint8_t ) ~reg;',
+        "new": '        *crc = reg;',
+    },
+    {
+        "id": 'M11',
+        "what": 'the CRC-8 Update ignores the seed it is continuing from',
+        "old": '    uint8_t reg = ( uint8_t ) ~seed;',
+        "new": '    uint8_t reg = 0xFFu;',
+    },
+    {
+        "id": 'M12',
+        "what": 'the CRC-8 shift tests the wrong bit',
+        "old": '        if ( ( retVal & 0x80u ) != 0u )',
+        "new": '        if ( ( retVal & 0x40u ) != 0u )',
+    },
 ]

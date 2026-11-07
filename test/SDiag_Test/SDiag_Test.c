@@ -3,7 +3,7 @@
   *
   * @file      SDiag_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.2
+  * @version   0.2.0
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the sdiag module.
@@ -16,6 +16,7 @@
   * 07/11/2026 Every status a return block promises is asked for at least @n
   *            once, as tools/tracecheck.py requires. @n
   * 07/11/2026 MC/DC cases: each pointer refused on its own. @n
+  * 07/11/2026 Cases for the two eight bit CRCs, against a bit serial oracle. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -675,6 +676,210 @@ static void testConditionCoverage ( void )
 }
 
 /**
+ * @brief   Oracle for the eight bit CRCs, written a different way.
+ * @param[in] data  Bytes to run over.
+ * @param[in] size  Number of bytes.
+ * @param[in] poly  Generator polynomial, without its top bit.
+ * @return  The CRC with initial value 0xFF and final XOR 0xFF.
+ * @note    The module folds a whole byte into the register and then shifts
+ *          eight times. This feeds the message one bit at a time into the
+ *          bottom of a shift register and compares it with the bit falling
+ *          out of the top, which is the circuit the arithmetic describes.
+ *          The two agree only if both are right or both are wrong in the
+ *          same way, and they share no code.
+ */
+static uint8_t crc8Oracle ( const uint8_t* data, uint32_t size, uint8_t poly )
+{
+    uint8_t reg = 0xFFu;
+    uint32_t i = 0;
+    uint32_t bit = 0;
+    uint8_t in = 0;
+    uint8_t top = 0;
+
+    for ( i = 0; i < size; ++i )
+    {
+        for ( bit = 8u; bit > 0u; --bit )
+        {
+            in = ( uint8_t ) ( ( ( uint32_t ) data[ i ] >> ( bit - 1u ) ) & 1u );
+            top = ( uint8_t ) ( ( ( uint32_t ) reg >> 7 ) & 1u );
+            reg = ( uint8_t ) ( ( uint32_t ) reg << 1 );
+
+            if ( ( in ^ top ) != 0u )
+            {
+                reg = ( uint8_t ) ( reg ^ poly );
+            }
+            else
+            {
+                // Intentionally blank.
+            }
+        }
+    }
+
+    return ( ( uint8_t ) ( reg ^ 0xFFu ) );
+}
+
+/**
+ * @brief   Checks the two eight bit CRCs.
+ * @note    Known answers from the CRC catalogue, the residue a frame
+ *          carrying its own CRC always produces, chaining split at every
+ *          position, a sweep of every one and two byte message against the
+ *          bit serial oracle, and every single bit error in a frame.
+ */
+static void testCrc8 ( void )
+{
+    const uint8_t check[ 9 ] = { '1', '2', '3', '4', '5', '6', '7', '8', '9' };
+    uint8_t frame[ 10 ] = { '1', '2', '3', '4', '5', '6', '7', '8', '9', 0u };
+    uint8_t pair[ 2 ] = { 0u, 0u };
+    uint8_t crc = 0x5Au;
+    uint8_t first = 0;
+    uint8_t whole = 0;
+    uint32_t split = 0;
+    uint32_t value = 0;
+    uint32_t bit = 0;
+    uint32_t sweepBad = 0;
+    uint32_t splitBad = 0;
+    uint32_t missed = 0;
+
+    expectStatus ( "crc8Sae: the check string", sdiagCrc8Sae ( check, 9u, &crc ), SD_OK );
+    expectU32 ( "crc8Sae: the check string is 0x4B", ( uint32_t ) crc, 0x4Bu );
+    expectStatus ( "crc8H2F: the check string", sdiagCrc8H2F ( check, 9u, &crc ), SD_OK );
+    expectU32 ( "crc8H2F: the check string is 0xDF", ( uint32_t ) crc, 0xDFu );
+
+    frame[ 9 ] = 0x4Bu;
+    expectStatus ( "crc8Sae: a frame with its own CRC", sdiagCrc8Sae ( frame, 10u, &crc ), SD_OK );
+    expectU32 ( "crc8Sae: the residue is 0x3B", ( uint32_t ) crc, 0x3Bu );
+    frame[ 9 ] = 0xDFu;
+    expectStatus ( "crc8H2F: a frame with its own CRC", sdiagCrc8H2F ( frame, 10u, &crc ), SD_OK );
+    expectU32 ( "crc8H2F: the residue is 0xBD", ( uint32_t ) crc, 0xBDu );
+
+    /* Chaining: two calls split anywhere give what one call gives. */
+    for ( split = 1u; split < 9u; ++split )
+    {
+        if ( ( sdiagCrc8SaeUpdate ( check, split, SD_CRC8_SEED, &first ) != SD_OK ) ||
+             ( sdiagCrc8SaeUpdate ( &check[ split ], 9u - split, first, &whole ) != SD_OK ) ||
+             ( whole != 0x4Bu ) )
+        {
+            ++splitBad;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+
+        if ( ( sdiagCrc8H2FUpdate ( check, split, SD_CRC8_SEED, &first ) != SD_OK ) ||
+             ( sdiagCrc8H2FUpdate ( &check[ split ], 9u - split, first, &whole ) != SD_OK ) ||
+             ( whole != 0xDFu ) )
+        {
+            ++splitBad;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+    }
+
+    expectU32 ( "crc8: chaining split at every position", splitBad, 0u );
+
+    /* Every one and two byte message against the oracle. */
+    for ( value = 0u; value < 65536u; ++value )
+    {
+        pair[ 0 ] = ( uint8_t ) ( value >> 8 );
+        pair[ 1 ] = ( uint8_t ) ( value & 0xFFu );
+
+        if ( ( sdiagCrc8Sae ( pair, 2u, &crc ) != SD_OK ) || ( crc != crc8Oracle ( pair, 2u, 0x1Du ) ) )
+        {
+            ++sweepBad;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+
+        if ( ( sdiagCrc8H2F ( pair, 2u, &crc ) != SD_OK ) || ( crc != crc8Oracle ( pair, 2u, 0x2Fu ) ) )
+        {
+            ++sweepBad;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+
+        if ( value < 256u )
+        {
+            if ( ( sdiagCrc8Sae ( &pair[ 1 ], 1u, &crc ) != SD_OK ) ||
+                 ( crc != crc8Oracle ( &pair[ 1 ], 1u, 0x1Du ) ) )
+            {
+                ++sweepBad;
+            }
+            else
+            {
+                // Intentionally blank.
+            }
+
+            if ( ( sdiagCrc8H2F ( &pair[ 1 ], 1u, &crc ) != SD_OK ) ||
+                 ( crc != crc8Oracle ( &pair[ 1 ], 1u, 0x2Fu ) ) )
+            {
+                ++sweepBad;
+            }
+            else
+            {
+                // Intentionally blank.
+            }
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+    }
+
+    expectU32 ( "crc8: every one and two byte message matches the oracle", sweepBad, 0u );
+
+    /* Every single bit error in the check frame changes the CRC. */
+    for ( bit = 0u; bit < 72u; ++bit )
+    {
+        frame[ bit / 8u ] = ( uint8_t ) ( frame[ bit / 8u ] ^ ( uint8_t ) ( 1u << ( bit % 8u ) ) );
+
+        if ( ( sdiagCrc8Sae ( frame, 9u, &crc ) != SD_OK ) || ( crc == 0x4Bu ) )
+        {
+            ++missed;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+
+        if ( ( sdiagCrc8H2F ( frame, 9u, &crc ) != SD_OK ) || ( crc == 0xDFu ) )
+        {
+            ++missed;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+
+        frame[ bit / 8u ] = ( uint8_t ) ( frame[ bit / 8u ] ^ ( uint8_t ) ( 1u << ( bit % 8u ) ) );
+    }
+
+    expectU32 ( "crc8: every single bit error is seen", missed, 0u );
+
+    /* Refusals, and the output left alone by each. */
+    crc = 0x5Au;
+    expectStatus ( "crc8Sae: NULL data", sdiagCrc8Sae ( NULL, 4u, &crc ), SD_NULLPTR );
+    expectStatus ( "crc8Sae: NULL output", sdiagCrc8Sae ( check, 4u, NULL ), SD_NULLPTR );
+    expectStatus ( "crc8Sae: zero size", sdiagCrc8Sae ( check, 0u, &crc ), SD_INVALIDSIZE );
+    expectStatus ( "crc8SaeUpdate: NULL data", sdiagCrc8SaeUpdate ( NULL, 4u, SD_CRC8_SEED, &crc ), SD_NULLPTR );
+    expectStatus ( "crc8SaeUpdate: NULL output", sdiagCrc8SaeUpdate ( check, 4u, SD_CRC8_SEED, NULL ), SD_NULLPTR );
+    expectStatus ( "crc8SaeUpdate: zero size", sdiagCrc8SaeUpdate ( check, 0u, SD_CRC8_SEED, &crc ), SD_INVALIDSIZE );
+    expectStatus ( "crc8H2F: NULL data", sdiagCrc8H2F ( NULL, 4u, &crc ), SD_NULLPTR );
+    expectStatus ( "crc8H2F: NULL output", sdiagCrc8H2F ( check, 4u, NULL ), SD_NULLPTR );
+    expectStatus ( "crc8H2F: zero size", sdiagCrc8H2F ( check, 0u, &crc ), SD_INVALIDSIZE );
+    expectStatus ( "crc8H2FUpdate: NULL data", sdiagCrc8H2FUpdate ( NULL, 4u, SD_CRC8_SEED, &crc ), SD_NULLPTR );
+    expectStatus ( "crc8H2FUpdate: NULL output", sdiagCrc8H2FUpdate ( check, 4u, SD_CRC8_SEED, NULL ), SD_NULLPTR );
+    expectStatus ( "crc8H2FUpdate: zero size", sdiagCrc8H2FUpdate ( check, 0u, SD_CRC8_SEED, &crc ), SD_INVALIDSIZE );
+    expectU32 ( "crc8: no refusal wrote the output", ( uint32_t ) crc, 0x5Au );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -688,6 +893,7 @@ int main ( void )
     testUncoveredBranches ( );
     testStatusContract ( );
     testConditionCoverage ( );
+    testCrc8 ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

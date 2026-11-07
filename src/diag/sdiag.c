@@ -3,7 +3,7 @@
   *
   * @file      sdiag.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.3
+  * @version   0.2.0
   * @date      07/11/2026
   *
   * @brief     Self diagnostic function library file without hardware dependencies.
@@ -31,6 +31,8 @@
   * 07/11/2026 Unsigned operands are compared and combined with unsigned @n
   *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
   *            is narrowed to enum and Boolean comparisons. @n
+  * 07/11/2026 Two eight bit CRCs for short bus frames, SAE J1850 and @n
+  *            polynomial 0x2F, each with a chaining Update form. @n
   *
   * @note
   * Everything here is portable C99 with no hardware dependency, which is
@@ -168,6 +170,81 @@ static uint16_t crc16Byte ( uint16_t crc, unsigned char byte )
         {
             retVal = ( uint16_t ) ( retVal << 1 );
         }
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Folds one byte into a running eight bit CRC register.
+ * @param[in] crc   Current register value.
+ * @param[in] byte  Byte to fold in.
+ * @param[in] poly  Generator polynomial, without its top bit.
+ * @return  The updated register value.
+ * @note    Most significant bit first. The polynomial is a parameter
+ *          because the two public forms differ only in it; it is not part
+ *          of the public interface, so a caller cannot pass one nobody has
+ *          analysed.
+ */
+static uint8_t crc8Byte ( uint8_t crc, unsigned char byte, uint8_t poly )
+{
+    uint8_t retVal = ( uint8_t ) ( crc ^ ( uint8_t ) byte );
+    uint32_t i = 0;
+
+    for ( i = 0; i < 8u; ++i )
+    {
+        if ( ( retVal & 0x80u ) != 0u )
+        {
+            retVal = ( uint8_t ) ( ( uint8_t ) ( retVal << 1 ) ^ poly );
+        }
+        else
+        {
+            retVal = ( uint8_t ) ( retVal << 1 );
+        }
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Runs an eight bit CRC over a block, continuing from a previous
+ *          result.
+ * @param[in]  data  Block to run over.
+ * @param[in]  size  Length of the block in bytes.
+ * @param[in]  seed  Result of the previous call, or SD_CRC8_SEED to start.
+ * @param[in]  poly  Generator polynomial, without its top bit.
+ * @param[out] crc   Set to the CRC of everything folded in so far.
+ * @return  SD_OK on success, SD_NULLPTR when a pointer is NULL,
+ *          SD_INVALIDSIZE when the length is zero.
+ * @note    The register starts at the inverse of the seed and the result is
+ *          inverted again, which is an initial value and a final XOR of
+ *          0xFF for a fresh start and exact chaining for a continued one,
+ *          the same arrangement as sdiagCrc32Update.
+ */
+static uint8_t crc8Block ( const void* data, uint32_t size, uint8_t seed, uint8_t poly, uint8_t* crc )
+{
+    uint8_t retVal = SD_OK;
+    const unsigned char* bytes = ( const unsigned char* ) data;
+    uint8_t reg = ( uint8_t ) ~seed;
+    uint32_t i = 0;
+
+    if ( ( data == NULL ) || ( crc == NULL ) )
+    {
+        retVal = SD_NULLPTR;
+    }
+    else if ( size == 0u )
+    {
+        retVal = SD_INVALIDSIZE;
+    }
+    else
+    {
+        for ( i = 0; i < size; ++i )
+        {
+            reg = crc8Byte ( reg, bytes[ i ], poly );
+        }
+
+        *crc = ( uint8_t ) ~reg;
+        retVal = SD_OK;
     }
 
     return ( retVal );
@@ -323,6 +400,93 @@ uint8_t sdiagCrc16 ( const void* data, uint32_t size, uint16_t* crc )
     uint8_t retVal = SD_OK;
 
     retVal = sdiagCrc16Update ( data, size, SD_CRC16_SEED, crc );
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Computes the SAE J1850 CRC-8 of a block, continuing from a
+ *          previous result.
+ * @param[in]  data  Block to run over.
+ * @param[in]  size  Length of the block in bytes.
+ * @param[in]  seed  Result of the previous call, or SD_CRC8_SEED to start.
+ * @param[out] crc   Set to the CRC of everything folded in so far.
+ * @return  SD_OK on success, otherwise the status crc8Block reports.
+ * @note    Polynomial 0x1D, initial value 0xFF, final XOR 0xFF, most
+ *          significant bit first: the CRC catalogue's CRC-8/SAE-J1850. The
+ *          CRC of the nine bytes "123456789" is 0x4B, and a block followed
+ *          by its own CRC always gives 0x3B.
+ * @note    Eight bits catch every error of up to a few bits in a short
+ *          frame and little else. Check the polynomial's Hamming distance
+ *          at the frame length in use against the published tables before
+ *          relying on it; for anything longer than a bus frame use
+ *          sdiagCrc16 or sdiagCrc32.
+ */
+uint8_t sdiagCrc8SaeUpdate ( const void* data, uint32_t size, uint8_t seed, uint8_t* crc )
+{
+    uint8_t retVal = SD_OK;
+
+    retVal = crc8Block ( data, size, seed, 0x1Du, crc );
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Computes the SAE J1850 CRC-8 of a block.
+ * @param[in]  data  Block to run over.
+ * @param[in]  size  Length of the block in bytes.
+ * @param[out] crc   Set to the CRC on success.
+ * @return  SD_OK on success, otherwise the status
+ *          sdiagCrc8SaeUpdate reports.
+ */
+uint8_t sdiagCrc8Sae ( const void* data, uint32_t size, uint8_t* crc )
+{
+    uint8_t retVal = SD_OK;
+
+    retVal = sdiagCrc8SaeUpdate ( data, size, SD_CRC8_SEED, crc );
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Computes the CRC-8 with polynomial 0x2F of a block, continuing
+ *          from a previous result.
+ * @param[in]  data  Block to run over.
+ * @param[in]  size  Length of the block in bytes.
+ * @param[in]  seed  Result of the previous call, or SD_CRC8_SEED to start.
+ * @param[out] crc   Set to the CRC of everything folded in so far.
+ * @return  SD_OK on success, otherwise the status crc8Block reports.
+ * @note    Polynomial 0x2F, initial value 0xFF, final XOR 0xFF, most
+ *          significant bit first, the parameters the CRC catalogue lists
+ *          as CRC-8/AUTOSAR. The CRC of the nine bytes "123456789" is 0xDF,
+ *          and a block followed by its own CRC always gives 0xBD. Matching
+ *          the CRC does not make a protocol built on it compatible with
+ *          any specification.
+ * @note    The same limits as sdiagCrc8SaeUpdate: a short frame only, and
+ *          check the Hamming distance at the length in use.
+ */
+uint8_t sdiagCrc8H2FUpdate ( const void* data, uint32_t size, uint8_t seed, uint8_t* crc )
+{
+    uint8_t retVal = SD_OK;
+
+    retVal = crc8Block ( data, size, seed, 0x2Fu, crc );
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Computes the CRC-8 with polynomial 0x2F of a block.
+ * @param[in]  data  Block to run over.
+ * @param[in]  size  Length of the block in bytes.
+ * @param[out] crc   Set to the CRC on success.
+ * @return  SD_OK on success, otherwise the status
+ *          sdiagCrc8H2FUpdate reports.
+ */
+uint8_t sdiagCrc8H2F ( const void* data, uint32_t size, uint8_t* crc )
+{
+    uint8_t retVal = SD_OK;
+
+    retVal = sdiagCrc8H2FUpdate ( data, size, SD_CRC8_SEED, crc );
 
     return ( retVal );
 }

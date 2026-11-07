@@ -166,9 +166,10 @@ that park the status in a local, which the checker now follows. The rest:
   a version that produced the right value and reported a failure passed.
 - `sscaleApply` and `sscaleApplyClamped` refuse a table the caller changed
   after Init, and no case had ever asked them to.
-- `sarraySumu8` and `sarraySumu16` overflow: 16843010 bytes of 255 and 65538
-  halfwords of 65535 carry the `uint32_t` accumulator past its top, and with
-  the last element zero land exactly on it. Both were recorded as
+- `sarraySumu8` and `sarraySumu16` overflow: 16843009 bytes of 255 and
+  65537 halfwords of 65535 land exactly on the top of the `uint32_t`
+  accumulator, and one more element carries it past. The arrays hold one
+  more after that, so the sum also has to stop early. Both were recorded as
   unreachable before; on a host they are only memory.
 - `smemory`, `sdiag`, `svote`, `sarray`: NULL, zero capacity and overlap
   refusals that only their whole-buffer wrappers had reached.

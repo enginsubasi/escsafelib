@@ -27,7 +27,7 @@ not turn these notes or historical test results into a compliance claim.
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All fourteen modules are implemented — 358 functions and 4064 self-checking test cases across fifteen suites: 4026 in the fourteen module suites and 38 in the integration suite. Every status a function's `@return` promises is expected by at least one case in its own suite, or recorded with its reason in `tools/trace_exceptions.tsv`; `tools/tracecheck.py` checks it.
+All fourteen modules are implemented — 362 functions and 4088 self-checking test cases across fifteen suites: 4050 in the fourteen module suites and 38 in the integration suite. Every status a function's `@return` promises is expected by at least one case in its own suite, or recorded with its reason in `tools/trace_exceptions.tsv`; `tools/tracecheck.py` checks it.
 
 ## Working language
 
@@ -149,7 +149,7 @@ python tools/mutate.py svote        # one of them
 python tools/mutate.py --list
 ```
 
-**221 mutants across the fourteen modules: 201 killed, 20 equivalent, all
+**225 mutants across the fourteen modules: 205 killed, 20 equivalent, all
 accounted for.** The defects live in `tools/mutants/<module>.py`, one file
 per module, and the runner is `tools/mutate.py`. Before that they were
 throwaway scripts in a scratch directory and the numbers in this file were
@@ -160,7 +160,7 @@ can repeat.
 |---|---|---|---|---|---|
 | `sarray` | 19 | 6 | `sring` | 13 | 1 |
 | `sbits` | 17 | 0 | `sscale` | 18 | 1 |
-| `sdiag` | 7 | 1 | `sstate` | 16 | 2 |
+| `sdiag` | 11 | 1 | `sstate` | 16 | 2 |
 | `sfault` | 16 | 1 | `sstring` | 17 | 4 |
 | `sfilter` | 14 | 1 | `svote` | 16 | 0 |
 | `sfixed` | 10 | 0 | `swatch` | 16 | 0 |
@@ -408,7 +408,7 @@ and four rules are recorded as deviations:
 | rule | hits | modules | decision |
 |---|---|---|---|
 | 10.4 | 359 (636 at baseline) | all | **deviation, narrowed on 07/11/2026.** A status, state or flag is a `uint8_t` compared with the module's enum members and with `TRUE`/`FALSE`; that is all the deviation covers. The 277 hits that compared or combined an unsigned value with an unsuffixed constant were fixed with a `u` suffix. `tools/misra_occurrences.py` checks every remaining hit by expression: the operator the addon reports must be `==` or `!=` with `TRUE`, `FALSE` or one of the module's own enum members as an operand, or the run fails. All 359 are |
-| 11.5 | 25 | `smemory`, `sdiag` | **deviation.** `void*` to `unsigned char*`, the one conversion the standard always allows for reading bytes |
+| 11.5 | 26 | `smemory`, `sdiag` | **deviation.** `void*` to `unsigned char*`, the one conversion the standard always allows for reading bytes |
 | 11.4 | 10 | `sarray`, `sstring` | **deviation.** Pointer to integer, to test two ranges for overlap and to choose a copy direction |
 | 11.6 | 10 | `sarray`, `smemory`, `sstring` | **deviation.** The same overlap checks, through `void*` |
 | 10.8 | 10 | `sfixed`, `smath`, `sstring`, `svote` | fixed: the value is formed in a local and the local converted, and `INT32_MIN` is spelt `-INT32_MAX - 1` |
@@ -508,11 +508,11 @@ was about, and until this existed nothing checked that the fix stayed
 applied. It also checks that a size named `<x>Size` sits next to `<x>`, that
 every public function returns `uint8_t`, that names carry their module's
 prefix, that enum members carry their module's status prefix, and that no
-prototype names a bare `int`. 357 declarations, no findings. A pointer to a
+prototype names a bare `int`. 361 declarations, no findings. A pointer to a
 module's own driver struct is exempt, and those types are read out of each
 header's typedefs so a new module needs no change to the tool.
 
-`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 676 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
+`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 684 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
 
 **Its most useful rule is one doxygen has no concept of: a `@return` must name every status the body can set, and no status it cannot.** That is what found the only real defect the first full audit turned up. The four `smath` families share one template, so the unsigned ones had inherited the signed text and promised an `SH_UNDERFLOW` that an unsigned addition cannot produce and an `SH_OVERFLOW` that an unsigned subtraction cannot — a caller testing for either was writing a branch that never runs.
 
@@ -721,7 +721,7 @@ Two `smemory` functions have no `<string.h>` counterpart and exist for reasons t
 
 The checked and saturating forms of add, subtract and multiply share one status helper each, so `smathAddSat` saturates exactly where `smathAdd` reports `SH_OVERFLOW`. Keep it that way: two independent boundary tests will disagree eventually.
 
-`sdiag` is 16 functions. Two of its features hold state, in caller-owned structs (`sdiagflow_t`, `sdiagshadow_t`) so the functions stay reentrant; the rest are stateless. `sring` is the module actually built around the driver-struct pattern. Its banner has claimed "without hardware dependencies" since 2022 and that is the scope: CRC and checksum, March memory tests, stack usage measurement, control-flow signatures, redundant storage. **A CPU register test, a program counter test and an instruction set test are deliberately absent** — they cannot be written in C at all, and a complete IEC 61508 / ISO 26262 self test needs assembly for them. Do not add a HAL or a linker symbol to this module to close that gap; it belongs in a separate, non-portable one.
+`sdiag` is 20 functions. Two of its features hold state, in caller-owned structs (`sdiagflow_t`, `sdiagshadow_t`) so the functions stay reentrant; the rest are stateless. `sring` is the module actually built around the driver-struct pattern. Its banner has claimed "without hardware dependencies" since 2022 and that is the scope: CRC (32, 16 and two 8 bit forms for short bus frames) and checksum, March memory tests, stack usage measurement, control-flow signatures, redundant storage. **A CPU register test, a program counter test and an instruction set test are deliberately absent** — they cannot be written in C at all, and a complete IEC 61508 / ISO 26262 self test needs assembly for them. Do not add a HAL or a linker symbol to this module to close that gap; it belongs in a separate, non-portable one.
 
 `sdiag` has one deliberate inversion of the library-wide rule that outputs are written only on success: the `failIndex` of both memory tests is written **only** on `SD_FAILED`. On a memory test the failing address is the entire result and there is nothing to report when nothing failed.
 

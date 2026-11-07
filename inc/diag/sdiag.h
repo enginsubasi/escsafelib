@@ -22,6 +22,7 @@
 
 #define SD_CRC32_SEED       0x00000000u
 #define SD_CRC16_SEED       0xFFFFu
+#define SD_CRC8_SEED        0x00u
 
 #define SD_STACK_PATTERN    0xDEADBEEFu
 
@@ -61,6 +62,10 @@ uint8_t sdiagCrc32 ( const void* data, uint32_t size, uint32_t* crc );
 uint8_t sdiagCrc32Update ( const void* data, uint32_t size, uint32_t seed, uint32_t* crc );
 uint8_t sdiagCrc16 ( const void* data, uint32_t size, uint16_t* crc );
 uint8_t sdiagCrc16Update ( const void* data, uint32_t size, uint16_t seed, uint16_t* crc );
+uint8_t sdiagCrc8Sae ( const void* data, uint32_t size, uint8_t* crc );
+uint8_t sdiagCrc8SaeUpdate ( const void* data, uint32_t size, uint8_t seed, uint8_t* crc );
+uint8_t sdiagCrc8H2F ( const void* data, uint32_t size, uint8_t* crc );
+uint8_t sdiagCrc8H2FUpdate ( const void* data, uint32_t size, uint8_t seed, uint8_t* crc );
 uint8_t sdiagChecksum32 ( const void* data, uint32_t size, uint32_t* sum );
 
 uint8_t sdiagRamTestDestructive ( uint32_t* start, uint32_t words, uint32_t* failIndex );

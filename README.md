@@ -28,7 +28,7 @@ fails leaves its destination untouched.
 | `inc/state/sstate.h` | 12 functions. Guarded state machine: a transition table validated at Init, illegal transitions refused and counted, and reachability queries over the whole table. |
 | `inc/fault/sfault.h` | 12 functions. Fault qualification: a condition must be present for a number of cycles to confirm and absent for a number to heal, with latching and occurrence counting. |
 | `inc/vote/svote.h` | 12 functions. Redundant channel voting: agreement within a tolerance, majority, median, mean, spread, outlier reporting and fail safe selection. |
-| `inc/diag/sdiag.h` | 16 functions. CRC and checksum, March memory tests, stack usage measurement, control flow monitoring and redundant storage. No hardware dependency. |
+| `inc/diag/sdiag.h` | 20 functions. CRC-32, CRC-16 and two CRC-8s, checksum, March memory tests, stack usage measurement, control flow monitoring and redundant storage. No hardware dependency. |
 
 `sarray` and `smemory` split the same territory along one line. Operations
 that do not need to know what the bytes mean live in `smemory` and take a
