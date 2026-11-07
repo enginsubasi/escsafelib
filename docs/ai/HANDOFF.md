@@ -28,7 +28,7 @@ Historical milestones and prior findings are recorded in
   6. `sstore` (prefix `SO_`): record header, version, length and CRC over a
      byte buffer; choose the valid and newer of two copies. **Done.**
   7. `spid` (prefix `SP_`): Q16.16 PID with anti-windup and output limits,
-     its own arithmetic.
+     its own arithmetic. **Done.**
   Optional, only if the owner asks: `sscale` 2D map, `sstate` time in state.
 
 ## Piece 1: `sdiag` CRC-8
@@ -151,13 +151,22 @@ Historical milestones and prior findings are recorded in
   both; MISRA 0 differences after 13 reviewed records (402 in all);
   cppcheck, analyzers, ARM, headers clean; `run_all.sh` ALL GREEN.
 
+## Piece 7: `spid`
+
+- New module `inc/pid/spid.h`, `src/pid/spid.c`: `spidInit`, `spidUpdate`,
+  `spidReset`, `spidPreset`. Q16.16 throughout; products in int64 divided by
+  65536 (no signed shift); derivative on measurement; integrator clamped to
+  the output limits (anti-windup) and started at the nearest limit; Preset
+  for bumpless transfer; zeroed driver refused through `ready`.
+- Verified: 72 cases on zig with UBSan and gcc 14 strict, every expected
+  value worked by hand; M1-M15 killed (M14 survived the first suite and a
+  case was added); coverage 100% lines, branches, MC/DC; MISRA 0
+  differences after four reviewed records (406 in all); cppcheck,
+  analyzers, ARM, headers clean; `.data`/`.bss` 0; `run_all.sh` ALL GREEN.
+
 ## Remaining work
 
-1. Piece 7 (`spid`).
-2. Read the CI run of the suite rename commit.
-
-The first `se2e` commit (`ca747f9`) failed CI in tracecheck only: its suite was
-`test/SE2E_Test`, the tools derive `test/SE2e_Test`, and Windows found it
-anyway. Renamed, and `tracecheck.py` now matches path case exactly (control
-included; verified by renaming the directory back on this machine).
-2. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.
+1. Read the CI run of the `spid` commit.
+2. Optional, only if the owner asks: `sscale` 2D map, `sstate` time in
+   state.
+3. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.

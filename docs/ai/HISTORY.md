@@ -177,6 +177,31 @@ not required to resume the project.
   measured with gcc-14 and gcov-14 and matched the local numbers exactly.
   `upload-artifact` moved to v7 (v4 and v5 still run on Node.js 20).
 
+## 2026-11-07 — New function blocks and five new modules (Claude)
+
+Agreed in chat, one commit per piece, all verified on the host only (no
+ARM hardware; cross-compile, `-fanalyzer` and `size.sh` as before).
+
+- `sdiag` CRC-8 (SAE J1850 and polynomial 0x2F), `sbits` byte order
+  readers and writers (owner approved; bit order stays Intel only).
+- New modules `ssignal` (plausibility), `se2e` (end to end protection with
+  an injected CRC), `slog` (fault event memory), `sstore` (record
+  integrity, two copies), `spid` (Q16.16 PID). Each from `template/`, each
+  at 100% lines, branches and MC/DC with every mutant killed.
+- The integration suite gained two chains that pass sdiag's CRCs to `se2e`
+  and `sstore` with no wrapper; the second found that a saved `slog` table
+  could not be restored, and `slogAdopt` was added.
+- Two tool holes found on the way: `tracecheck.py` accepted a suite
+  directory whose name matched only case-insensitively (the first `se2e`
+  commit went red on the Linux runner only; renamed to `SE2e_Test` and the
+  tool now matches case), and `apicheck.py` skipped every prototype wrapped
+  onto a second line (`sstringToken` had never been checked).
+- `spid` M14 survived the first suite: the Init clamp of the integrator is
+  only visible through an integrating case with limits above zero.
+- Final: 19 modules, 394 functions, 4664 cases, 302 mutants (282 killed,
+  20 equivalent), 406 Rule 10.4 occurrences all inside the rationale by
+  expression.
+
 ## Open work carried forward
 
 See [HANDOFF.md](HANDOFF.md).

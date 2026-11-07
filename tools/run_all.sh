@@ -63,6 +63,7 @@ MODULES=(
   "e2e      se2e          SE2e"
   "log      slog          SLog"
   "store    sstore        SStore"
+  "pid      spid          SPid"
 )
 
 fail=0

@@ -245,8 +245,8 @@ bash tools/size.sh
 ```
 
 The first question an integrator asks about an embedded library, and the
-repository could not answer it before this. The whole of it is about 26 KB
-of flash on a Cortex-M0+ and 23 KB on a Cortex-M4.
+repository could not answer it before this. The whole of it is about 27 KB
+of flash on a Cortex-M0+ and 24 KB on a Cortex-M4.
 
 **The numbers are upper bounds.** Each module is compiled whole and
 measured as one object, so the figure covers every function in it whether a

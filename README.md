@@ -26,6 +26,7 @@ fails leaves its destination untouched.
 | `inc/bits/sbits.h` | 18 functions. Bit field packing in a word and across a byte array, and integers of one to four bytes in an explicitly named byte order, with the position, the width and the value all checked. No shift by the width of the type, and no right shift of a signed value. |
 | `inc/e2e/se2e.h` | 5 functions. End to end protection: a counter and an injected eight bit CRC over an implicit data identifier, and a receiver that tells in sequence, lost, repeated, out of sequence and corrupted apart. sdiag's CRC-8s plug in directly. |
 | `inc/log/slog.h` | 9 functions. Fault event memory: one entry per identifier in a caller owned table, with occurrence count and first and last cycle, and a full table policy chosen at Init. Lost events are counted, and a saved table can be adopted back after a reset. |
+| `inc/pid/spid.h` | 4 functions. Q16.16 PID: products in 64 bits and divided rather than shifted, derivative on measurement, an integrator held inside the output limits, and a preset for bumpless transfer. No floating point. |
 | `inc/store/sstore.h` | 3 functions. Record integrity: a versioned, sequenced, CRC-32 protected record in a byte buffer, and the choice between two copies across a torn write. sdiag's CRC-32 plugs in directly. |
 | `inc/signal/ssignal.h` | 7 functions. Signal plausibility: range and gradient checks that say below or above, two sensor correlation without rounding, and a stuck signal detector. Observation only; qualification is `sfault`'s. |
 | `inc/watch/swatch.h` | 12 functions. Deadline and liveness supervision driven by a caller supplied tick: too late and too soon are both faults, and the arithmetic survives the tick counter wrapping. |
@@ -207,6 +208,9 @@ gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/log \
 
 gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/store \
   test/SStore_Test/SStore_Test.c src/store/sstore.c -o sstore_test && ./sstore_test
+
+gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/pid \
+  test/SPid_Test/SPid_Test.c src/pid/spid.c -o spid_test && ./spid_test
 ```
 
 ## The modules together
