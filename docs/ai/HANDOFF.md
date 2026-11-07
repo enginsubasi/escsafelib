@@ -76,11 +76,13 @@ Historical milestones and prior findings are recorded in
   numbers identical to the local MinGW gcc 14.2 run. Both upload steps
   still warned about Node.js 20 under v5, hence v7.
 
+- CI run `42344985604` of `38e2dea` (upload-artifact v7, notice escaping):
+  every job success, no annotation but the coverage notice, which now
+  shows its percent signs. The Node.js 20 warning is gone.
+
 ## Remaining work
 
-1. Confirm on the next CI run that the Node.js 20 warning is gone and the
-   coverage notice shows its percent signs.
-2. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.
+1. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.
 
 No other open item is recorded. Candidates if the owner wants more:
 flipping the coverage job to blocking at the current numbers, or a
