@@ -3,8 +3,8 @@
   *
   * @file      SArray_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      04/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the sarray module.
   *
@@ -13,6 +13,8 @@
   *
   * @par History
   * 04/08/2026 Created. @n
+  * 07/11/2026 Overlapping ranges for CopyN, and u8 and u16 sums that @n
+  *            overflow, as tools/tracecheck.py requires. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -34,6 +36,17 @@
 
 static uint32_t checks = 0;
 static uint32_t failures = 0;
+
+/* Enough elements to carry a uint32_t accumulator past its top. 16843010
+   bytes of 255 are 4294967550, and with the last one zero they land exactly
+   on 4294967295. 65538 halfwords of 65535 are 4295032830, and with the last
+   one zero exactly 4294967295 again. Sixteen megabytes and 128 kilobytes:
+   far too large for a small target, which is why they are static and why
+   only the host runs them. */
+#define SUMOVF_U8_COUNT     16843010u
+#define SUMOVF_U16_COUNT    65538u
+static uint8_t sumOverflowu8[ SUMOVF_U8_COUNT ];
+static uint16_t sumOverflowu16[ SUMOVF_U16_COUNT ];
 
 /**
  * @brief   Records the outcome of one case and prints the failures.
@@ -318,6 +331,11 @@ static void testu8 ( void )
     want[ 4 ] = 0; want[ 5 ] = 0; want[ 6 ] = 0; want[ 7 ] = 0;
     expectArrayu8 ( "u8 copyN: only the first three written", b, want, 8 );
 
+    setSequ8 ( a, 8, 10 );
+    snapshotu8 ( snap, a, 8 );
+    expectStatus ( "u8 copyN: overlapping ranges", sarrayCopyNu8 ( &a[ 0 ], 6, &a[ 2 ], 6, 4 ), SA_OVERLAP );
+    expectArrayu8 ( "u8 copyN: array untouched after overlap", a, snap, 8 );
+
     /* ---- Move ---- */
 
     setSequ8 ( a, 8, 10 );
@@ -517,6 +535,19 @@ static void testu8 ( void )
     expectU32 ( "u8 sum: eight fives result", ( uint32_t ) sum, 40 );
     expectStatus ( "u8 sum: NULL output", sarraySumu8 ( a, 8, NULL ), SA_NULLPTR );
     expectStatus ( "u8 sum: zero capacity", sarraySumu8 ( a, 0, &sum ), SA_INVALIDSIZE );
+
+    for ( index = 0; index < SUMOVF_U8_COUNT; ++index )
+    {
+        sumOverflowu8[ index ] = 255u;
+    }
+
+    sum = 12345u;
+    expectStatus ( "u8 sum: overflow", sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT, &sum ), SA_OVERFLOW );
+    expectU32 ( "u8 sum: output untouched after overflow", sum, 12345u );
+
+    sumOverflowu8[ SUMOVF_U8_COUNT - 1u ] = 0;
+    expectStatus ( "u8 sum: exactly at the limit", sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT, &sum ), SA_OK );
+    expectU32 ( "u8 sum: exactly at the limit result", sum, 4294967295u );
 
     /* ---- Reverse ---- */
 
@@ -979,6 +1010,11 @@ static void testu16 ( void )
     want[ 4 ] = 0; want[ 5 ] = 0; want[ 6 ] = 0; want[ 7 ] = 0;
     expectArrayu16 ( "u16 copyN: only the first three written", b, want, 8 );
 
+    setSequ16 ( a, 8, 10 );
+    snapshotu16 ( snap, a, 8 );
+    expectStatus ( "u16 copyN: overlapping ranges", sarrayCopyNu16 ( &a[ 0 ], 6, &a[ 2 ], 6, 4 ), SA_OVERLAP );
+    expectArrayu16 ( "u16 copyN: array untouched after overlap", a, snap, 8 );
+
     /* ---- Move ---- */
 
     setSequ16 ( a, 8, 10 );
@@ -1178,6 +1214,19 @@ static void testu16 ( void )
     expectU32 ( "u16 sum: eight fives result", ( uint32_t ) sum, 40 );
     expectStatus ( "u16 sum: NULL output", sarraySumu16 ( a, 8, NULL ), SA_NULLPTR );
     expectStatus ( "u16 sum: zero capacity", sarraySumu16 ( a, 0, &sum ), SA_INVALIDSIZE );
+
+    for ( index = 0; index < SUMOVF_U16_COUNT; ++index )
+    {
+        sumOverflowu16[ index ] = 65535u;
+    }
+
+    sum = 12345u;
+    expectStatus ( "u16 sum: overflow", sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT, &sum ), SA_OVERFLOW );
+    expectU32 ( "u16 sum: output untouched after overflow", sum, 12345u );
+
+    sumOverflowu16[ SUMOVF_U16_COUNT - 1u ] = 0;
+    expectStatus ( "u16 sum: exactly at the limit", sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT, &sum ), SA_OK );
+    expectU32 ( "u16 sum: exactly at the limit result", sum, 4294967295u );
 
     /* ---- Reverse ---- */
 
@@ -1639,6 +1688,11 @@ static void testu32 ( void )
     want[ 0 ] = 10; want[ 1 ] = 11; want[ 2 ] = 12; want[ 3 ] = 0;
     want[ 4 ] = 0; want[ 5 ] = 0; want[ 6 ] = 0; want[ 7 ] = 0;
     expectArrayu32 ( "u32 copyN: only the first three written", b, want, 8 );
+
+    setSequ32 ( a, 8, 10 );
+    snapshotu32 ( snap, a, 8 );
+    expectStatus ( "u32 copyN: overlapping ranges", sarrayCopyNu32 ( &a[ 0 ], 6, &a[ 2 ], 6, 4 ), SA_OVERLAP );
+    expectArrayu32 ( "u32 copyN: array untouched after overlap", a, snap, 8 );
 
     /* ---- Move ---- */
 
@@ -2313,6 +2367,11 @@ static void testi32 ( void )
     want[ 0 ] = 10; want[ 1 ] = 11; want[ 2 ] = 12; want[ 3 ] = 0;
     want[ 4 ] = 0; want[ 5 ] = 0; want[ 6 ] = 0; want[ 7 ] = 0;
     expectArrayi32 ( "i32 copyN: only the first three written", b, want, 8 );
+
+    setSeqi32 ( a, 8, 10 );
+    snapshoti32 ( snap, a, 8 );
+    expectStatus ( "i32 copyN: overlapping ranges", sarrayCopyNi32 ( &a[ 0 ], 6, &a[ 2 ], 6, 4 ), SA_OVERLAP );
+    expectArrayi32 ( "i32 copyN: array untouched after overlap", a, snap, 8 );
 
     /* ---- Move ---- */
 

@@ -41,8 +41,8 @@ MUTANTS = [
     {
         "id": 'M6',
         "what": 'an empty range is reported as overlapping',
-        "old": '    if ( ( aSize == 0 ) || ( bSize == 0 ) )\n    {\n        retVal = FALSE;\n    }',
-        "new": '    if ( ( aSize == 0 ) || ( bSize == 0 ) )\n    {\n        retVal = TRUE;\n    }',
+        "old": '    if ( ( aSize == 0u ) || ( bSize == 0u ) )\n    {\n        retVal = FALSE;\n    }',
+        "new": '    if ( ( aSize == 0u ) || ( bSize == 0u ) )\n    {\n        retVal = TRUE;\n    }',
     },
     {
         "id": 'M7',
@@ -51,5 +51,11 @@ MUTANTS = [
         "new": '    else if ( FALSE )\n    {\n        retVal = TRUE;\n    }',
         "equivalent":
             'The guard fires only for a buffer within its own length of the top of the address space. Nothing a test can allocate lands there.',
+    },
+    {
+        "id": 'M8',
+        "what": 'the counted copy ignores an overlap',
+        "old": 'uint8_t smemoryCopyN ( void* dest, uint32_t destSize, const void* src, uint32_t srcSize, uint32_t count )\n{\n    uint8_t retVal = SM_OK;\n    unsigned char* destBytes = ( unsigned char* ) dest;\n    const unsigned char* srcBytes = ( const unsigned char* ) src;\n    uint32_t i = 0;\n\n    if ( ( dest == NULL ) || ( src == NULL ) )\n    {\n        retVal = SM_NULLPTR;\n    }\n    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )\n    {\n        retVal = SM_INVALIDSIZE;\n    }\n    else if ( count > srcSize )\n    {\n        retVal = SM_OUTOFRANGE;\n    }\n    else if ( count > destSize )\n    {\n        retVal = SM_OVERFLOW;\n    }\n    else if ( isOverlapping ( dest, count, src, count ) == TRUE )',
+        "new": 'uint8_t smemoryCopyN ( void* dest, uint32_t destSize, const void* src, uint32_t srcSize, uint32_t count )\n{\n    uint8_t retVal = SM_OK;\n    unsigned char* destBytes = ( unsigned char* ) dest;\n    const unsigned char* srcBytes = ( const unsigned char* ) src;\n    uint32_t i = 0;\n\n    if ( ( dest == NULL ) || ( src == NULL ) )\n    {\n        retVal = SM_NULLPTR;\n    }\n    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )\n    {\n        retVal = SM_INVALIDSIZE;\n    }\n    else if ( count > srcSize )\n    {\n        retVal = SM_OUTOFRANGE;\n    }\n    else if ( count > destSize )\n    {\n        retVal = SM_OVERFLOW;\n    }\n    else if ( FALSE )',
     },
 ]

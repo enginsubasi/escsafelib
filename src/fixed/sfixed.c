@@ -3,8 +3,8 @@
   *
   * @file      sfixed.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
-  * @date      05/11/2026
+  * @version   0.1.2
+  * @date      07/11/2026
   *
   * @brief     Safe Q16.16 fixed point arithmetic function library file.
   *
@@ -23,6 +23,9 @@
   *            starts from a constant bit and sfixedToParts converts its @n
   *            fraction from a local, for MISRA C:2012 Rule 10.8. Rule @n
   *            10.4 deviation recorded in the banner. @n
+  * 07/11/2026 MISRA C:2012 Rule 10.4 deviation narrowed to enum and Boolean @n
+  *            comparisons. sfixedFloor and sfixedRound no longer promise @n
+  *            an SX_UNDERFLOW that no input can produce. @n
   *
   * @note
   * One format, Q16.16: an int32_t holding the real value multiplied by
@@ -79,12 +82,14 @@
   *
   * @note
   * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
-  * categories. Every status in this library is a uint8_t, and it is
-  * compared with the members of the module's status enum, with TRUE and
-  * FALSE, and with unsuffixed constants such as 0. One status type across
-  * every module is what lets a caller treat them all alike, and none of
-  * these comparisons can change a value through the conversion the rule
-  * guards against.
+  * categories. Every status, state and flag in this library is a uint8_t,
+  * and it is compared with the members of the module's enums and with TRUE
+  * and FALSE, which are plain int constants. One status type across every
+  * module is what lets a caller treat them all alike, and none of these
+  * comparisons can change a value through the conversion the rule guards
+  * against. The deviation covers those comparisons and nothing else: an
+  * unsigned value is never compared or combined with an unsuffixed
+  * constant.
   *
   ******************************************************************************
   */
@@ -589,14 +594,16 @@ uint8_t sfixedAbs ( sfixed_t value, sfixed_t* result )
  * @brief   Rounds a fixed point value down to a whole number.
  * @param[in]  value   Value to round.
  * @param[out] result  Set to the largest whole number not above the input.
- * @return  SX_OK on success, SX_NULLPTR when result is NULL, SX_UNDERFLOW
- *          when rounding down would leave the type.
+ * @return  SX_OK on success, SX_NULLPTR when result is NULL.
  * @note    Down means toward minus infinity for both signs, so -1.5 floors
  *          to -2 and not to -1. That is what separates this from
  *          sfixedToInt, which truncates toward zero.
- * @note    fitsFixed can also report SX_OVERFLOW, and rounding down never
- *          reaches it. The result is not above the input, and the input
- *          was already a value of the type.
+ * @note    fitsFixed can also report SX_OVERFLOW and SX_UNDERFLOW, and
+ *          rounding down reaches neither. The result is not above the
+ *          input, and the smallest value of the type, -32768, is itself a
+ *          whole number, so no input floors below it.
+ *          test/harness/sfixed_rounding.c checks every one of the 2^32
+ *          inputs.
  */
 uint8_t sfixedFloor ( sfixed_t value, sfixed_t* result )
 {
@@ -689,9 +696,15 @@ uint8_t sfixedCeil ( sfixed_t value, sfixed_t* result )
  * @brief   Rounds a fixed point value to the nearest whole number.
  * @param[in]  value   Value to round.
  * @param[out] result  Set to the nearest whole number, still in fixed point.
- * @return  SX_OK on success, SX_NULLPTR when result is NULL, SX_OVERFLOW or
- *          SX_UNDERFLOW when the rounded value would leave the type.
+ * @return  SX_OK on success, SX_NULLPTR when result is NULL, SX_OVERFLOW
+ *          when the rounded value would be above the type.
  * @note    A half goes away from zero, matching sfixedToIntRound.
+ * @note    fitsFixed can also report SX_UNDERFLOW, and rounding never
+ *          reaches it. The smallest value of the type, -32768, is a whole
+ *          number, so every input rounds to it or above it. A value from
+ *          32767.5 upward rounds to 32768, which the type cannot hold.
+ *          test/harness/sfixed_rounding.c checks every one of the 2^32
+ *          inputs.
  */
 uint8_t sfixedRound ( sfixed_t value, sfixed_t* result )
 {

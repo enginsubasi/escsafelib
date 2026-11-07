@@ -58,17 +58,20 @@ the comments nor the machine filter constitute formal approval.
 
 | Rule | Category in inspected PDF | Recorded scope | Repository rationale and review boundary |
 |---|---|---|---|
-| 10.4 | Required | 556 source-line keys / 636 diagnostic occurrences | The recorded rationale is status comparisons with enums, Boolean macros and literals. The manifest detects new, changed and stale occurrences; it does not classify or justify each expression. |
+| 10.4 | Required | 359 diagnostic occurrences in 339 module/function/line-hash keys (636 at baseline) | The recorded rationale is `uint8_t` status, state and flag comparisons with enum members and the `TRUE`/`FALSE` macros. Unsigned comparisons and arithmetic with unsuffixed constants were removed from the code rather than covered. The manifest detects new, changed and stale occurrences, and the checker rejects a hit on a line without `TRUE`, `FALSE` or an enum member; that line-level test is coarse and does not classify each expression. |
 | 11.4 | Advisory | `sarray`, `sstring` | Pointer addresses support overlap and copy-direction checks. Confirm the target's address representation and the relevant operation. |
 | 11.6 | Required | `sarray`, `smemory`, `sstring` | Address conversions through `void*` support range checks. `uintptr_t` availability alone does not prove that integer order matches the required memory-range model on every target. |
 | 11.5 | Advisory | `sdiag`, `smemory` | Byte inspection uses `unsigned char*`. Keep the rationale bounded to that use; it is not a blanket permission to access arbitrary types through a converted pointer. |
 
 **Evidence limit.** At base `0348352`, the Rule 10.4 exception was a
 rule/module wildcard that could hide unrelated findings. It has since been
-replaced with a line-fingerprint and duplicate-count manifest. This narrows
-the automated filter to observed source occurrences, but does not prove that
-each occurrence fits the stated rationale. A source-level rationale audit
-remains separate work.
+replaced with a function-scoped line-fingerprint and duplicate-count manifest. This narrows
+the automated filter to observed source occurrences. On 2026-11-07 every
+occurrence outside the status/enum/Boolean argument was removed from the
+code (636 to 359), and the checker gained a line-level rationale test. A
+line holding both an enum or Boolean comparison and some other mixed-type
+expression would still pass that test; the manifest review is what covers
+that case, and it is a review, not a proof.
 
 For a formal claim, the existing comments would need to be part of a
 controlled record identifying scope, risks, alternatives, supporting checks,

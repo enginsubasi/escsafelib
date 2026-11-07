@@ -13,12 +13,16 @@ on:
 # before this workflow was written, so a red result means a real
 # regression rather than a surprise from a tool nobody had run yet.
 #
-# Reporting jobs run tools that have never executed against this code:
-# there is no cppcheck and no doxygen on the development machine, and the
-# host gcc analyzer is a different version from the arm one used locally.
-# They are marked continue-on-error so that their first run tells us what
-# they say instead of blocking the branch. Flip them to blocking once a
-# run comes back clean.
+# Reporting jobs are measurements rather than gates: mutation, size and
+# coverage. They are marked continue-on-error, and a red one still means
+# something, which is why each fails on a finding instead of printing it.
+# Flip one to blocking only once a run of it comes back clean.
+#
+# Every job names its runner image rather than ubuntu-latest. The MISRA
+# check pins Rule 10.4 findings by source line, and the cppcheck that
+# produces them comes from the image's package archive; an image upgrade
+# would change the analyser underneath a green check without any change
+# here. Move the image on purpose, in one commit, and read the result.
 
 jobs:
 
@@ -26,13 +30,13 @@ jobs:
 
   test:
     name: Test (${{ matrix.cc }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         cc: [ gcc, clang ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build the sstring test program
         run: |
@@ -188,9 +192,9 @@ jobs:
 
   sanitizers:
     name: ASan and UBSan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # AddressSanitizer does not link under zig on the Windows development
       # machine, which is why the out of bounds read in sstringCopy had to
@@ -366,9 +370,9 @@ jobs:
 
   cross-compile:
     name: Cross compile for ARM
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install the ARM toolchain
         run: |
@@ -410,10 +414,10 @@ jobs:
 
   readme-example:
     name: The README example still compiles
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Blocking. It is the only thing in the repository that uses more
       # than one module at once: every test suite covers a single module,
@@ -432,10 +436,10 @@ jobs:
 
   integration:
     name: The modules working together
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Blocking. Every other suite tests one module; this one runs
       # nine of them as a chain. A module can satisfy its own contract
@@ -465,10 +469,10 @@ jobs:
 
   doxygen-convention:
     name: Doxygen comment convention
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Blocking, unlike the doxygen job below. This one checks the
       # things doxygen would not: that a @param list matches the
@@ -487,13 +491,22 @@ jobs:
       - name: Check the API against the rules the library states
         run: python3 tools/apicheck.py
 
+      # Every status a return block promises is expected by at least one
+      # case in the module's own suite, or recorded with its reason in
+      # tools/trace_exceptions.tsv. The controls run first, so a checker
+      # that has stopped checking cannot pass.
+      - name: Trace every promised status to a case that expects it
+        run: |
+          python3 tools/tracecheck.py --self-test
+          python3 tools/tracecheck.py
+
   mutation:
     name: Mutation tests (reporting)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: true
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Reporting rather than blocking only because it takes a while:
       # 205 mutants, each a full build and run of one suite. It runs
@@ -508,11 +521,11 @@ jobs:
 
   size:
     name: What each module costs on a target (reporting)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: true
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install the ARM toolchain
         run: |
@@ -529,21 +542,29 @@ jobs:
 
   coverage:
     name: Statement and branch coverage (reporting)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: true
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Reporting rather than blocking, and deliberately without a
       # threshold. What is left uncovered is defensive code the API
-      # cannot reach -- an address wrap guard, a sum that would need
-      # sixteen million elements, a March test failure no portable code
-      # can provoke -- so any number chosen as a gate would be arbitrary.
-      # The table is here to be read when it moves. CLAUDE.md lists what
-      # the residue is and why each piece of it cannot be reached.
+      # cannot reach -- an address wrap guard, a March test failure no
+      # portable code can provoke -- so any number chosen as a gate would
+      # be arbitrary. The table is here to be read when it moves. CLAUDE.md
+      # lists what the residue is and why each piece of it cannot be
+      # reached.
+      #
+      # gcc 14 because it is the first with -fcondition-coverage, which
+      # adds the MC/DC column. The image's default gcc is 13.
+      - name: Install gcc 14
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-14
+
       - name: Measure it
-        run: bash tools/coverage.sh gcc
+        run: bash tools/coverage.sh gcc-14
 
       - name: Upload the annotated listings
         uses: actions/upload-artifact@v4
@@ -557,9 +578,9 @@ jobs:
   # deviations.
   cppcheck:
     name: cppcheck and MISRA C 2012
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install cppcheck
         run: |
@@ -638,9 +659,9 @@ jobs:
   # came back clean on CI, which is the condition for flipping it.
   host-analyzer:
     name: Host gcc analyzer
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # A warning used to leave this job green. -Werror makes a finding
       # fail it, and the control shows the analyzer is really running.
@@ -667,9 +688,9 @@ jobs:
   # Blocking since 05/11/2026, once a CI run came back warning free.
   docs:
     name: Doxygen
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install doxygen
         run: |

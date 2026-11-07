@@ -208,6 +208,16 @@ else
 fi
 
 echo
+echo "== every promised status is expected by a case =="
+if python tools/tracecheck.py --self-test > "$OUT/tracecheck.log" 2>&1 \
+   && python tools/tracecheck.py >> "$OUT/tracecheck.log" 2>&1; then
+  echo "  $(tail -1 "$OUT/tracecheck.log")"
+else
+  sed 's/^/  /' "$OUT/tracecheck.log"
+  fail=1
+fi
+
+echo
 echo "== generated modules have not drifted =="
 # Scoped to the generated files only. A bare "git diff" would also flag every
 # uncommitted edit elsewhere in the tree, which makes this report DRIFT during

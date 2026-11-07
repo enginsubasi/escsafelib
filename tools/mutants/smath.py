@@ -43,13 +43,13 @@ MUTANTS = [
     {
         "id": 'M7',
         "what": 'a division by zero is not refused',
-        "old": 'uint8_t smathDivu8 ( uint8_t a, uint8_t b, uint8_t* result )\n{\n    uint8_t retVal = SH_OK;\n\n    if ( result == NULL )\n    {\n        retVal = SH_NULLPTR;\n    }\n    else if ( b == 0 )\n',
+        "old": 'uint8_t smathDivu8 ( uint8_t a, uint8_t b, uint8_t* result )\n{\n    uint8_t retVal = SH_OK;\n\n    if ( result == NULL )\n    {\n        retVal = SH_NULLPTR;\n    }\n    else if ( b == 0u )\n',
         "new": 'uint8_t smathDivu8 ( uint8_t a, uint8_t b, uint8_t* result )\n{\n    uint8_t retVal = SH_OK;\n\n    if ( result == NULL )\n    {\n        retVal = SH_NULLPTR;\n    }\n    else if ( b == 1 )\n',
     },
     {
         "id": 'M8',
         "what": 'the average is formed in the narrow type and wraps',
-        "old": '        wide = ( ( uint32_t ) a + ( uint32_t ) b ) / 2;\n        *result = ( uint8_t ) wide;',
+        "old": '        wide = ( ( uint32_t ) a + ( uint32_t ) b ) / 2u;\n        *result = ( uint8_t ) wide;',
         "new": '        wide = ( uint32_t ) ( ( uint8_t ) ( a + b ) / 2u );\n        *result = ( uint8_t ) wide;',
     },
     {
@@ -79,7 +79,7 @@ MUTANTS = [
     {
         "id": 'M13',
         "what": 'the power of two test accepts zero',
-        "old": 'uint8_t smathIsPowerOfTwou32 ( uint32_t value, uint8_t* result )\n{\n    uint8_t retVal = SH_OK;\n\n    if ( result == NULL )\n    {\n        retVal = SH_NULLPTR;\n    }\n    else\n    {\n        if ( value == 0 )',
+        "old": 'uint8_t smathIsPowerOfTwou32 ( uint32_t value, uint8_t* result )\n{\n    uint8_t retVal = SH_OK;\n\n    if ( result == NULL )\n    {\n        retVal = SH_NULLPTR;\n    }\n    else\n    {\n        if ( value == 0u )',
         "new": 'uint8_t smathIsPowerOfTwou32 ( uint32_t value, uint8_t* result )\n{\n    uint8_t retVal = SH_OK;\n\n    if ( result == NULL )\n    {\n        retVal = SH_NULLPTR;\n    }\n    else\n    {\n        if ( FALSE )',
     },
     {

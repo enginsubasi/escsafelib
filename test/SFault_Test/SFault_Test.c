@@ -3,8 +3,8 @@
   *
   * @file      SFault_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the sfault module.
   *
@@ -13,6 +13,7 @@
   *
   * @par History
   * 05/08/2026 Created. @n
+  * 07/11/2026 MC/DC cases for sfaultIsActive and the two set queries. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -654,6 +655,47 @@ static void testNoWriteOnFailure ( void )
 }
 
 /**
+ * @brief   Takes the condition outcomes MC/DC found no case had taken.
+ * @note    Branch coverage was satisfied by each of these decisions, because
+ *          some outcome of each had been seen. MC/DC asks for each condition
+ *          to be shown to decide on its own, and five had not been:
+ *          sfaultIsActive had only been asked about a pending fault, never a
+ *          confirmed one; the set queries had only met an unready qualifier
+ *          at the end of the set, where the loop stops on its count before it
+ *          looks at the status; and sfaultCountConfirmed had never been given
+ *          a NULL set or a count above the array.
+ */
+static void testConditionCoverage ( void )
+{
+    sfault_t fault;
+    sfault_t set[ 2 ];
+    uint8_t flag = 0x5Au;
+    uint32_t value = 0xA5A5A5A5u;
+
+    ( void ) sfaultInit ( &fault, 1u, 1u, FALSE );
+    ( void ) sfaultUpdate ( &fault, TRUE );
+    expectStatus ( "mcdc: isActive on a confirmed fault", sfaultIsActive ( &fault, &flag ), SU_OK );
+    expectU32 ( "mcdc: a confirmed fault is active", ( uint32_t ) flag, ( uint32_t ) TRUE );
+
+    /* The unready qualifier first, so the loop has to stop on the status. */
+    set[ 0 ] = ( sfault_t ) { 0 };
+    ( void ) sfaultInit ( &set[ 1 ], 2u, 2u, FALSE );
+    flag = 0x5Au;
+    expectStatus ( "mcdc: anyConfirmed stops at an unready first qualifier",
+                   sfaultAnyConfirmed ( set, 2u, 2u, &flag ), SU_NULLPTR );
+    expectStatus ( "mcdc: countConfirmed stops at it too",
+                   sfaultCountConfirmed ( set, 2u, 2u, &value ), SU_NULLPTR );
+
+    expectStatus ( "mcdc: countConfirmed NULL set",
+                   sfaultCountConfirmed ( NULL, 2u, 2u, &value ), SU_NULLPTR );
+    expectStatus ( "mcdc: countConfirmed count above the array",
+                   sfaultCountConfirmed ( &set[ 1 ], 1u, 2u, &value ), SU_INVALIDSIZE );
+
+    expectU32 ( "mcdc: no refusal wrote the flag", ( uint32_t ) flag, 0x5Au );
+    expectU32 ( "mcdc: no refusal wrote the count", value, 0xA5A5A5A5u );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -668,6 +710,7 @@ int main ( void )
     testUpdateN ( );
     testSet ( );
     testNoWriteOnFailure ( );
+    testConditionCoverage ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

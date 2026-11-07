@@ -5,103 +5,92 @@ Historical milestones and prior findings are recorded in
 
 ## Session
 
-- Last updated: 2026-11-06.
-- Assistant: Codex.
+- Last updated: 2026-11-07.
+- Assistant: Claude.
 - Branch: `main`.
-- Base commit: `0348352` (`* cppcheck, MISRA and doxygen are blocking CI jobs`).
-- Objective: establish a repository-grounded development roadmap and begin
-  its first checkpoint.
-- Status: occurrence-level MISRA filter implemented and tested; source audit
-  identified further 10.4 findings requiring remediation.
+- Base commit: `54e59d7` (`* safety notes and occurrence-scoped MISRA checks`).
+- Objective: review the Codex session, then carry out the open work list
+  agreed with the owner in chat (items 1-7 below).
+- Status: completed and verified; committed and pushed at the owner's
+  request in one commit on top of `54e59d7`. The first CI run of it is the
+  next thing to read.
 
 ## Changes
 
-- Created [docs/standards/README.md](../standards/README.md), `SOURCES.md`,
-  `IEC_61508.md`, `ISO_26262.md`, `MISRA_C_2012.md` and `EVIDENCE_MAP.md`.
-  They cover selected material from ten local PDFs with edition, clause/page
-  locators, source hashes and repository evidence boundaries.
-- Linked the standards notes from [README.md](../../README.md),
-  [CLAUDE.md](../../CLAUDE.md) and [WORKFLOW.md](WORKFLOW.md).
-- Added [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), an ordered roadmap covering
-  baseline evidence, MISRA deviations, test traceability, targeted tests,
-  target integration and release evidence.
-- Added [HISTORY.md](HISTORY.md) with the durable record of the shared-assistant
-  setup, standards research, roadmap, MISRA implementation, independent
-  reviews, test outcomes and open findings. `CLAUDE.md` and `WORKFLOW.md` now
-  direct Claude to use it alongside this current-state handoff.
-- Verified the owner's Downloads copy of MISRA C:2012 against the registered
-  source: 236 pages, March 2013 title page, matching SHA-256.
-- Replaced the Rule 10.4 wildcard with [an occurrence manifest](../../tools/misra_10_4.tsv).
-  Its original baseline had 556 keys for 636 findings. Keys include module,
-  line, SHA-256 of line content and duplicate count. Full and selected-module
-  checks reject new, changed and stale occurrences.
-- Added `tools/misra_occurrences.py` comparison and self-tests; updated
-  `tools/misra.sh`, `tools/README.md` and the MISRA guidance in `CLAUDE.md`.
-  The report calls these matched allowlist occurrences; it explicitly does
-  not infer formal deviation approval or justify each occurrence.
-- Two independent review agents checked design and standards boundaries.
-  Their findings were incorporated: no automatic manifest regeneration path;
-  duplicate-aware counts; explicit warning that source fingerprints are not
-  technical rationale; checker control and submodule matching retained.
-- Source review found at least 321 of the baseline 636 findings outside the
-  recorded status/Boolean rationale in the inspected modules. Fifteen
-  unsigned zero comparisons in `sfault`, `sfilter` and `svote` were changed
-  to `0u`, and their manifest entries removed. Numeric, arithmetic and
-  helper-Boolean findings elsewhere remain under review.
-- Preserved the earlier uncommitted shared-context setup: `AGENTS.md`, the
-  shared-context section in `CLAUDE.md`, and `docs/ai/`.
-- Three C source modules now use unsigned zero constants for unsigned
-  threshold/count comparisons; behavior is unchanged. No commit or push has
-  been made. Changes remain local and uncommitted.
+1. **Mutant anchors repaired.** `54e59d7` had broken five (`sfault` M11,
+   M15, M16, `sfilter` M10, `svote` M16); 25 more were updated after the 10.4
+   remediation.
+2. **Stale records.** Empty `docs/ai/DEVELOPMENT_PLAN.md` deleted (`CLAUDE.md`
+   forbids plan documents). `HISTORY.md`, `docs/standards/MISRA_C_2012.md`
+   and the `sdiag` mutant paragraph in `CLAUDE.md` corrected.
+3. **Rule 10.4 manifest keyed without line numbers**: `module, function,
+   sha256(line), count`. `tools/misra_occurrences.py` rewritten with a coarse
+   rationale guard (`TRUE`, `FALSE` or an `S?_` enum member on the line);
+   its `--self-test` runs as a control in `tools/misra.sh` and refuses to run
+   under `python -O`.
+4. **Rule 10.4 remediated**: 621 to 359. Unsigned operands meet only
+   `u`-suffixed constants in all fourteen modules, both generators and
+   `template/src/generic.c`; every banner's deviation paragraph narrowed to
+   enum and `TRUE`/`FALSE` comparisons. New safety rule in `CLAUDE.md`.
+5. **Traceability**: `tools/tracecheck.py` plus `tools/trace_exceptions.tsv`
+   (10 reasoned exceptions, stale ones fail). Blocking in CI and in
+   `run_all.sh`. Its 106 first-run gaps closed by new cases in nine suites,
+   the `sfixedFloor`/`sfixedRound` contract fix (no `SX_UNDERFLOW` is
+   possible; `test/harness/sfixed_rounding.c` sweeps all 2^32 inputs with
+   exact counts), and sentinel checks that refused calls leave every output
+   alone.
+6. **MC/DC** column in `tools/coverage.sh` (gcc 14+, matching `gcov-NN`);
+   CI coverage job installs gcc-14. MC/DC gaps of `sbits`, `svote`,
+   `sfault`, `sstate` classified; six real cases added.
+7. **CI**: every job on `ubuntu-24.04`; `actions/checkout@v5`.
+8. **Mutants**: seven new (`sstring` M19, `sfilter` M14, `sscale` M18,
+   `sarray` M20-M22, `smemory` M8), each backing new cases. 212 in total.
 
 ## Decisions and reasons
 
-- Keep the notes as source-grounded engineering interpretations, not as a
-  SIL/ASIL assignment, qualification report or compliance declaration.
-- The local MISRA PDF is the March 2013 publication; its filename does not
-  establish that it contains the 2019 revision or later amendments.
-- Preserve the existing technical/style rules and deviation policy. The
-  notes identify evidence limits, including rule/module-wide deviation
-  filtering, missing MC/DC evidence in the current coverage script and
-  the host/target validation boundary; they do not silently change policy.
-- Reuse the single source of technical guidance in `CLAUDE.md`; both
-  assistants reach the standards index through the shared workflow.
-- Follow the existing language convention: Turkish conversation, English
-  repository files.
+- `TRUE`/`FALSE` stay plain `1`/`0` per the shared header contract; their
+  comparisons remain the recorded 10.4 deviation.
+- Signed operands keep plain constants; only unsigned ones get `u`.
+- `sarraySumu8`/`u16` overflow tested with 16 MB / 128 KB static arrays
+  (host only) rather than listed as unreachable.
+- A table changed after `sscaleInit` is a contract violation; the suite pins
+  that `Apply` and `ApplyClamped` refuse it.
 
-## Verification
+## Verification (final tree, this session)
 
-- Read selected full PDF pages and relevant repository contracts/tools.
-- Rendered and visually checked ISO 26262-6 PDF p. 33, IEC 61508-2 PDF p. 56
-  and MISRA PDF p. 3 to verify the coverage tables and edition identity.
-- `tools/misra.sh` with cppcheck 2.21.0 and bundled `misra.py`: control passed;
-  14 modules scanned; 0 findings outside recorded scopes; 621 Rule 10.4
-  occurrences matched after the 15 source fixes. The original baseline was
-  636 matches across 556 keys. `tools/misra.sh sstate` passed earlier.
-- `python tools/misra_occurrences.py --self-test`: passed matching, extra,
-  missing, changed-fingerprint and duplicate-count cases.
-- `bash tools/run_all.sh 'python -m ziglang cc'`: all 14 suites, integration
-  (38 cases), strict-warning checks, UBSan, API check, Doxygen check and
-  generator consistency passed. ASan was correctly skipped because its
-  control was inert on this host.
-- `git diff --check`: passed. Removed cppcheck dump artifacts created during
-  source-format inspection.
-- Downloaded MISRA PDF identity and SHA-256 verified against `SOURCES.md`.
-- `git diff --check`: passed before this handoff/source-register update.
-- `python -X utf8 -` (inline documentation/source audit): passed for
-  11 Markdown files and 100 local links/anchors before this handoff update.
-  All ten source hashes/filenames match the inspected copies; ten key
-  clause/page locators were checked against extracted source pages.
-- Removed the temporary PDF, extracted-text, image and helper cache;
-  the original standards files were accessed read-only.
-- Library builds, tests and CI: not run; this task changes Markdown only.
-  Historical results in `CLAUDE.md` were not revalidated in this session.
+- `bash tools/run_all.sh` with zig clang and with MinGW gcc 14.2: all 29
+  suite lines `0 failed` (3803 module cases + 38 integration), strict
+  warnings 0, UBSan clean, apicheck 0, doxcheck 0 (669 functions),
+  tracecheck 0 gaps / 10 exceptions. Its drift step reports DRIFT only
+  against HEAD; regenerating reproduced all six generated files
+  byte-for-byte (hashes compared before and after).
+- `python tools/mutate.py`: 212 mutants, 192 killed, 20 equivalent, every
+  one accounted for.
+- `bash tools/misra.sh` (cppcheck 2.21.0): both controls pass, 0 findings
+  outside deviations, 0 manifest differences, 359 occurrences.
+- cppcheck general checks with the CI options: 0 findings. doxygen 1.17.0:
+  0 warnings.
+- `bash tools/coverage.sh gcc`: `sbits`, `svote`, `swatch` at 100% branches
+  and MC/DC; table in `CLAUDE.md`.
+- `test/harness/sfixed_rounding.c`: exact counts, exit 0.
+- Independent verifier agent (before the last round of test additions):
+  additionally confirmed gcc 16 `-fanalyzer -Werror`, ARM cross build of
+  all 14 modules with `-fanalyzer`, the header coexistence check and
+  `tools/size.sh` (`.data`/`.bss` 0, 23638 B M0+, 21206 B M4). The later
+  changes touched tests, tools, docs and comments only.
+- Independent safety-reviewer agent: 0 defects; its six contract items and
+  one question were all addressed.
+- Not verifiable here: the CI coverage job's gcc-14/gcov-14 selection and
+  the CI MISRA job with apt cppcheck on ubuntu-24.04 against the new
+  manifest.
 
-## Remaining work and next step
+## Remaining work
 
-- Continue checkpoint 2, item 7 of [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md):
-  remediate the remaining numeric-zero, arithmetic and helper-Boolean 10.4
-  findings outside the documented rationale. Then proceed to API-to-test
-  traceability. Keep hardware-specific validation gaps explicit.
-- The prior standards-notes task is complete; its evidence gaps remain
-  review findings rather than automatic coding authorization.
+1. After commit, read the first CI run's job conclusions, especially
+   `cppcheck and MISRA C 2012` and the coverage job.
+2. Classify the MC/DC gaps of the other ten modules
+   (`<module>.conditions.txt`).
+3. Lines holding more than one comparison among the 359 remaining 10.4
+   occurrences pass the coarse rationale test by line; a per-expression
+   review is still a review, not a proof.
+4. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.

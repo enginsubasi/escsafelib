@@ -3,8 +3,8 @@
   *
   * @file      sdiag.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.2
-  * @date      05/11/2026
+  * @version   0.1.3
+  * @date      07/11/2026
   *
   * @brief     Self diagnostic function library file without hardware dependencies.
   *
@@ -28,6 +28,9 @@
   * 04/11/2026 The structs are documented in this file, so the header @n
   *            stays a pure declaration. @n
   * 05/11/2026 MISRA C:2012 Rule 10.4 deviation recorded in the banner. @n
+  * 07/11/2026 Unsigned operands are compared and combined with unsigned @n
+  *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
+  *            is narrowed to enum and Boolean comparisons. @n
   *
   * @note
   * Everything here is portable C99 with no hardware dependency, which is
@@ -79,12 +82,14 @@
   *
   * @note
   * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
-  * categories. Every status in this library is a uint8_t, and it is
-  * compared with the members of the module's status enum, with TRUE and
-  * FALSE, and with unsuffixed constants such as 0. One status type across
-  * every module is what lets a caller treat them all alike, and none of
-  * these comparisons can change a value through the conversion the rule
-  * guards against.
+  * categories. Every status, state and flag in this library is a uint8_t,
+  * and it is compared with the members of the module's enums and with TRUE
+  * and FALSE, which are plain int constants. One status type across every
+  * module is what lets a caller treat them all alike, and none of these
+  * comparisons can change a value through the conversion the rule guards
+  * against. The deviation covers those comparisons and nothing else: an
+  * unsigned value is never compared or combined with an unsuffixed
+  * constant.
   *
   ******************************************************************************
   */
@@ -218,7 +223,7 @@ uint8_t sdiagCrc32Update ( const void* data, uint32_t size, uint32_t seed, uint3
     {
         retVal = SD_NULLPTR;
     }
-    else if ( size == 0 )
+    else if ( size == 0u )
     {
         retVal = SD_INVALIDSIZE;
     }
@@ -287,7 +292,7 @@ uint8_t sdiagCrc16Update ( const void* data, uint32_t size, uint16_t seed, uint1
     {
         retVal = SD_NULLPTR;
     }
-    else if ( size == 0 )
+    else if ( size == 0u )
     {
         retVal = SD_INVALIDSIZE;
     }
@@ -348,7 +353,7 @@ uint8_t sdiagChecksum32 ( const void* data, uint32_t size, uint32_t* sum )
     {
         retVal = SD_NULLPTR;
     }
-    else if ( size == 0 )
+    else if ( size == 0u )
     {
         retVal = SD_INVALIDSIZE;
     }
@@ -411,7 +416,7 @@ uint8_t sdiagRamTestDestructive ( uint32_t* start, uint32_t words, uint32_t* fai
     {
         retVal = SD_NULLPTR;
     }
-    else if ( words == 0 )
+    else if ( words == 0u )
     {
         retVal = SD_INVALIDSIZE;
     }
@@ -452,7 +457,7 @@ uint8_t sdiagRamTestDestructive ( uint32_t* start, uint32_t words, uint32_t* fai
         }
 
         /* March element 4, descending read zero and write ones. */
-        for ( i = words; ( i > 0 ) && ( done == FALSE ); --i )
+        for ( i = words; ( i > 0u ) && ( done == FALSE ); --i )
         {
             if ( start[ i - 1u ] != 0x00000000u )
             {
@@ -466,7 +471,7 @@ uint8_t sdiagRamTestDestructive ( uint32_t* start, uint32_t words, uint32_t* fai
         }
 
         /* March element 5, descending read ones and write zero. */
-        for ( i = words; ( i > 0 ) && ( done == FALSE ); --i )
+        for ( i = words; ( i > 0u ) && ( done == FALSE ); --i )
         {
             if ( start[ i - 1u ] != 0xFFFFFFFFu )
             {
@@ -577,7 +582,7 @@ uint8_t sdiagRamTestNonDestructive ( uint32_t* start, uint32_t words, uint32_t* 
     {
         retVal = SD_NULLPTR;
     }
-    else if ( words == 0 )
+    else if ( words == 0u )
     {
         retVal = SD_INVALIDSIZE;
     }
@@ -667,7 +672,7 @@ uint8_t sdiagStackPaint ( uint32_t* base, uint32_t words, uint32_t pattern )
     {
         retVal = SD_NULLPTR;
     }
-    else if ( words == 0 )
+    else if ( words == 0u )
     {
         retVal = SD_INVALIDSIZE;
     }
@@ -718,7 +723,7 @@ uint8_t sdiagStackUnused ( const uint32_t* base, uint32_t words, uint32_t patter
     {
         retVal = SD_NULLPTR;
     }
-    else if ( words == 0 )
+    else if ( words == 0u )
     {
         retVal = SD_INVALIDSIZE;
     }
@@ -860,7 +865,7 @@ uint8_t sdiagFlowExpected ( const uint32_t* ids, uint32_t count, uint32_t* expec
     {
         retVal = SD_NULLPTR;
     }
-    else if ( count == 0 )
+    else if ( count == 0u )
     {
         retVal = SD_INVALIDSIZE;
     }

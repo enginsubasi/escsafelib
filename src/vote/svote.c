@@ -3,8 +3,8 @@
   *
   * @file      svote.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.2
-  * @date      06/11/2026
+  * @version   0.1.3
+  * @date      07/11/2026
   *
   * @brief     Safe redundant channel voting function library file.
   *
@@ -21,6 +21,8 @@
   *            Rule 10.8. MISRA C:2012 Rule 10.4 deviation recorded in @n
   *            the banner. @n
   * 06/11/2026 Unsigned zero constants used for unsigned counts. @n
+  * 07/11/2026 MISRA C:2012 Rule 10.4 deviation narrowed to enum and Boolean @n
+  *            comparisons. @n
   *
   * @note
   * This module answers one question in several forms: several channels have
@@ -86,12 +88,14 @@
   *
   * @note
   * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
-  * categories. Every status in this library is a uint8_t, and it is
-  * compared with the members of the module's status enum, with TRUE and
-  * FALSE, and with unsuffixed constants such as 0. One status type across
-  * every module is what lets a caller treat them all alike, and none of
-  * these comparisons can change a value through the conversion the rule
-  * guards against.
+  * categories. Every status, state and flag in this library is a uint8_t,
+  * and it is compared with the members of the module's enums and with TRUE
+  * and FALSE, which are plain int constants. One status type across every
+  * module is what lets a caller treat them all alike, and none of these
+  * comparisons can change a value through the conversion the rule guards
+  * against. The deviation covers those comparisons and nothing else: an
+  * unsigned value is never compared or combined with an unsuffixed
+  * constant.
   *
   ******************************************************************************
   */

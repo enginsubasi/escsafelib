@@ -107,8 +107,8 @@ SOURCE_HEAD = r"""/**
   *
   * @file      sarray.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
-  * @date      05/11/2026
+  * @version   0.1.2
+  * @date      07/11/2026
   *
   * @brief     Safe array handling function library file.
   *
@@ -124,6 +124,9 @@ SOURCE_HEAD = r"""/**
   * 05/11/2026 The MISRA deviations are recorded in full: Rule 10.4 for @n
   *            the status type, Rules 11.4 and 11.6 for the overlap @n
   *            checks. @n
+  * 07/11/2026 Sizes, counts and indices are compared with unsigned @n
+  *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
+  *            is narrowed to enum and Boolean comparisons. @n
   *
   * @note
   * Six invariants hold for every function in this file. They are the same
@@ -188,12 +191,14 @@ SOURCE_HEAD = r"""/**
   *
   * @note
   * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
-  * categories. Every status in this library is a uint8_t, and it is
-  * compared with the members of the module's status enum, with TRUE and
-  * FALSE, and with unsuffixed constants such as 0. One status type across
-  * every module is what lets a caller treat them all alike, and none of
-  * these comparisons can change a value through the conversion the rule
-  * guards against.
+  * categories. Every status, state and flag in this library is a uint8_t,
+  * and it is compared with the members of the module's enums and with TRUE
+  * and FALSE, which are plain int constants. One status type across every
+  * module is what lets a caller treat them all alike, and none of these
+  * comparisons can change a value through the conversion the rule guards
+  * against. The deviation covers those comparisons and nothing else: an
+  * unsigned value is never compared or combined with an unsuffixed
+  * constant.
   *
   ******************************************************************************
   */
@@ -239,7 +244,7 @@ static uint8_t spanBytes ( uint32_t count, uint32_t elemSize, uint32_t* bytes )
 {
     uint8_t retVal = FALSE;
 
-    if ( elemSize == 0 )
+    if ( elemSize == 0u )
     {
         retVal = FALSE;
     }
@@ -279,7 +284,7 @@ static uint8_t isOverlapping ( const void* a, uint32_t aSize, const void* b, uin
     uintptr_t aEnd = 0;
     uintptr_t bEnd = 0;
 
-    if ( ( aSize == 0 ) || ( bSize == 0 ) )
+    if ( ( aSize == 0u ) || ( bSize == 0u ) )
     {
         retVal = FALSE;
     }
@@ -366,7 +371,7 @@ uint8_t sarrayGet${S} ( const ${T}* arr, uint32_t arrSize, uint32_t index, ${T}*
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -402,7 +407,7 @@ uint8_t sarraySet${S} ( ${T}* arr, uint32_t arrSize, uint32_t index, ${T} value 
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -436,7 +441,7 @@ uint8_t sarrayFill${S} ( ${T}* arr, uint32_t arrSize, ${T} value )
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -477,7 +482,7 @@ uint8_t sarrayClearSecure${S} ( ${T}* arr, uint32_t arrSize )
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -523,7 +528,7 @@ uint8_t sarrayCopyN${S} ( ${T}* dest, uint32_t destSize, const ${T}* src, uint32
     {
         retVal = SA_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -600,7 +605,7 @@ uint8_t sarrayMove${S} ( ${T}* dest, uint32_t destSize, const ${T}* src, uint32_
     {
         retVal = SA_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -655,7 +660,7 @@ uint8_t sarraySwap${S} ( ${T}* arr, uint32_t arrSize, uint32_t indexA, uint32_t 
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -702,7 +707,7 @@ uint8_t sarrayCompare${S} ( const ${T}* a, uint32_t aSize, const ${T}* b, uint32
     {
         retVal = SA_NULLPTR;
     }
-    else if ( ( aSize == 0 ) || ( bSize == 0 ) )
+    else if ( ( aSize == 0u ) || ( bSize == 0u ) )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -780,7 +785,7 @@ uint8_t sarrayCompareN${S} ( const ${T}* a, uint32_t aSize, const ${T}* b, uint3
     {
         retVal = SA_NULLPTR;
     }
-    else if ( ( aSize == 0 ) || ( bSize == 0 ) )
+    else if ( ( aSize == 0u ) || ( bSize == 0u ) )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -844,7 +849,7 @@ uint8_t sarrayFind${S} ( const ${T}* arr, uint32_t arrSize, ${T} value, uint32_t
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -893,7 +898,7 @@ uint8_t sarrayFindLast${S} ( const ${T}* arr, uint32_t arrSize, ${T} value, uint
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -947,7 +952,7 @@ uint8_t sarrayCount${S} ( const ${T}* arr, uint32_t arrSize, ${T} value, uint32_
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -992,7 +997,7 @@ uint8_t sarrayIsSorted${S} ( const ${T}* arr, uint32_t arrSize, uint8_t* result 
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -1051,7 +1056,7 @@ uint8_t sarrayBinarySearch${S} ( const ${T}* arr, uint32_t arrSize, ${T} value, 
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -1121,7 +1126,7 @@ uint8_t sarrayMin${S} ( const ${T}* arr, uint32_t arrSize, ${T}* value, uint32_t
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -1173,7 +1178,7 @@ uint8_t sarrayMax${S} ( const ${T}* arr, uint32_t arrSize, ${T}* value, uint32_t
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -1228,7 +1233,7 @@ uint8_t sarraySum${S} ( const ${T}* arr, uint32_t arrSize, ${ACC}* sum )
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -1278,7 +1283,7 @@ uint8_t sarrayReverse${S} ( ${T}* dest, uint32_t destSize, const ${T}* src, uint
     {
         retVal = SA_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -1340,7 +1345,7 @@ uint8_t sarrayRotate${S} ( ${T}* arr, uint32_t arrSize, uint32_t shift )
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -1348,7 +1353,7 @@ uint8_t sarrayRotate${S} ( ${T}* arr, uint32_t arrSize, uint32_t shift )
     {
         k = shift % arrSize;
 
-        if ( k != 0 )
+        if ( k != 0u )
         {
             reverseRange${S} ( arr, 0, k - 1u );
             reverseRange${S} ( arr, k, arrSize - 1u );
@@ -1392,7 +1397,7 @@ uint8_t sarraySort${S} ( ${T}* arr, uint32_t arrSize )
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -1404,7 +1409,7 @@ uint8_t sarraySort${S} ( ${T}* arr, uint32_t arrSize )
             pos = i;
             placed = FALSE;
 
-            for ( j = i; ( j > 0 ) && ( placed == FALSE ); --j )
+            for ( j = i; ( j > 0u ) && ( placed == FALSE ); --j )
             {
                 if ( arr[ j - 1u ] > key )
                 {
@@ -1455,7 +1460,7 @@ uint8_t sarrayInsert${S} ( ${T}* arr, uint32_t arrSize, uint32_t* count, uint32_
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -1515,7 +1520,7 @@ uint8_t sarrayRemove${S} ( ${T}* arr, uint32_t arrSize, uint32_t* count, uint32_
     {
         retVal = SA_NULLPTR;
     }
-    else if ( arrSize == 0 )
+    else if ( arrSize == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }
@@ -1523,7 +1528,7 @@ uint8_t sarrayRemove${S} ( ${T}* arr, uint32_t arrSize, uint32_t* count, uint32_
     {
         retVal = SA_INVALIDSIZE;
     }
-    else if ( *count == 0 )
+    else if ( *count == 0u )
     {
         retVal = SA_INVALIDSIZE;
     }

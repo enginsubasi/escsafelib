@@ -3,8 +3,8 @@
   *
   * @file      SFilter_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the sfilter module.
   *
@@ -13,6 +13,8 @@
   *
   * @par History
   * 05/08/2026 Created. @n
+  * 07/11/2026 Every status a return block promises is asked for at least @n
+  *            once, as tools/tracecheck.py requires. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -920,6 +922,39 @@ static void testUncoveredBranches ( void )
 }
 
 /**
+ * @brief   Asks for each status a return block promises that the suite had
+ *          never expected.
+ * @note    tools/tracecheck.py found these. Every one of these was
+ *          called, but its success status was discarded, so a version that
+ *          produced the right value and reported a failure would have passed.
+ */
+static void testStatusContract ( void )
+{
+    sfilterema_t ema;
+    sfilterdebounce_t debounce;
+    sfilterslew_t slew;
+    sfilterhyst_t hyst;
+    int32_t value = 0;
+    uint8_t state = FALSE;
+
+    ( void ) sfilterEmaInit ( &ema, 2u, 0 );
+    expectStatus ( "contract: emaUpdate", sfilterEmaUpdate ( &ema, 100, &value ), SF_OK );
+    expectStatus ( "contract: emaGet", sfilterEmaGet ( &ema, &value ), SF_OK );
+
+    ( void ) sfilterDebounceInit ( &debounce, 2u, FALSE );
+    expectStatus ( "contract: debounceUpdate", sfilterDebounceUpdate ( &debounce, TRUE, &state ), SF_OK );
+
+    ( void ) sfilterSlewInit ( &slew, 5, 5, 0 );
+    expectStatus ( "contract: slewUpdate", sfilterSlewUpdate ( &slew, 100, &value ), SF_OK );
+    expectStatus ( "contract: slewGet", sfilterSlewGet ( &slew, &value ), SF_OK );
+
+    ( void ) sfilterHystInit ( &hyst, -10, 10, FALSE );
+    expectStatus ( "contract: hystUpdate", sfilterHystUpdate ( &hyst, 20, &state ), SF_OK );
+
+    expectStatus ( "contract: median3", sfilterMedian3 ( 3, 1, 2, &value ), SF_OK );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -933,6 +968,7 @@ int main ( void )
     testHysteresis ( );
     testMedian ( );
     testUncoveredBranches ( );
+    testStatusContract ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

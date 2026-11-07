@@ -108,4 +108,10 @@ MUTANTS = [
         "old": '        if ( retVal == SC_OK )\n        {\n            driver->x = x;',
         "new": '        if ( TRUE )\n        {\n            driver->x = x;',
     },
+    {
+        "id": 'M18',
+        "what": 'a flat segment is interpolated anyway',
+        "old": '    if ( den == 0 )\n    {\n        retVal = FALSE;\n    }\n    else if ( spanProductFits ( x0, x1, y0, y1 ) == FALSE )',
+        "new": '    if ( FALSE )\n    {\n        retVal = FALSE;\n    }\n    else if ( spanProductFits ( x0, x1, y0, y1 ) == FALSE )',
+    },
 ]

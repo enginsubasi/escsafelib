@@ -117,8 +117,8 @@ SOURCE_HEAD = r"""/**
   *
   * @file      smath.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
-  * @date      05/11/2026
+  * @version   0.1.2
+  * @date      07/11/2026
   *
   * @brief     Safe basic arithmetic function library file.
   *
@@ -141,6 +141,9 @@ SOURCE_HEAD = r"""/**
   * 05/11/2026 The signed scale guard spells INT32_MIN as a constant, for @n
   *            MISRA C:2012 Rule 10.8. MISRA C:2012 Rule 10.4 deviation @n
   *            recorded in the banner. @n
+  * 07/11/2026 Unsigned operands are compared and divided with unsigned @n
+  *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
+  *            is narrowed to enum and Boolean comparisons. @n
   *
   * @note
   * Five invariants hold for every function in this file.
@@ -187,12 +190,14 @@ SOURCE_HEAD = r"""/**
   *
   * @note
   * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
-  * categories. Every status in this library is a uint8_t, and it is
-  * compared with the members of the module's status enum, with TRUE and
-  * FALSE, and with unsuffixed constants such as 0. One status type across
-  * every module is what lets a caller treat them all alike, and none of
-  * these comparisons can change a value through the conversion the rule
-  * guards against.
+  * categories. Every status, state and flag in this library is a uint8_t,
+  * and it is compared with the members of the module's enums and with TRUE
+  * and FALSE, which are plain int constants. One status type across every
+  * module is what lets a caller treat them all alike, and none of these
+  * comparisons can change a value through the conversion the rule guards
+  * against. The deviation covers those comparisons and nothing else: an
+  * unsigned value is never compared or combined with an unsuffixed
+  * constant.
   *
   ******************************************************************************
   */
@@ -375,7 +380,7 @@ uint8_t smathDiv${S} ( ${T} a, ${T} b, ${T}* result )
     {
         retVal = SH_NULLPTR;
     }
-    else if ( b == 0 )
+    else if ( b == ${ZERO} )
     {
         retVal = SH_DIVBYZERO;
     }
@@ -407,7 +412,7 @@ uint8_t smathMod${S} ( ${T} a, ${T} b, ${T}* result )
     {
         retVal = SH_NULLPTR;
     }
-    else if ( b == 0 )
+    else if ( b == ${ZERO} )
     {
         retVal = SH_DIVBYZERO;
     }
@@ -446,7 +451,7 @@ uint8_t smathScale${S} ( ${T} value, ${T} numerator, ${T} denominator, ${T}* res
     {
         retVal = SH_NULLPTR;
     }
-    else if ( denominator == 0 )
+    else if ( denominator == ${ZERO} )
     {
         retVal = SH_DIVBYZERO;
     }
@@ -491,7 +496,7 @@ uint8_t smathAverage${S} ( ${T} a, ${T} b, ${T}* result )
     }
     else
     {
-        wide = ( ( ${WIDE} ) a + ( ${WIDE} ) b ) / 2;
+        wide = ( ( ${WIDE} ) a + ( ${WIDE} ) b ) / ${TWO};
         *result = ( ${T} ) wide;
         retVal = SH_OK;
     }
@@ -831,7 +836,7 @@ SUB_SIGNED = """    if ( ( b < 0 ) && ( a > ( ${MAX} + b ) ) )
         retVal = SH_OK;
     }"""
 
-MUL_UNSIGNED = """    if ( a == 0 )
+MUL_UNSIGNED = """    if ( a == 0u )
     {
         retVal = SH_OK;
     }
@@ -964,11 +969,11 @@ uint8_t smathIsPowerOfTwo${S} ( ${T} value, uint8_t* result )
     }
     else
     {
-        if ( value == 0 )
+        if ( value == 0u )
         {
             *result = FALSE;
         }
-        else if ( ( value & ( ${T} ) ( value - 1u ) ) == 0 )
+        else if ( ( value & ( ${T} ) ( value - 1u ) ) == 0u )
         {
             *result = TRUE;
         }
@@ -1056,7 +1061,7 @@ uint8_t smathLog2Floor${S} ( ${T} value, uint8_t* result )
     {
         retVal = SH_NULLPTR;
     }
-    else if ( value == 0 )
+    else if ( value == 0u )
     {
         retVal = SH_DOMAIN;
     }
@@ -1286,6 +1291,7 @@ def build_source():
 
         parts.append(FAMILY.substitute(
             S=suffix, T=ctype, HUMAN=human, MAX=mx, MIN=mn, WIDE=wide,
+            ZERO=( "0" if signed else "0u" ), TWO=( "2" if signed else "2u" ),
             ADDCHECK=addcheck, SUBCHECK=subcheck, MULCHECK=mulcheck,
             DIVGUARD=divguard, MODGUARD=modguard, SCALEGUARD=scaleguard,
             DIVNOTE=divnote, MODNOTE=modnote, SPECIFIC=specific,

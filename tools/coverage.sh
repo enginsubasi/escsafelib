@@ -24,6 +24,14 @@
 #
 # The annotated listings are left behind so that each one can be classified
 # rather than guessed at. Read them, do not just read the percentages.
+#
+# When the compiler accepts -fcondition-coverage (gcc 14 and later), the
+# table gains a column of MC/DC: the share of condition outcomes shown to
+# change their decision on their own. Branch coverage of
+# "if ( ( a == NULL ) || ( b == NULL ) )" is satisfied by one NULL and one
+# good call; MC/DC also wants b alone to be shown to matter. ISO 26262-6
+# Table 9 (2018 edition) recommends it at ASIL D. This measures it; it does not claim the
+# library meets that table.
 
 read -r -a CC <<< "${1:-gcc}"
 
@@ -34,6 +42,24 @@ cd "$REPO" || exit 2
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
+
+# gcov has to be the same version as the compiler that wrote the data, so
+# gcc-14 is read by gcov-14. GCOV in the environment overrides the choice.
+GCOV=${GCOV:-gcov}
+case "${CC[0]}" in
+  *gcc-[0-9]*)
+    candidate="gcov-${CC[0]##*gcc-}"
+    if command -v "$candidate" > /dev/null 2>&1; then GCOV=$candidate; fi
+    ;;
+esac
+
+MCDC=()
+GCOVMCDC=()
+printf 'int f ( int a, int b ) { return ( a && b ); }\n' > "$OUT/probe.c"
+if "${CC[@]}" --coverage -fcondition-coverage -c "$OUT/probe.c" -o "$OUT/probe.o" >/dev/null 2>&1; then
+  MCDC=( -fcondition-coverage )
+  GCOVMCDC=( -g )
+fi
 
 MODULES=(
   "bits     sbits         SBits"
@@ -54,8 +80,8 @@ MODULES=(
 
 fail=0
 
-printf "%-10s %10s %10s %10s %10s\n" module lines "lines %" branches "taken %"
-printf -- "---------------------------------------------------------\n"
+printf "%-10s %10s %10s %10s %10s %10s\n" module lines "lines %" branches "taken %" "MC/DC %"
+printf -- "--------------------------------------------------------------------\n"
 
 for m in "${MODULES[@]}"; do
   set -- $m
@@ -64,7 +90,7 @@ for m in "${MODULES[@]}"; do
   work="$OUT/$n"
   mkdir -p "$work"
 
-  if ! "${CC[@]}" --coverage -O0 -std=c99 -I"$REPO/inc/$d" \
+  if ! "${CC[@]}" --coverage "${MCDC[@]}" -O0 -std=c99 -I"$REPO/inc/$d" \
        -c "$REPO/src/$d/$n.c" -o "$work/$n.o" 2>"$work/build.log"; then
     printf "%-10s BUILD FAILED\n" "$n"; fail=1; continue
   fi
@@ -99,7 +125,7 @@ for m in "${MODULES[@]}"; do
     fi
   fi
 
-  ( cd "$work" && gcov -b "$n.gcda" >"$work/gcov.log" 2>&1 )
+  ( cd "$work" && "$GCOV" -b "${GCOVMCDC[@]}" "$n.gcda" >"$work/gcov.log" 2>&1 )
 
   # gcov reports each file it was asked about in turn. Take the block that
   # names the module's own source, not the test program's.
@@ -114,15 +140,17 @@ for m in "${MODULES[@]}"; do
   linepc=$(echo "$block"   | sed -n 's/^Lines executed:\([0-9.]*\)% of \([0-9]*\)$/\1/p' | head -1)
   branches=$(echo "$block" | sed -n 's/^Branches executed:\([0-9.]*\)% of \([0-9]*\)$/\2/p' | head -1)
   takenpc=$(echo "$block"  | sed -n 's/^Taken at least once:\([0-9.]*\)% of \([0-9]*\)$/\1/p' | head -1)
+  mcdcpc=$(echo "$block"   | sed -n 's/^Condition outcomes covered:\([0-9.]*\)% of \([0-9]*\)$/\1/p' | head -1)
 
-  printf "%-10s %10s %9s%% %10s %9s%%\n" \
-    "$n" "${lines:-?}" "${linepc:-?}" "${branches:-?}" "${takenpc:-?}"
+  printf "%-10s %10s %9s%% %10s %9s%% %9s%%\n" \
+    "$n" "${lines:-?}" "${linepc:-?}" "${branches:-?}" "${takenpc:-?}" "${mcdcpc:-n/a}"
 
   # The lines gcov marks ##### were never executed. Pull them out with their
   # numbers so each one can be looked at rather than counted.
   if [ -f "$work/$n.c.gcov" ]; then
     grep -n '#####' "$work/$n.c.gcov" > "$OUT/${n}.uncovered.txt" 2>/dev/null
     grep -n 'never executed' "$work/$n.c.gcov" > "$OUT/${n}.untakenbranch.txt" 2>/dev/null
+    grep -n -B1 'not covered' "$work/$n.c.gcov" > "$OUT/${n}.conditions.txt" 2>/dev/null
   fi
 done
 
@@ -130,6 +158,11 @@ echo
 echo "annotated listings:   $OUT/<module>/<module>.c.gcov"
 echo "uncovered lines:      $OUT/<module>.uncovered.txt"
 echo "branches never taken: $OUT/<module>.untakenbranch.txt"
+if [ "${#MCDC[@]}" -gt 0 ]; then
+  echo "MC/DC gaps:           $OUT/<module>.conditions.txt"
+else
+  echo "MC/DC:                not measured, the compiler has no -fcondition-coverage"
+fi
 echo
 echo "A percentage is not the result. Classify every entry: a case nobody"
 echo "wrote is a hole, a branch the API cannot reach is a comment."

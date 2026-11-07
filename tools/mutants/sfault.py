@@ -67,7 +67,7 @@ MUTANTS = [
     {
         "id": 'M11',
         "what": 'a cycle count of zero is accepted',
-        "old": '    else if ( cycles == 0 )\n    {\n        retVal = SU_INVALIDPARAM;\n    }',
+        "old": '    else if ( cycles == 0u )\n    {\n        retVal = SU_INVALIDPARAM;\n    }',
         "new": '    else if ( FALSE )\n    {\n        retVal = SU_INVALIDPARAM;\n    }',
     },
     {
@@ -91,15 +91,15 @@ MUTANTS = [
     {
         "id": 'M15',
         "what": 'readiness looks at only one of the two limits',
-        "old": '    if ( ( driver->confirmLimit == 0 ) || ( driver->healLimit == 0 ) )',
-        "new": '    if ( driver->confirmLimit == 0 )',
+        "old": '    if ( ( driver->confirmLimit == 0u ) || ( driver->healLimit == 0u ) )',
+        "new": '    if ( driver->confirmLimit == 0u )',
         "equivalent":
             'Either half of isReady catches a zeroed driver on its own. A driver with one limit set and the other zero can only be built by writing the struct by hand.',
     },
     {
         "id": 'M16',
         "what": 'a limit of zero is accepted at Init',
-        "old": '    else if ( ( confirmLimit == 0 ) || ( healLimit == 0 ) )\n    {\n        retVal = SU_INVALIDPARAM;\n    }',
+        "old": '    else if ( ( confirmLimit == 0u ) || ( healLimit == 0u ) )\n    {\n        retVal = SU_INVALIDPARAM;\n    }',
         "new": '    else if ( FALSE )\n    {\n        retVal = SU_INVALIDPARAM;\n    }',
     },
     {

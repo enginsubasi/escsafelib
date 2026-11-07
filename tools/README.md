@@ -126,6 +126,61 @@ each header's own typedefs, so a new module needs no change here.
 As with every other checker in this directory: it was developed against a
 header carrying one deliberate breach per rule, and every rule fired.
 
+## tracecheck.py
+
+Traces every public function to the cases in its own suite that check it.
+Coverage says a line ran and mutation testing says a sampled defect was
+seen; neither says which documented answer of which function a suite has
+ever asked for.
+
+```bash
+python tools/tracecheck.py              # check, exit non zero on a gap
+python tools/tracecheck.py --matrix     # also print function, calls, statuses
+python tools/tracecheck.py --self-test  # the controls
+```
+
+For each prototype it requires that the module's own suite calls it, and
+that for every status its return block names (following "otherwise the
+status X reports" to the delegate) some statement both calls it and names
+that status, or parks its result in a local that one of the next twelve
+statements compares with that status. The integration suite does not count:
+a copied-out module carries only its own suite.
+
+A status no case can expect is recorded in `trace_exceptions.tsv` with its
+reason. **Every exception must still be a gap**: one that a case now covers
+is reported as stale, the same rule `mutate.py` applies to an equivalent
+mutant that has been killed.
+
+The first run reported 106 gaps across 358 functions. Fourteen were sweeps
+that park the status in a local, which the checker now follows. The rest:
+
+- **`sstring`, the reference module, had never handed an unterminated
+  source to twenty one functions that promise to refuse one**, nor a zero
+  capacity to seventeen. A version of any of them that read past the end of
+  an unterminated source would have passed the whole suite.
+- **`sfixedFloor` and `sfixedRound` promised an `SX_UNDERFLOW` no input can
+  produce.** All 2^32 inputs were run: -32768, the smallest value of the
+  type, is a whole number, so nothing rounds below it. The promise moved to
+  a `@note`, the same correction `smath` needed when `doxcheck.py` found it.
+- `sfilter` discarded the success status of seven calls with `( void )`, so
+  a version that produced the right value and reported a failure passed.
+- `sscaleApply` and `sscaleApplyClamped` refuse a table the caller changed
+  after Init, and no case had ever asked them to.
+- `sarraySumu8` and `sarraySumu16` overflow: 16843010 bytes of 255 and 65538
+  halfwords of 65535 carry the `uint32_t` accumulator past its top, and with
+  the last element zero land exactly on it. Both were recorded as
+  unreachable before; on a host they are only memory.
+- `smemory`, `sdiag`, `svote`, `sarray`: NULL, zero capacity and overlap
+  refusals that only their whole-buffer wrappers had reached.
+
+The ten exceptions that remain are delegated statuses a wrapper cannot
+reach, the two March test failures only the aliasing harness can reach,
+and `sscaleFindSegment`'s defensive refusal.
+
+The test is textual and can only err one way: a statement that names the
+call and the status is not proof the two are compared. The suites all use
+`expectStatus ( name, call, status )`, which is.
+
 ## mutate.py and mutants/
 
 The mutation tests. `tools/mutate.py` is the runner; the defects live in
@@ -217,16 +272,23 @@ every time. If the control does not fire it exits 2 rather than report a
 clean tree.
 
 Rules 11.4, 11.5 and 11.6 remain scoped by module in the script and source
-banners. Rule 10.4 uses `misra_10_4.tsv`: each record stores the module, line,
-SHA-256 of the source line and expected duplicate count. A full-tree run fails
-on new, changed or stale occurrences. Partial-module runs check only the
-selected modules. The manifest pins observed findings; it does not approve a
-formal deviation or prove each finding's rationale.
+banners. Rule 10.4 uses `misra_10_4.tsv`: each record stores the module, the
+function the finding sits in, the SHA-256 of the exact source line and how
+many findings share that key. The line number is deliberately not part of
+the key, so a new history line in a banner or a generator moving a family
+down the file does not invalidate the records below it. A second copy of a
+recorded line in the same function raises the count and is reported.
 
-`misra_occurrences.py --self-test` checks matching, added, removed, duplicate
-and changed-fingerprint cases. Do not update the manifest as part of an
-ordinary check; review the source and rationale before recording a new
-baseline.
+A full-tree run fails on new, changed or stale occurrences; a partial run
+checks only the selected modules' records. Each difference is printed with
+the exact record that would have to be added or deleted. The manifest pins
+observed findings; it does not approve a formal deviation or prove each
+finding's rationale.
+
+`misra_occurrences.py --self-test` checks function attribution, matching,
+added, removed, moved-to-another-function, duplicate and
+changed-fingerprint cases. Nothing writes the manifest: review the source
+line and its rationale before adding or deleting a record by hand.
 
 `CPPCHECK`, `MISRA_PY` and `PYTHON` override where the tools are found.
 

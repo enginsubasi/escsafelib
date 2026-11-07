@@ -98,7 +98,7 @@ MUTANTS = [
     {
         "id": 'M16',
         "what": 'the required group of zero is accepted',
-        "old": '    else if ( ( required == 0 ) || ( required > count ) )\n    {\n        retVal = SV_INVALIDPARAM;\n    }\n    else\n    {\n        hits = largestGroup ( values, count, tolerance, &best );\n\n        if ( hits < required )\n        {\n            retVal = SV_DISAGREE;\n        }\n        else\n        {\n            *result = values[ best ];',
+        "old": '    else if ( ( required == 0u ) || ( required > count ) )\n    {\n        retVal = SV_INVALIDPARAM;\n    }\n    else\n    {\n        hits = largestGroup ( values, count, tolerance, &best );\n\n        if ( hits < required )\n        {\n            retVal = SV_DISAGREE;\n        }\n        else\n        {\n            *result = values[ best ];',
         "new": '    else if ( FALSE )\n    {\n        retVal = SV_INVALIDPARAM;\n    }\n    else\n    {\n        hits = largestGroup ( values, count, tolerance, &best );\n\n        if ( hits < required )\n        {\n            retVal = SV_DISAGREE;\n        }\n        else\n        {\n            *result = values[ best ];',
     },
 ]

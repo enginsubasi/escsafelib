@@ -113,7 +113,7 @@ MUTANTS = [
     {
         "id": 'M18',
         "what": 'the state count limit is not enforced',
-        "old": '    else if ( ( stateCount == 0 ) || ( stateCount > SSTATE_MAXSTATES ) )',
-        "new": '    else if ( stateCount == 0 )',
+        "old": '    else if ( ( stateCount == 0u ) || ( stateCount > SSTATE_MAXSTATES ) )',
+        "new": '    else if ( stateCount == 0u )',
     },
 ]

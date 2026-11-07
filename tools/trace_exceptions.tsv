@@ -1,0 +1,14 @@
+# Statuses a return block names that no case in the module's own suite can expect.
+# tools/tracecheck.py requires every line here to still be a gap: an exception
+# a case now covers is stale and fails the check, like a resurrected mutant.
+# module	function	status	reason
+sarray	sarrayCopyu8	SA_OUTOFRANGE	Copy hands CopyN a count equal to srcSize, so the count is never above it. The status arrives only through the delegate's return block.
+sarray	sarrayCopyu16	SA_OUTOFRANGE	Copy hands CopyN a count equal to srcSize, so the count is never above it. The status arrives only through the delegate's return block.
+sarray	sarrayCopyu32	SA_OUTOFRANGE	Copy hands CopyN a count equal to srcSize, so the count is never above it. The status arrives only through the delegate's return block.
+sarray	sarrayCopyi32	SA_OUTOFRANGE	Copy hands CopyN a count equal to srcSize, so the count is never above it. The status arrives only through the delegate's return block.
+smemory	smemoryCopy	SM_OUTOFRANGE	Copy hands CopyN a count equal to srcSize, so the count is never above it. The status arrives only through the delegate's return block.
+smemory	smemorySet	SM_OVERFLOW	Set hands SetN a count equal to destSize, so the count is never above it. The status arrives only through the delegate's return block.
+smemory	smemoryClear	SM_OVERFLOW	Clear hands SetN a count equal to destSize, so the count is never above it. The status arrives only through the delegate's return block.
+sdiag	sdiagRamTestDestructive	SD_FAILED	Needs memory that returns something other than what was written. test/harness/aliasing.c reaches it with one section mapped at two adjacent addresses; nothing portable can.
+sdiag	sdiagRamTestNonDestructive	SD_FAILED	Needs a stuck-at cell. The aliasing harness cannot reach it, as the function's own note says, and nothing portable can.
+sscale	sscaleFindSegment	SC_INVALIDTABLE	The search is bounded by the breakpoint count. No validated table reaches the failure, and neither did 50 million tables changed after Init in a fuzz run on 07/11/2026. Defensive, not proven unreachable.

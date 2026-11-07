@@ -1,7 +1,9 @@
 # Platform harnesses
 
-Not part of any test suite. Windows only, they call `VirtualAlloc` and
-`CreateFileMapping` directly, and nothing in the library needs them.
+Not part of any test suite. Most are Windows only, they call `VirtualAlloc`
+and `CreateFileMapping` directly, and nothing in the library needs them.
+`sfixed_rounding.c` is the exception: it is portable, and it is here only
+because it is too slow for a suite (see the end of this file).
 
 They exist because a whole class of defect is invisible to a portable test.
 Reading past the end of a buffer on a host reads bytes that are there, so
@@ -61,3 +63,20 @@ They are Windows API code and the runners are Ubuntu. The same defects are
 reachable there with AddressSanitizer, which CI already runs on every
 module, so nothing is lost — but ASan does not work on either compiler on
 the development machine, and these do. See the note on that in `CLAUDE.md`.
+
+## Exhaustive sweeps
+
+`sfixed_rounding.c` runs `sfixedFloor`, `sfixedCeil` and `sfixedRound` over
+all 2^32 values of the type, about a minute with optimisation on, and
+requires exact counts: no refusal from Floor, 65535 overflows from Ceil and
+32768 from Round, nothing else from any of them. It is the evidence behind
+the notes in `sfixed.c` that say rounding never leaves the type at the
+bottom, and it is portable, so it runs anywhere:
+
+```bash
+python -m ziglang cc -O2 -std=c99 -Iinc/fixed \
+  test/harness/sfixed_rounding.c src/fixed/sfixed.c -o sfixed_rounding && ./sfixed_rounding
+```
+
+The suite pins the same claims at the values closest to the edge, and its
+property sweep counts any refused Floor as a failure.

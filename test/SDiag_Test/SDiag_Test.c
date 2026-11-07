@@ -3,8 +3,8 @@
   *
   * @file      SDiag_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the sdiag module.
   *
@@ -13,6 +13,8 @@
   *
   * @par History
   * 05/08/2026 Created. @n
+  * 07/11/2026 Every status a return block promises is asked for at least @n
+  *            once, as tools/tracecheck.py requires. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -627,6 +629,28 @@ static void testUncoveredBranches ( void )
 }
 
 /**
+ * @brief   Asks for each status a return block promises that the suite had
+ *          never expected.
+ * @note    tools/tracecheck.py found these.
+ */
+static void testStatusContract ( void )
+{
+    const unsigned char data[ 4 ] = { 1u, 2u, 3u, 4u };
+    uint32_t crc = 0x12345678u;
+    sdiagflow_t monitor;
+
+    expectStatus ( "contract: crc32Update NULL data",
+                   sdiagCrc32Update ( NULL, 4u, 0u, &crc ), SD_NULLPTR );
+    expectStatus ( "contract: crc32Update zero length",
+                   sdiagCrc32Update ( data, 0u, 0u, &crc ), SD_INVALIDSIZE );
+    expectU32 ( "contract: a refused update left the crc alone", crc, 0x12345678u );
+
+    ( void ) sdiagFlowInit ( &monitor );
+    expectStatus ( "contract: flowCheckpoint on a ready monitor",
+                   sdiagFlowCheckpoint ( &monitor, 7u ), SD_OK );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -638,6 +662,7 @@ int main ( void )
     testFlow ( );
     testShadow ( );
     testUncoveredBranches ( );
+    testStatusContract ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

@@ -75,13 +75,13 @@ MUTANTS = [
     {
         "id": 'M11',
         "what": 'an empty range is reported as overlapping',
-        "old": '    if ( ( aSize == 0 ) || ( bSize == 0 ) )\n    {\n        retVal = FALSE;\n    }',
-        "new": '    if ( ( aSize == 0 ) || ( bSize == 0 ) )\n    {\n        retVal = TRUE;\n    }',
+        "old": '    if ( ( aSize == 0u ) || ( bSize == 0u ) )\n    {\n        retVal = FALSE;\n    }',
+        "new": '    if ( ( aSize == 0u ) || ( bSize == 0u ) )\n    {\n        retVal = TRUE;\n    }',
     },
     {
         "id": 'M12',
         "what": 'the reverse copies the string unchanged',
-        "old": '                    dest[ i ] = src[ ( srcLen - 1 ) - i ];',
+        "old": '                    dest[ i ] = src[ ( srcLen - 1u ) - i ];',
         "new": '                    dest[ i ] = src[ i ];',
     },
     {
@@ -105,8 +105,8 @@ MUTANTS = [
     {
         "id": 'M16',
         "what": 'the digits of a number come out reversed',
-        "old": "uint8_t sstringFromU32 ( char* dest, uint32_t destSize, uint32_t value )\n{\n    uint8_t retVal = SS_OK;\n    char scratch [ 11 ];\n    uint32_t digits = 0;\n    uint32_t work = value;\n    uint32_t i = 0;\n\n    if ( dest == NULL )\n    {\n        retVal = SS_NULLPTR;\n    }\n    else if ( destSize == 0 )\n    {\n        retVal = SS_INVALIDSIZE;\n    }\n    else\n    {\n        // A 32 bit value never needs more than ten digits.\n        for ( i = 0; i < 10u; ++i )\n        {\n            if ( ( work != 0u ) || ( digits == 0u ) )\n            {\n                scratch[ digits ] = ( char ) ( '0' + ( work % 10u ) );",
-        "new": "uint8_t sstringFromU32 ( char* dest, uint32_t destSize, uint32_t value )\n{\n    uint8_t retVal = SS_OK;\n    char scratch [ 11 ];\n    uint32_t digits = 0;\n    uint32_t work = value;\n    uint32_t i = 0;\n\n    if ( dest == NULL )\n    {\n        retVal = SS_NULLPTR;\n    }\n    else if ( destSize == 0 )\n    {\n        retVal = SS_INVALIDSIZE;\n    }\n    else\n    {\n        // A 32 bit value never needs more than ten digits.\n        for ( i = 0; i < 10u; ++i )\n        {\n            if ( ( work != 0u ) || ( digits == 0u ) )\n            {\n                scratch[ digits ] = ( char ) ( '0' + ( work / 10u ) );",
+        "old": "uint8_t sstringFromU32 ( char* dest, uint32_t destSize, uint32_t value )\n{\n    uint8_t retVal = SS_OK;\n    char scratch [ 11 ];\n    uint32_t digits = 0;\n    uint32_t work = value;\n    uint32_t i = 0;\n\n    if ( dest == NULL )\n    {\n        retVal = SS_NULLPTR;\n    }\n    else if ( destSize == 0u )\n    {\n        retVal = SS_INVALIDSIZE;\n    }\n    else\n    {\n        // A 32 bit value never needs more than ten digits.\n        for ( i = 0; i < 10u; ++i )\n        {\n            if ( ( work != 0u ) || ( digits == 0u ) )\n            {\n                scratch[ digits ] = ( char ) ( '0' + ( work % 10u ) );",
+        "new": "uint8_t sstringFromU32 ( char* dest, uint32_t destSize, uint32_t value )\n{\n    uint8_t retVal = SS_OK;\n    char scratch [ 11 ];\n    uint32_t digits = 0;\n    uint32_t work = value;\n    uint32_t i = 0;\n\n    if ( dest == NULL )\n    {\n        retVal = SS_NULLPTR;\n    }\n    else if ( destSize == 0u )\n    {\n        retVal = SS_INVALIDSIZE;\n    }\n    else\n    {\n        // A 32 bit value never needs more than ten digits.\n        for ( i = 0; i < 10u; ++i )\n        {\n            if ( ( work != 0u ) || ( digits == 0u ) )\n            {\n                scratch[ digits ] = ( char ) ( '0' + ( work / 10u ) );",
     },
     {
         "id": 'M17',
@@ -119,5 +119,11 @@ MUTANTS = [
         "what": 'a token does not end at the next delimiter',
         "old": '                    if ( isInSet ( str[ i ], delims, delimsLen ) == TRUE )',
         "new": '                    if ( FALSE )',
+    },
+    {
+        "id": 'M19',
+        "what": 'an unterminated number is read to the end of its capacity',
+        "old": '    uint32_t i = 0;\n\n    if ( ( str == NULL ) || ( value == NULL ) )\n    {\n        retVal = SS_NULLPTR;\n    }\n    else\n    {\n        retVal = sstringLength ( str, strSize, &strLen );\n\n        if ( retVal == SS_OK )\n        {\n            if ( strLen == 0u )\n            {\n                retVal = SS_INVALIDFORMAT;\n            }\n            else\n            {\n                for ( i = 0; ( i < strLen ) && ( done == FALSE ); ++i )\n                {\n                    if ( isDigitAscii ( str[ i ] ) == FALSE )',
+        "new": '    uint32_t i = 0;\n\n    if ( ( str == NULL ) || ( value == NULL ) )\n    {\n        retVal = SS_NULLPTR;\n    }\n    else\n    {\n        retVal = sstringLength ( str, strSize, &strLen );\n\n        if ( retVal == SS_UNTERMINATED )\n        {\n            strLen = strSize;\n            retVal = SS_OK;\n        }\n\n        if ( retVal == SS_OK )\n        {\n            if ( strLen == 0u )\n            {\n                retVal = SS_INVALIDFORMAT;\n            }\n            else\n            {\n                for ( i = 0; ( i < strLen ) && ( done == FALSE ); ++i )\n                {\n                    if ( isDigitAscii ( str[ i ] ) == FALSE )',
     },
 ]

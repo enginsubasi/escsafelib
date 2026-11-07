@@ -3,8 +3,8 @@
   *
   * @file      sfilter.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.3
-  * @date      06/11/2026
+  * @version   0.1.4
+  * @date      07/11/2026
   *
   * @brief     Safe signal conditioning function library file.
   *
@@ -28,6 +28,9 @@
   *            negative value. @n
   * 05/11/2026 MISRA C:2012 Rule 10.4 deviation recorded in the banner. @n
   * 06/11/2026 Unsigned zero constants used for unsigned limits and counts. @n
+  * 07/11/2026 Unsigned operands are compared and combined with unsigned @n
+  *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
+  *            is narrowed to enum and Boolean comparisons. @n
   *
   * @note
   * Every sample in this module is an int32_t, whatever the sensor produced.
@@ -66,12 +69,14 @@
   *
   * @note
   * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
-  * categories. Every status in this library is a uint8_t, and it is
-  * compared with the members of the module's status enum, with TRUE and
-  * FALSE, and with unsuffixed constants such as 0. One status type across
-  * every module is what lets a caller treat them all alike, and none of
-  * these comparisons can change a value through the conversion the rule
-  * guards against.
+  * categories. Every status, state and flag in this library is a uint8_t,
+  * and it is compared with the members of the module's enums and with TRUE
+  * and FALSE, which are plain int constants. One status type across every
+  * module is what lets a caller treat them all alike, and none of these
+  * comparisons can change a value through the conversion the rule guards
+  * against. The deviation covers those comparisons and nothing else: an
+  * unsigned value is never compared or combined with an unsuffixed
+  * constant.
   *
   ******************************************************************************
   */
@@ -937,7 +942,7 @@ uint8_t sfilterMedian ( int32_t* samples, uint32_t count, int32_t* result )
             pos = i;
             placed = FALSE;
 
-            for ( j = i; ( j > 0 ) && ( placed == FALSE ); --j )
+            for ( j = i; ( j > 0u ) && ( placed == FALSE ); --j )
             {
                 if ( samples[ j - 1u ] > key )
                 {

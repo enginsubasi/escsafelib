@@ -67,8 +67,8 @@ MUTANTS = [
     {
         "id": 'M11',
         "what": 'the health report ignores early check ins',
-        "old": '        if ( ( driver->early == 0 ) && ( driver->late == 0 ) )',
-        "new": '        if ( driver->late == 0 )',
+        "old": '        if ( ( driver->early == 0u ) && ( driver->late == 0u ) )',
+        "new": '        if ( driver->late == 0u )',
     },
     {
         "id": 'M12',
@@ -79,7 +79,7 @@ MUTANTS = [
     {
         "id": 'M13',
         "what": 'Init accepts a maximum period of zero',
-        "old": '    else if ( maxPeriod == 0 )\n    {\n        retVal = SW_INVALIDPARAM;\n    }\n    else if ( minPeriod > maxPeriod )',
+        "old": '    else if ( maxPeriod == 0u )\n    {\n        retVal = SW_INVALIDPARAM;\n    }\n    else if ( minPeriod > maxPeriod )',
         "new": '    else if ( FALSE )\n    {\n        retVal = SW_INVALIDPARAM;\n    }\n    else if ( minPeriod > maxPeriod )',
     },
     {

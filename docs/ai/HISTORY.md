@@ -34,7 +34,7 @@ not required to resume the project.
 
 ## 2026-11-05 — Development roadmap and MISRA baseline
 
-- Added [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) covering repeatable baseline
+- Added `DEVELOPMENT_PLAN.md` covering repeatable baseline
   checks, MISRA deviation handling, API/test traceability, targeted tests,
   target integration evidence, and release/maintenance evidence.
 - Ran the repository MISRA script with cppcheck 2.21.0 and its bundled addon.
@@ -105,14 +105,53 @@ not required to resume the project.
     check, and generated-source consistency passed. ASan was skipped because
     the allocation-overread control was inert on this host.
   - `git diff --check` and Bash syntax check passed.
-- Changes remain uncommitted and unpushed. No CMake/Make build system, target
+- Committed and pushed as `54e59d7`. No CMake/Make build system, target
   validation or product safety-integrity claim was introduced.
+
+## 2026-11-07 — Review of the Codex session (Claude)
+
+- `54e59d7` broke five mutant anchors (`sfault` M11, M15, M16, `sfilter` M10,
+  `svote` M16): the `0` to `0u` edits changed text the mutants match, and
+  `tools/mutate.py` was not run. CI's reporting mutation job concluded
+  `failure` on that commit. The anchors were updated.
+- `DEVELOPMENT_PLAN.md` had been committed as a one-byte file while the
+  handoff pointed at items inside it. `CLAUDE.md` asks for no plan documents
+  in this repository, so it was deleted; the ordered open work lives in
+  [HANDOFF.md](HANDOFF.md).
+- The Rule 10.4 manifest was keyed by source line number, so adding a single
+  `@par History` line to a module invalidated every later key in it.
+
+## 2026-11-07 — Open work items 1-7 (Claude)
+
+- Rule 10.4 manifest re-keyed by module, enclosing function, line hash and
+  count, with a coarse rationale guard and a self-test that `misra.sh` runs
+  as a control. Then every unsigned operand meeting an unsuffixed constant
+  was fixed (621 to 359 occurrences); the deviation text in every banner
+  and the template now covers only enum and `TRUE`/`FALSE` comparisons.
+  The rationale guard caught one line the remediation script had skipped
+  (`*required = srcLen + 1;`, a code line starting with `*`).
+- `tools/tracecheck.py` added: every status a `@return` promises must be
+  expected by the module's own suite or recorded with a reason. First run
+  106 gaps. Real findings: `sstring` had never been given an unterminated
+  source by 21 functions or a zero capacity by 17; `sfixedFloor` and
+  `sfixedRound` promised an `SX_UNDERFLOW` that none of the 2^32 inputs
+  produces (contract corrected); `sfilter` discarded seven success statuses;
+  `sscaleApply`/`ApplyClamped` refusal of a table changed after Init had
+  never been asked for (and 50 million fuzzed tables never reached
+  `sscaleFindSegment`'s refusal). New mutants `sstring` M19, `sfilter` M14,
+  `sscale` M18 are killed only by the new cases.
+- `coverage.sh` gained an MC/DC column (gcc 14+); CI pinned to
+  `ubuntu-24.04` and `actions/checkout@v5`.
+- Follow-up from independent review: the template's own 10.4 hit, sentinel
+  checks on refused outputs in `sstring` and `svote`, Floor/Round pinned at
+  the bottom of the type plus a portable exhaustive harness, four mutants
+  backing the sum-overflow and CopyN-overlap cases, `-O`-proof checker
+  controls. MC/DC classification of four modules found six more real cases.
+  Final: 3841 cases, 212 mutants all accounted for.
+- Process note: shell heredocs in this environment collapse backslash
+  escapes (`\n`, `\b`, line continuations). Two edits were damaged that
+  way and repaired; write scripts with the file tool instead.
 
 ## Open work carried forward
 
-See [HANDOFF.md](HANDOFF.md) and the open item in
-[DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). The next technical priority is to
-remediate or precisely justify the remaining out-of-rationale Rule 10.4
-findings before proceeding to API/test traceability. Target-specific timing,
-fault injection, memory model and safety reactions need a defined target and
-fault model.
+See [HANDOFF.md](HANDOFF.md).

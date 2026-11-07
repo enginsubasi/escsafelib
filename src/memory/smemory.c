@@ -3,8 +3,8 @@
   *
   * @file      smemory.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
-  * @date      05/11/2026
+  * @version   0.1.2
+  * @date      07/11/2026
   *
   * @brief     Safe raw memory handling function library file.
   *
@@ -21,6 +21,9 @@
   * 05/11/2026 The overlap deviation names Rule 11.6, which is the rule @n
   *            these conversions fall under, rather than 11.4. Rule 10.4 @n
   *            deviation recorded in the banner. @n
+  * 07/11/2026 Unsigned operands are compared and combined with unsigned @n
+  *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
+  *            is narrowed to enum and Boolean comparisons. @n
   *
   * @note
   * Six invariants hold for every function in this file. They are the same
@@ -84,12 +87,14 @@
   *
   * @note
   * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
-  * categories. Every status in this library is a uint8_t, and it is
-  * compared with the members of the module's status enum, with TRUE and
-  * FALSE, and with unsuffixed constants such as 0. One status type across
-  * every module is what lets a caller treat them all alike, and none of
-  * these comparisons can change a value through the conversion the rule
-  * guards against.
+  * categories. Every status, state and flag in this library is a uint8_t,
+  * and it is compared with the members of the module's enums and with TRUE
+  * and FALSE, which are plain int constants. One status type across every
+  * module is what lets a caller treat them all alike, and none of these
+  * comparisons can change a value through the conversion the rule guards
+  * against. The deviation covers those comparisons and nothing else: an
+  * unsigned value is never compared or combined with an unsuffixed
+  * constant.
   *
   ******************************************************************************
   */
@@ -143,7 +148,7 @@ static uint8_t isOverlapping ( const void* a, uint32_t aSize, const void* b, uin
     uintptr_t aEnd = 0;
     uintptr_t bEnd = 0;
 
-    if ( ( aSize == 0 ) || ( bSize == 0 ) )
+    if ( ( aSize == 0u ) || ( bSize == 0u ) )
     {
         retVal = FALSE;
     }
@@ -202,7 +207,7 @@ uint8_t smemoryCopyN ( void* dest, uint32_t destSize, const void* src, uint32_t 
     {
         retVal = SM_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -277,7 +282,7 @@ uint8_t smemoryMove ( void* dest, uint32_t destSize, const void* src, uint32_t s
     {
         retVal = SM_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -342,7 +347,7 @@ uint8_t smemorySwap ( void* a, uint32_t aSize, void* b, uint32_t bSize, uint32_t
     {
         retVal = SM_NULLPTR;
     }
-    else if ( ( aSize == 0 ) || ( bSize == 0 ) )
+    else if ( ( aSize == 0u ) || ( bSize == 0u ) )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -399,7 +404,7 @@ uint8_t smemoryReverse ( void* dest, uint32_t destSize, const void* src, uint32_
     {
         retVal = SM_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -458,7 +463,7 @@ uint8_t smemorySetN ( void* dest, uint32_t destSize, uint8_t value, uint32_t cou
     {
         retVal = SM_NULLPTR;
     }
-    else if ( destSize == 0 )
+    else if ( destSize == 0u )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -536,7 +541,7 @@ uint8_t smemoryClearSecure ( void* dest, uint32_t destSize )
     {
         retVal = SM_NULLPTR;
     }
-    else if ( destSize == 0 )
+    else if ( destSize == 0u )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -582,7 +587,7 @@ uint8_t smemoryCompare ( const void* a, uint32_t aSize, const void* b, uint32_t 
     {
         retVal = SM_NULLPTR;
     }
-    else if ( ( aSize == 0 ) || ( bSize == 0 ) )
+    else if ( ( aSize == 0u ) || ( bSize == 0u ) )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -663,7 +668,7 @@ uint8_t smemoryCompareN ( const void* a, uint32_t aSize, const void* b, uint32_t
     {
         retVal = SM_NULLPTR;
     }
-    else if ( ( aSize == 0 ) || ( bSize == 0 ) )
+    else if ( ( aSize == 0u ) || ( bSize == 0u ) )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -745,7 +750,7 @@ uint8_t smemoryEqualSecure ( const void* a, uint32_t aSize, const void* b, uint3
     {
         retVal = SM_NULLPTR;
     }
-    else if ( ( aSize == 0 ) || ( bSize == 0 ) )
+    else if ( ( aSize == 0u ) || ( bSize == 0u ) )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -762,7 +767,7 @@ uint8_t smemoryEqualSecure ( const void* a, uint32_t aSize, const void* b, uint3
             diff = ( unsigned char ) ( diff | ( aBytes[ i ] ^ bBytes[ i ] ) );
         }
 
-        if ( diff == 0 )
+        if ( diff == 0u )
         {
             *equal = TRUE;
         }
@@ -799,7 +804,7 @@ uint8_t smemoryFind ( const void* buf, uint32_t bufSize, uint8_t value, uint32_t
     {
         retVal = SM_NULLPTR;
     }
-    else if ( bufSize == 0 )
+    else if ( bufSize == 0u )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -849,7 +854,7 @@ uint8_t smemoryFindLast ( const void* buf, uint32_t bufSize, uint8_t value, uint
     {
         retVal = SM_NULLPTR;
     }
-    else if ( bufSize == 0 )
+    else if ( bufSize == 0u )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -919,7 +924,7 @@ uint8_t smemoryFindPattern ( const void* hay, uint32_t haySize, const void* need
     {
         retVal = SM_NULLPTR;
     }
-    else if ( ( haySize == 0 ) || ( needleSize == 0 ) )
+    else if ( ( haySize == 0u ) || ( needleSize == 0u ) )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -986,7 +991,7 @@ uint8_t smemoryCount ( const void* buf, uint32_t bufSize, uint8_t value, uint32_
     {
         retVal = SM_NULLPTR;
     }
-    else if ( bufSize == 0 )
+    else if ( bufSize == 0u )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -1033,7 +1038,7 @@ uint8_t smemoryIsZero ( const void* buf, uint32_t bufSize, uint8_t* result )
     {
         retVal = SM_NULLPTR;
     }
-    else if ( bufSize == 0 )
+    else if ( bufSize == 0u )
     {
         retVal = SM_INVALIDSIZE;
     }
@@ -1044,7 +1049,7 @@ uint8_t smemoryIsZero ( const void* buf, uint32_t bufSize, uint8_t* result )
             accumulator = ( unsigned char ) ( accumulator | bytes[ i ] );
         }
 
-        if ( accumulator == 0 )
+        if ( accumulator == 0u )
         {
             *result = TRUE;
         }

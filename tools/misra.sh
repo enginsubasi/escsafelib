@@ -93,6 +93,11 @@ if ! grep -q "misra-c2012-7.1" "$WORK/control.log" || ! grep -q "misra-c2012-15.
 fi
 echo "control: the addon reports 7.1 and 15.1 on a file built to break them"
 
+if ! "$PYTHON" "$(native "$REPO/tools/misra_occurrences.py")" --self-test; then
+    echo "CONTROL FAILED: the Rule 10.4 occurrence checker failed its own controls"
+    exit 2
+fi
+
 # --------------------------------------------------------------- deviations
 #
 # rule  modules (or *)  -- the argument for each is recorded in CLAUDE.md
@@ -176,23 +181,35 @@ for m in "${MODULES[@]}"; do
           done
 done
 
-if [ "$WHOLE" -eq 1 ]; then
-        if ! "$PYTHON" "$(native "$REPO/tools/misra_occurrences.py")" \
-        --repo "$(native "$REPO")" \
-        --manifest "$(native "$REPO/tools/misra_10_4.tsv")" \
-        --actual "$(native "$WORK/rule_10_4")"; then
-            status=1
-        fi
+# Rule 10.4 is checked against the reviewed manifest rather than a rule-wide
+# exception. A partial run checks only the selected modules' records.
+
+SELECTED=()
+if [ "$WHOLE" -eq 0 ]; then
+    SELECTED=( --modules "${MODULES[@]}" )
+fi
+
+"$PYTHON" "$(native "$REPO/tools/misra_occurrences.py")" \
+    --repo "$(native "$REPO")" \
+    --manifest "$(native "$REPO/tools/misra_10_4.tsv")" \
+    --actual "$(native "$WORK/rule_10_4")" \
+    "${SELECTED[@]}" > "$WORK/manifest.log" 2>&1
+manifest_rc=$?
+mismatches=$(grep -c "Rule 10.4 occurrence" "$WORK/manifest.log")
+
+if [ "$manifest_rc" -ne 0 ]; then
+    status=1
+    echo
+    echo "Rule 10.4 occurrences that differ from tools/misra_10_4.tsv:"
+    if [ "$ANNOTATE" -eq 1 ]; then
+        grep "Rule 10.4 occurrence" "$WORK/manifest.log" | sed 's/^/::error::MISRA C:2012 /'
     else
-        if ! "$PYTHON" "$(native "$REPO/tools/misra_occurrences.py")" \
-            --repo "$(native "$REPO")" \
-            --manifest "$(native "$REPO/tools/misra_10_4.tsv")" \
-            --actual "$(native "$WORK/rule_10_4")" \
-            --modules "${MODULES[@]}"; then
-            status=1
-        else
-            :
-        fi
+        cat "$WORK/manifest.log"
+    fi
+    if [ "$mismatches" -eq 0 ]; then
+        echo "MISRA FAILED: the Rule 10.4 manifest could not be checked"
+        cat "$WORK/manifest.log"
+    fi
 fi
 
 # ------------------------------------------------------------------- report
@@ -215,7 +232,7 @@ echo "by rule, outside the deviations:"
 awk '{ print $3 }' "$WORK/findings" | sort | uniq -c | sort -rn
 echo "by rule, inside the deviations:"
 awk '{ print $1 }' "$WORK/deviated" | sort | uniq -c | sort -rn
-echo "matched Rule 10.4 allowlist occurrences: $(wc -l < "$WORK/rule_10_4")"
+echo "Rule 10.4 occurrences found: $(wc -l < "$WORK/rule_10_4")"
 
 # A deviation nothing needs any more is a claim the code no longer makes,
 # and the record should go. Only meaningful over the whole tree.
@@ -241,5 +258,5 @@ fi
 
 total=$(wc -l < "$WORK/findings")
 echo
-echo "${#MODULES[@]} modules, $total findings outside the recorded deviations"
+echo "${#MODULES[@]} modules, $total findings outside the recorded deviations, $mismatches Rule 10.4 manifest differences"
 exit $status

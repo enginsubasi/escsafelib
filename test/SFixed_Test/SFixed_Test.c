@@ -3,8 +3,8 @@
   *
   * @file      SFixed_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the sfixed module.
   *
@@ -13,6 +13,8 @@
   *
   * @par History
   * 05/08/2026 Created. @n
+  * 07/11/2026 Every status a return block promises is asked for at least @n
+  *            once, as tools/tracecheck.py requires. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -529,7 +531,9 @@ static void testProperties ( void )
             }
             else
             {
-                // Intentionally blank. Refused at the edge of the type.
+                /* Flooring never leaves the type: -32768 is a whole number,
+                   so a refusal anywhere is a defect. */
+                ++floorBad;
             }
 
             if ( highOk == TRUE )
@@ -748,6 +752,45 @@ static void testUncoveredBranches ( void )
 }
 
 /**
+ * @brief   Asks for each status a return block promises that the suite had
+ *          never expected.
+ * @note    tools/tracecheck.py found these. Each one leaves the type in the
+ *          direction the suite had not tried.
+ */
+static void testStatusContract ( void )
+{
+    sfixed_t x = 12345;
+
+    expectStatus ( "contract: fromRatio below the type",
+                   sfixedFromRatio ( -100000, 1, &x ), SX_UNDERFLOW );
+    expectStatus ( "contract: sub above the type",
+                   sfixedSub ( INT32_MAX, -FX_ONE, &x ), SX_OVERFLOW );
+    expectStatus ( "contract: div below the type",
+                   sfixedDiv ( -( FX_ONE * 1000 ), FX_ONE / 100, &x ), SX_UNDERFLOW );
+    expectStatus ( "contract: ceil of the largest value",
+                   sfixedCeil ( INT32_MAX, &x ), SX_OVERFLOW );
+    expectStatus ( "contract: round of the largest value",
+                   sfixedRound ( INT32_MAX, &x ), SX_OVERFLOW );
+    expectI32 ( "contract: no refused call wrote the result", x, 12345 );
+
+    /* The bottom of the type is a whole number, so neither rounding down nor
+       rounding to nearest can leave it. sfixedFloor and sfixedRound say so
+       in their notes; these pin it at the two values closest to the edge. */
+    expectStatus ( "contract: floor just above the smallest value",
+                   sfixedFloor ( INT32_MIN + 1, &x ), SX_OK );
+    expectI32 ( "contract: floors to the smallest value", x, INT32_MIN );
+    expectStatus ( "contract: floor of the smallest value",
+                   sfixedFloor ( INT32_MIN, &x ), SX_OK );
+    expectI32 ( "contract: the smallest value floors to itself", x, INT32_MIN );
+    expectStatus ( "contract: round of the smallest value",
+                   sfixedRound ( INT32_MIN, &x ), SX_OK );
+    expectI32 ( "contract: the smallest value rounds to itself", x, INT32_MIN );
+    expectStatus ( "contract: round just above the smallest value",
+                   sfixedRound ( INT32_MIN + 1, &x ), SX_OK );
+    expectI32 ( "contract: rounds to the smallest value", x, INT32_MIN );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -760,6 +803,7 @@ int main ( void )
     testProperties ( );
     testRoundTrip ( );
     testUncoveredBranches ( );
+    testStatusContract ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

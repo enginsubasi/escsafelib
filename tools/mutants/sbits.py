@@ -19,7 +19,7 @@ MUTANTS = [
     {
         "id": 'M3',
         "what": 'a zero width field is accepted',
-        "old": '    if ( width == 0 )\n    {\n        retVal = FALSE;\n    }\n    else if ( ( ( uint32_t ) position + ( uint32_t ) width ) > SBITS_WORDBITS )',
+        "old": '    if ( width == 0u )\n    {\n        retVal = FALSE;\n    }\n    else if ( ( ( uint32_t ) position + ( uint32_t ) width ) > SBITS_WORDBITS )',
         "new": '    if ( FALSE )\n    {\n        retVal = FALSE;\n    }\n    else if ( ( ( uint32_t ) position + ( uint32_t ) width ) > SBITS_WORDBITS )',
     },
     {

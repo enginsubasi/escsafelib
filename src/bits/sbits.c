@@ -3,8 +3,8 @@
   *
   * @file      sbits.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
-  * @date      05/11/2026
+  * @version   0.1.2
+  * @date      07/11/2026
   *
   * @brief     Safe bit field packing function library file.
   *
@@ -20,6 +20,9 @@
   * 05/11/2026 No signed value is shifted: every power of two is formed @n
   *            unsigned and converted afterwards. MISRA C:2012 Rule 10.4 @n
   *            deviation recorded in the banner. @n
+  * 07/11/2026 Unsigned operands are compared and combined with unsigned @n
+  *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
+  *            is narrowed to enum and Boolean comparisons. @n
   *
   * @note
   * A protocol frame is a row of bit fields, and unpacking one by hand is
@@ -73,12 +76,14 @@
   *
   * @note
   * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
-  * categories. Every status in this library is a uint8_t, and it is
-  * compared with the members of the module's status enum, with TRUE and
-  * FALSE, and with unsuffixed constants such as 0. One status type across
-  * every module is what lets a caller treat them all alike, and none of
-  * these comparisons can change a value through the conversion the rule
-  * guards against.
+  * categories. Every status, state and flag in this library is a uint8_t,
+  * and it is compared with the members of the module's enums and with TRUE
+  * and FALSE, which are plain int constants. One status type across every
+  * module is what lets a caller treat them all alike, and none of these
+  * comparisons can change a value through the conversion the rule guards
+  * against. The deviation covers those comparisons and nothing else: an
+  * unsigned value is never compared or combined with an unsuffixed
+  * constant.
   *
   ******************************************************************************
   */
@@ -127,7 +132,7 @@ static uint8_t fieldFits ( uint8_t position, uint8_t width )
 {
     uint8_t retVal = FALSE;
 
-    if ( width == 0 )
+    if ( width == 0u )
     {
         retVal = FALSE;
     }
@@ -194,7 +199,7 @@ uint8_t sbitsFits ( uint32_t value, uint8_t width, uint8_t* fits )
     {
         retVal = SB_NULLPTR;
     }
-    else if ( ( width == 0 ) || ( ( uint32_t ) width > SBITS_WORDBITS ) )
+    else if ( ( width == 0u ) || ( ( uint32_t ) width > SBITS_WORDBITS ) )
     {
         retVal = SB_INVALIDPARAM;
     }
@@ -244,7 +249,7 @@ uint8_t sbitsFitsSigned ( int32_t value, uint8_t width, uint8_t* fits )
     {
         retVal = SB_NULLPTR;
     }
-    else if ( ( width == 0 ) || ( ( uint32_t ) width > SBITS_WORDBITS ) )
+    else if ( ( width == 0u ) || ( ( uint32_t ) width > SBITS_WORDBITS ) )
     {
         retVal = SB_INVALIDPARAM;
     }
@@ -660,7 +665,7 @@ uint8_t sbitsGetBytes ( const uint8_t* data, uint32_t size, uint32_t position, u
     {
         retVal = SB_NULLPTR;
     }
-    else if ( ( width == 0 ) || ( ( uint32_t ) width > SBITS_WORDBITS ) )
+    else if ( ( width == 0u ) || ( ( uint32_t ) width > SBITS_WORDBITS ) )
     {
         retVal = SB_INVALIDPARAM;
     }
@@ -714,7 +719,7 @@ uint8_t sbitsSetBytes ( uint8_t* data, uint32_t size, uint32_t position, uint8_t
     {
         retVal = SB_NULLPTR;
     }
-    else if ( ( width == 0 ) || ( ( uint32_t ) width > SBITS_WORDBITS ) )
+    else if ( ( width == 0u ) || ( ( uint32_t ) width > SBITS_WORDBITS ) )
     {
         retVal = SB_INVALIDPARAM;
     }

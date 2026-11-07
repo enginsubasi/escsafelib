@@ -3,8 +3,8 @@
   *
   * @file      sstate.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.2
-  * @date      05/11/2026
+  * @version   0.1.3
+  * @date      07/11/2026
   *
   * @brief     Safe guarded state machine function library file.
   *
@@ -20,6 +20,9 @@
   * 04/11/2026 The driver struct is documented in this file, so the @n
   *            header stays a pure declaration. @n
   * 05/11/2026 MISRA C:2012 Rule 10.4 deviation recorded in the banner. @n
+  * 07/11/2026 Unsigned operands are compared and combined with unsigned @n
+  *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
+  *            is narrowed to enum and Boolean comparisons. @n
   *
   * @note
   * A state machine written as a switch works until somebody adds a case. The
@@ -95,12 +98,14 @@
   *
   * @note
   * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
-  * categories. Every status in this library is a uint8_t, and it is
-  * compared with the members of the module's status enum, with TRUE and
-  * FALSE, and with unsuffixed constants such as 0. One status type across
-  * every module is what lets a caller treat them all alike, and none of
-  * these comparisons can change a value through the conversion the rule
-  * guards against.
+  * categories. Every status, state and flag in this library is a uint8_t,
+  * and it is compared with the members of the module's enums and with TRUE
+  * and FALSE, which are plain int constants. One status type across every
+  * module is what lets a caller treat them all alike, and none of these
+  * comparisons can change a value through the conversion the rule guards
+  * against. The deviation covers those comparisons and nothing else: an
+  * unsigned value is never compared or combined with an unsuffixed
+  * constant.
   *
   ******************************************************************************
   */
@@ -145,7 +150,7 @@ static uint8_t isReady ( const sstate_t* driver )
     {
         retVal = FALSE;
     }
-    else if ( ( driver->stateCount == 0 ) || ( driver->stateCount > SSTATE_MAXSTATES ) )
+    else if ( ( driver->stateCount == 0u ) || ( driver->stateCount > SSTATE_MAXSTATES ) )
     {
         retVal = FALSE;
     }
@@ -224,7 +229,7 @@ uint8_t sstateInit ( sstate_t* driver, const uint8_t* table, uint32_t tableSize,
     {
         retVal = ST_NULLPTR;
     }
-    else if ( ( stateCount == 0 ) || ( stateCount > SSTATE_MAXSTATES ) )
+    else if ( ( stateCount == 0u ) || ( stateCount > SSTATE_MAXSTATES ) )
     {
         retVal = ST_INVALIDSIZE;
     }

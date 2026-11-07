@@ -3,8 +3,8 @@
   *
   * @file      smath.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
-  * @date      05/11/2026
+  * @version   0.1.2
+  * @date      07/11/2026
   *
   * @brief     Safe basic arithmetic function library file.
   *
@@ -27,6 +27,9 @@
   * 05/11/2026 The signed scale guard spells INT32_MIN as a constant, for @n
   *            MISRA C:2012 Rule 10.8. MISRA C:2012 Rule 10.4 deviation @n
   *            recorded in the banner. @n
+  * 07/11/2026 Unsigned operands are compared and divided with unsigned @n
+  *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
+  *            is narrowed to enum and Boolean comparisons. @n
   *
   * @note
   * Five invariants hold for every function in this file.
@@ -73,12 +76,14 @@
   *
   * @note
   * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
-  * categories. Every status in this library is a uint8_t, and it is
-  * compared with the members of the module's status enum, with TRUE and
-  * FALSE, and with unsuffixed constants such as 0. One status type across
-  * every module is what lets a caller treat them all alike, and none of
-  * these comparisons can change a value through the conversion the rule
-  * guards against.
+  * categories. Every status, state and flag in this library is a uint8_t,
+  * and it is compared with the members of the module's enums and with TRUE
+  * and FALSE, which are plain int constants. One status type across every
+  * module is what lets a caller treat them all alike, and none of these
+  * comparisons can change a value through the conversion the rule guards
+  * against. The deviation covers those comparisons and nothing else: an
+  * unsigned value is never compared or combined with an unsuffixed
+  * constant.
   *
   ******************************************************************************
   */
@@ -160,7 +165,7 @@ static uint8_t mulStatusu8 ( uint8_t a, uint8_t b )
 {
     uint8_t retVal = SH_OK;
 
-    if ( a == 0 )
+    if ( a == 0u )
     {
         retVal = SH_OK;
     }
@@ -309,7 +314,7 @@ uint8_t smathDivu8 ( uint8_t a, uint8_t b, uint8_t* result )
     {
         retVal = SH_NULLPTR;
     }
-    else if ( b == 0 )
+    else if ( b == 0u )
     {
         retVal = SH_DIVBYZERO;
     }
@@ -342,7 +347,7 @@ uint8_t smathModu8 ( uint8_t a, uint8_t b, uint8_t* result )
     {
         retVal = SH_NULLPTR;
     }
-    else if ( b == 0 )
+    else if ( b == 0u )
     {
         retVal = SH_DIVBYZERO;
     }
@@ -385,7 +390,7 @@ uint8_t smathScaleu8 ( uint8_t value, uint8_t numerator, uint8_t denominator, ui
     {
         retVal = SH_NULLPTR;
     }
-    else if ( denominator == 0 )
+    else if ( denominator == 0u )
     {
         retVal = SH_DIVBYZERO;
     }
@@ -430,7 +435,7 @@ uint8_t smathAverageu8 ( uint8_t a, uint8_t b, uint8_t* result )
     }
     else
     {
-        wide = ( ( uint32_t ) a + ( uint32_t ) b ) / 2;
+        wide = ( ( uint32_t ) a + ( uint32_t ) b ) / 2u;
         *result = ( uint8_t ) wide;
         retVal = SH_OK;
     }
@@ -742,11 +747,11 @@ uint8_t smathIsPowerOfTwou8 ( uint8_t value, uint8_t* result )
     }
     else
     {
-        if ( value == 0 )
+        if ( value == 0u )
         {
             *result = FALSE;
         }
-        else if ( ( value & ( uint8_t ) ( value - 1u ) ) == 0 )
+        else if ( ( value & ( uint8_t ) ( value - 1u ) ) == 0u )
         {
             *result = TRUE;
         }
@@ -834,7 +839,7 @@ uint8_t smathLog2Flooru8 ( uint8_t value, uint8_t* result )
     {
         retVal = SH_NULLPTR;
     }
-    else if ( value == 0 )
+    else if ( value == 0u )
     {
         retVal = SH_DOMAIN;
     }
@@ -933,7 +938,7 @@ static uint8_t mulStatusu16 ( uint16_t a, uint16_t b )
 {
     uint8_t retVal = SH_OK;
 
-    if ( a == 0 )
+    if ( a == 0u )
     {
         retVal = SH_OK;
     }
@@ -1082,7 +1087,7 @@ uint8_t smathDivu16 ( uint16_t a, uint16_t b, uint16_t* result )
     {
         retVal = SH_NULLPTR;
     }
-    else if ( b == 0 )
+    else if ( b == 0u )
     {
         retVal = SH_DIVBYZERO;
     }
@@ -1115,7 +1120,7 @@ uint8_t smathModu16 ( uint16_t a, uint16_t b, uint16_t* result )
     {
         retVal = SH_NULLPTR;
     }
-    else if ( b == 0 )
+    else if ( b == 0u )
     {
         retVal = SH_DIVBYZERO;
     }
@@ -1158,7 +1163,7 @@ uint8_t smathScaleu16 ( uint16_t value, uint16_t numerator, uint16_t denominator
     {
         retVal = SH_NULLPTR;
     }
-    else if ( denominator == 0 )
+    else if ( denominator == 0u )
     {
         retVal = SH_DIVBYZERO;
     }
@@ -1203,7 +1208,7 @@ uint8_t smathAverageu16 ( uint16_t a, uint16_t b, uint16_t* result )
     }
     else
     {
-        wide = ( ( uint32_t ) a + ( uint32_t ) b ) / 2;
+        wide = ( ( uint32_t ) a + ( uint32_t ) b ) / 2u;
         *result = ( uint16_t ) wide;
         retVal = SH_OK;
     }
@@ -1515,11 +1520,11 @@ uint8_t smathIsPowerOfTwou16 ( uint16_t value, uint8_t* result )
     }
     else
     {
-        if ( value == 0 )
+        if ( value == 0u )
         {
             *result = FALSE;
         }
-        else if ( ( value & ( uint16_t ) ( value - 1u ) ) == 0 )
+        else if ( ( value & ( uint16_t ) ( value - 1u ) ) == 0u )
         {
             *result = TRUE;
         }
@@ -1607,7 +1612,7 @@ uint8_t smathLog2Flooru16 ( uint16_t value, uint8_t* result )
     {
         retVal = SH_NULLPTR;
     }
-    else if ( value == 0 )
+    else if ( value == 0u )
     {
         retVal = SH_DOMAIN;
     }
@@ -1706,7 +1711,7 @@ static uint8_t mulStatusu32 ( uint32_t a, uint32_t b )
 {
     uint8_t retVal = SH_OK;
 
-    if ( a == 0 )
+    if ( a == 0u )
     {
         retVal = SH_OK;
     }
@@ -1855,7 +1860,7 @@ uint8_t smathDivu32 ( uint32_t a, uint32_t b, uint32_t* result )
     {
         retVal = SH_NULLPTR;
     }
-    else if ( b == 0 )
+    else if ( b == 0u )
     {
         retVal = SH_DIVBYZERO;
     }
@@ -1888,7 +1893,7 @@ uint8_t smathModu32 ( uint32_t a, uint32_t b, uint32_t* result )
     {
         retVal = SH_NULLPTR;
     }
-    else if ( b == 0 )
+    else if ( b == 0u )
     {
         retVal = SH_DIVBYZERO;
     }
@@ -1931,7 +1936,7 @@ uint8_t smathScaleu32 ( uint32_t value, uint32_t numerator, uint32_t denominator
     {
         retVal = SH_NULLPTR;
     }
-    else if ( denominator == 0 )
+    else if ( denominator == 0u )
     {
         retVal = SH_DIVBYZERO;
     }
@@ -1976,7 +1981,7 @@ uint8_t smathAverageu32 ( uint32_t a, uint32_t b, uint32_t* result )
     }
     else
     {
-        wide = ( ( uint64_t ) a + ( uint64_t ) b ) / 2;
+        wide = ( ( uint64_t ) a + ( uint64_t ) b ) / 2u;
         *result = ( uint32_t ) wide;
         retVal = SH_OK;
     }
@@ -2288,11 +2293,11 @@ uint8_t smathIsPowerOfTwou32 ( uint32_t value, uint8_t* result )
     }
     else
     {
-        if ( value == 0 )
+        if ( value == 0u )
         {
             *result = FALSE;
         }
-        else if ( ( value & ( uint32_t ) ( value - 1u ) ) == 0 )
+        else if ( ( value & ( uint32_t ) ( value - 1u ) ) == 0u )
         {
             *result = TRUE;
         }
@@ -2380,7 +2385,7 @@ uint8_t smathLog2Flooru32 ( uint32_t value, uint8_t* result )
     {
         retVal = SH_NULLPTR;
     }
-    else if ( value == 0 )
+    else if ( value == 0u )
     {
         retVal = SH_DOMAIN;
     }

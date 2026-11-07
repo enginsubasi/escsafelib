@@ -27,7 +27,7 @@ not turn these notes or historical test results into a compliance claim.
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All fourteen modules are implemented — 358 functions and 3714 self-checking test cases across fifteen suites.
+All fourteen modules are implemented — 358 functions and 3841 self-checking test cases across fifteen suites: 3803 in the fourteen module suites and 38 in the integration suite. Every status a function's `@return` promises is expected by at least one case in its own suite, or recorded with its reason in `tools/trace_exceptions.tsv`; `tools/tracecheck.py` checks it.
 
 ## Working language
 
@@ -149,7 +149,7 @@ python tools/mutate.py svote        # one of them
 python tools/mutate.py --list
 ```
 
-**205 mutants across the fourteen modules: 185 killed, 20 equivalent, all
+**212 mutants across the fourteen modules: 192 killed, 20 equivalent, all
 accounted for.** The defects live in `tools/mutants/<module>.py`, one file
 per module, and the runner is `tools/mutate.py`. Before that they were
 throwaway scripts in a scratch directory and the numbers in this file were
@@ -158,13 +158,13 @@ can repeat.
 
 | module | killed | equivalent | module | killed | equivalent |
 |---|---|---|---|---|---|
-| `sarray` | 13 | 6 | `sring` | 13 | 1 |
-| `sbits` | 17 | 0 | `sscale` | 16 | 1 |
+| `sarray` | 16 | 6 | `sring` | 13 | 1 |
+| `sbits` | 17 | 0 | `sscale` | 17 | 1 |
 | `sdiag` | 7 | 1 | `sstate` | 16 | 2 |
-| `sfault` | 16 | 1 | `sstring` | 14 | 4 |
-| `sfilter` | 12 | 1 | `svote` | 16 | 0 |
+| `sfault` | 16 | 1 | `sstring` | 15 | 4 |
+| `sfilter` | 13 | 1 | `svote` | 16 | 0 |
 | `sfixed` | 10 | 0 | `swatch` | 16 | 0 |
-| `smath` | 15 | 0 | `smemory` | 4 | 3 |
+| `smath` | 15 | 0 | `smemory` | 5 | 3 |
 
 `sarray`, `smath` and `sstring` were the thinnest measurement here for a
 while: five, eight and seven real mutants against ninety two, sixty eight
@@ -235,10 +235,12 @@ Results from the mutation runs that are worth keeping in mind:
   is the reason the explicit `==` check is in the source anyway — the
   code should say what it means rather than be right by accident.
 - **One `sfault` mutant survives and is the same equivalent class as `sring` and `sscale`.** Its `isReady` tests both limits for zero, and either test alone catches a zeroed driver, so dropping one changes nothing reachable through the API. A driver with one limit set and the other zero can only be built by writing the struct by hand.
-- **Two `sdiag` mutants survive and are known to.** Disabling the zero-read checks of March element two, or the address uniqueness pass, changes nothing that any harness on this machine can observe: healthy host memory always reads back what was written, and the aliasing harness's fault is caught redundantly by a later March element. See "Untestable here" below.
+- **One `sdiag` mutant survives and is known to.** M8 reads the shadow copy through an ordinary pointer instead of a `volatile` one. The qualifier stops the compiler folding the two reads, and whether it did cannot be observed from inside the same program; only the generated code shows it. This line used to describe two survivors in the March tests, from a mutant set that no longer exists: the March failure paths are not mutated at all, because nothing portable reaches them. See "Untestable here" below.
 
 `tools/coverage.sh` measures statement and branch coverage with gcc's
-`--coverage` and gcov. Mutation testing samples; coverage counts, and the two
+`--coverage` and gcov, and MC/DC as well when the compiler is gcc 14 or later
+(`-fcondition-coverage`). The MinGW gcc 14.2 here has it; CI installs gcc-14
+for the job. Mutation testing samples; coverage counts, and the two
 answer different questions. The first run said so plainly: `sscale`, at the
 time the most heavily tested module in the library — 223 cases and 17 mutants
 — had never taken ten percent of its own branches.
@@ -251,24 +253,35 @@ What that first run found, and what closing it cost:
 
 | module | branches taken, before | now | lines now |
 |---|---|---|---|
-| `sarray` | 79.4% | 97.2% | 99.0% |
+| `sarray` | 79.4% | 97.5% | 99.3% |
 | `smemory` | 81.7% | 90.4% | 99.4% |
 | `sdiag` | 82.2% | 84.2% | 91.0% |
-| `sstring` | 83.0% | 88.3% | 99.8% |
-| `sfixed` | 86.0% | 94.7% | 100% |
-| `sscale` | 89.9% | 90.8% | 97.2% |
+| `sstring` | 83.0% | 91.4% | 99.8% |
+| `sfixed` | 86.0% | 95.6% | 100% |
+| `sscale` | 89.9% | 93.1% | 98.7% |
 | `smath` | 91.3% | 97.0% | 98.9% |
 | `sring` | 91.5% | 91.5% | 99.5% |
-| `sfilter` | 92.3% | 94.6% | 100% |
-| `sbits` | — | 99.0% | 100% |
-| `sfault` | — | 95.6% | 100% |
+| `sfilter` | 92.3% | 94.8% | 100% |
+| `sbits` | — | **100%** | 100% |
+| `sfault` | — | 99.3% | 100% |
 | `sstate` | — | 97.5% | 99.5% |
-| `svote` | — | 98.4% | 100% |
+| `svote` | — | **100%** | 100% |
 | `swatch` | — | **100%** | 100% |
+
+The "now" column is from 07/11/2026, after `tools/tracecheck.py` added the
+cases its first run asked for. MC/DC on the same run is within a point of
+branch coverage in every module (`sdiag` 83.6%, `sstring` 91.3%, the rest
+equal); its gaps are written to `<module>.conditions.txt`. `sbits`, `svote`,
+`sfault` and `sstate` have been classified: the MC/DC outcomes they were
+missing were six real cases (now in their suites, which took `sbits` and
+`svote` to every condition) and three defensive ones (the redundant half of
+`isReady` in `sfault` and `sstate`, and the reachability walk's pass bound,
+which a breadth first walk always finishes inside). **The other ten modules
+have not yet been classified.**
 
 The "now" column includes the integration suite, which `coverage.sh` links
 against nine of the modules and counts. That is what took `swatch` to every
-branch and `sfault` to 95.6%: a chain exercises paths a module's own suite
+branch: a chain exercises paths a module's own suite
 has no reason to reach.
 
 Four of the holes were ones a broken module would have survived, and they are
@@ -296,16 +309,15 @@ which is a comment. What remains is all of the second kind:
 - `sarray`, `smemory`, `sstring`: `isOverlapping`'s address-wrap guards, which
   need a buffer at the very top of the address space; `spanBytes`, which needs
   an element count whose byte span passes 2^32.
-- `sarray`: the sum overflow in the `u8` and `u16` families. The accumulator is
-  a `uint32_t`, so `u8` needs 16.8 million elements and `u16` needs 65537. The
-  identical guard is exercised in the `u32` and `i32` families.
 - `smath`: the unsigned saturating forms saturating toward the end they cannot
   reach — the same impossibility recorded in their `@return` blocks.
 - `sring`, `sscale`: the redundant half of `isReady`. Either condition alone
   catches a zeroed driver, which is why both survive mutation.
-- `sscale`: `SC_INVALIDTABLE` out of `Apply` and `FindSegment`, and the
-  degenerate-segment guard in `interpolate`. A validated table cannot produce
-  any of them.
+- `sscale`: `SC_INVALIDTABLE` out of `FindSegment`. A validated table
+  cannot produce it, and neither did 50 million tables changed after Init.
+  `Apply`, `ApplyClamped` and the degenerate-segment guard in `interpolate`
+  used to be on this list; a table its caller rewrote after Init reaches all
+  three, and the suite now does that.
 - `sdiag`: the March test failure paths. That is the stuck-at fault limit
   recorded under "Untestable here", not a gap in the suite.
 
@@ -370,7 +382,7 @@ and four rules are recorded as deviations:
 
 | rule | hits | modules | decision |
 |---|---|---|---|
-| 10.4 | 621 currently matched (636 at baseline) | all | **known-finding allowlist.** The recorded rationale is status comparisons with enums and Boolean values. Fifteen unsigned zero comparisons were corrected to `0u`; remaining entries are fingerprinted, but still require source-level rationale review before being treated as justified deviations. |
+| 10.4 | 359 (636 at baseline) | all | **deviation, narrowed on 07/11/2026.** A status, state or flag is a `uint8_t` compared with the module's enum members and with `TRUE`/`FALSE`; that is all the deviation covers. The 277 hits that compared or combined an unsigned value with an unsuffixed constant were fixed with a `u` suffix, and `tools/misra_occurrences.py` now refuses any 10.4 hit on a line holding neither `TRUE`, `FALSE` nor an enum member |
 | 11.5 | 25 | `smemory`, `sdiag` | **deviation.** `void*` to `unsigned char*`, the one conversion the standard always allows for reading bytes |
 | 11.4 | 10 | `sarray`, `sstring` | **deviation.** Pointer to integer, to test two ranges for overlap and to choose a copy direction |
 | 11.6 | 10 | `sarray`, `smemory`, `sstring` | **deviation.** The same overlap checks, through `void*` |
@@ -381,7 +393,7 @@ and four rules are recorded as deviations:
 
 Module-scoped deviations are written in the banner of each module they cover,
 so they travel with a copied module. Rule 10.4 occurrences are pinned in
-`tools/misra_10_4.tsv` by module, source line, line hash and duplicate count;
+`tools/misra_10_4.tsv` by module, enclosing function, line hash and duplicate count;
 the manifest is a checker baseline, not formal deviation approval.
 `template/src/generic.c` carries the 10.4 rationale for new modules. Two old
 records were wrong and were caught by the run: `sstring` claimed its pointer
@@ -436,6 +448,12 @@ Cleaning it up needs care, because the ordinary ways of checking for it lie:
 - **Also blocking since 05/11/2026** — `cppcheck` (general checks and MISRA through `tools/misra.sh`), `host-analyzer` (gcc `-fanalyzer -Werror`) and `docs` (doxygen, warning free). **Until 04/11/2026 these three were reporting jobs that were green whatever they found**: cppcheck piped into `tee`, doxygen only printed its warnings, and the analyzer had no `-Werror`, so no green result from before then proves anything. Each now exits non zero on a finding, each runs a control that must produce one first, and each was flipped only after a CI run of it came back clean. Their findings are printed as annotations, which the public API serves without admin rights, so a failure can be read from this machine.
 - **Reporting** (`continue-on-error: true`) — the mutation, size and coverage measurements. They are information rather than gates: mutation takes a while, and what counts as too big or too little covered is not a number this repository should choose. **Flip a reporting job to blocking only once a CI run of it comes back clean**, and read that from the job conclusion, not from the absence of a red workflow.
 
+Every job runs on `ubuntu-24.04`, not `ubuntu-latest`, since 07/11/2026. The
+MISRA check pins each Rule 10.4 finding, and the cppcheck producing them
+comes from the image's package archive, so an image change would swap the
+analyser under a green check. Move the image deliberately, in a commit of
+its own, and read what the MISRA job says about it.
+
 The MISRA addon prints rule numbers without descriptions, because the rule texts are copyrighted and cannot ship. `misra-c2012-11.4` is expected: it is the pointer-to-integer conversion in `isOverlapping`, already recorded as a deviation in the `sstring.c` banner.
 
 Syntax and warning check for one module, and for the whole tree:
@@ -469,16 +487,47 @@ prototype names a bare `int`. 357 declarations, no findings. A pointer to a
 module's own driver struct is exempt, and those types are read out of each
 header's typedefs so a new module needs no change to the tool.
 
-`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 657 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
+`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 669 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
 
 **Its most useful rule is one doxygen has no concept of: a `@return` must name every status the body can set, and no status it cannot.** That is what found the only real defect the first full audit turned up. The four `smath` families share one template, so the unsigned ones had inherited the signed text and promised an `SH_UNDERFLOW` that an unsigned addition cannot produce and an `SH_OVERFLOW` that an unsigned subtraction cannot — a caller testing for either was writing a branch that never runs.
 
 Two patterns it accepts on purpose, because both are better documentation than the alternative:
 
 - **`"otherwise the status sarrayCopyNu8 reports"`** documents the delegate's statuses. Copying the list would drift.
-- **A status the body can form but can never produce may be explained in a `@note`** rather than listed in `@return`. `sfixedFloor` calls a range check that can say `SX_OVERFLOW`, and rounding down cannot reach it. The audit added those notes rather than removing the checks.
+- **A status the body can form but can never produce may be explained in a `@note`** rather than listed in `@return`. `sfixedFloor` calls a range check that can say `SX_OVERFLOW` and `SX_UNDERFLOW`, and rounding down reaches neither. The audit added those notes rather than removing the checks.
 
 The same rule applies to it as to the test suites: a checker that passes on its first run has been shown to check nothing. It was developed against a control file carrying one deliberate defect per rule, and every rule fired. Do that again before trusting a change to it.
+
+`tools/tracecheck.py` asks the question neither of those does: **for each
+status a function's `@return` promises, where is the case in its own suite
+that expects it?** A statement that calls the function and names the status
+counts, and so does a status parked in a local and compared a few
+statements later, which is how the sweeps are written. A status no case can
+expect goes in `tools/trace_exceptions.tsv` with its reason, and an
+exception that a case now covers fails the check as stale. It is a blocking
+CI step and runs from `run_all.sh`.
+
+Its first run, on 07/11/2026, reported 106 gaps across 358 functions, and
+two of its findings matter beyond the count:
+
+- **`sstring` had never handed an unterminated source to twenty one
+  functions that promise to refuse one**, nor a zero capacity to seventeen.
+  Those refusals are what the reference module exists for. `sstring` M19
+  now reads an unterminated number to the end of its capacity, and only the
+  new cases kill it.
+- **`sfixedFloor` and `sfixedRound` promised an `SX_UNDERFLOW` no input can
+  produce.** All 2^32 inputs were run: the smallest value of the type is a
+  whole number, so nothing rounds below it. The same class of defect
+  `doxcheck.py` found in `smath`, and the same fix: the promise moved to a
+  `@note`.
+
+It also found `sfilter` throwing away seven success statuses with
+`( void )`, and that `sscaleApply` and `sscaleApplyClamped` refuse a table
+the caller rewrote after Init without any case ever having asked them to.
+`sfilter` M14 and `sscale` M18 die only to the new cases. Ten exceptions
+remain: delegated statuses a wrapper cannot reach, the March test failures
+only the aliasing harness reaches, and `sscaleFindSegment`'s defensive
+refusal.
 
 ## Layout and module contract
 
@@ -689,6 +738,12 @@ Beyond the shared esclib style, this library adds:
 - No dynamic allocation, ever. The caller owns all storage.
 - No `<string.h>`, no `<ctype.h>`, no `<stdlib.h>`. Only `<stdint.h>` and `<stddef.h>`.
 - Failure is reported through the return value. No abort, no assert, no logging.
+- **An unsigned operand meets only unsigned constants**: `size == 0u`, `i + 1u`,
+  `wide / 2u`. An unsuffixed constant is a signed `int`, and MISRA C:2012 Rule
+  10.4 does not let the two be mixed. The library's 10.4 deviation covers
+  `uint8_t` statuses, states and flags compared with enum members and
+  `TRUE`/`FALSE`, and nothing else; `tools/misra.sh` fails on any other hit.
+  A signed operand keeps its plain constant (`value < 0`).
 - No module state, so every function is reentrant. **`tools/size.sh` measures this rather than trusting it**: every module is required to show `.data` and `.bss` of zero and the script goes red otherwise. All fourteen do. The whole library is about 23 KB of flash on a Cortex-M0+ and 21 KB on a Cortex-M4, measured whole, which is an upper bound because a project linking with `--gc-sections` pays only for the functions it calls.
 
 ## The driver-struct pattern

@@ -3,8 +3,8 @@
   *
   * @file      SString_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.2.0
-  * @date      02/08/2026
+  * @version   0.2.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the sstring module.
   *
@@ -16,6 +16,8 @@
   * 02/08/2026 Updated for the explicit source capacity API. Cases added @n
   *            for sstringMove, sstringClearSecure, sstringRequiredSize @n
   *            and for the short unterminated source regression. @n
+  * 07/11/2026 Every status a return block promises is asked for at least @n
+  *            once, as tools/tracecheck.py requires. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -1586,6 +1588,164 @@ static void testUncoveredBranches ( void )
 }
 
 /**
+ * @brief   Asks every function for each status its return block promises and the
+ *          suite had never expected.
+ * @note    tools/tracecheck.py found these. Every function had been called,
+ *          and most failure statuses had been asked for somewhere, but an
+ *          unterminated source had never been handed to twenty one of the
+ *          functions that promise to refuse one, and a zero capacity to
+ *          seventeen. Those refusals are what the library exists for, so a
+ *          version that read on past the end of an unterminated source in
+ *          any of them would have passed the whole suite.
+ * @note    Every case that refuses to write is also checked to have left its
+ *          destination exactly as it was.
+ */
+static void testStatusContract ( void )
+{
+    const char unterminated[ 4 ] = { 'a', 'b', 'c', 'd' };
+    const char shouting[ 4 ] = { 'A', 'B', 'C', 'D' };
+    char dest[ 8 ];
+    char snapshot[ 8 ];
+    char shared[ 16 ];
+    char sharedSnapshot[ 16 ];
+    uint32_t value = 0xA5A5A5A5u;
+    uint32_t cursor = 0x11111111u;
+    uint32_t start = 0x22222222u;
+    uint32_t length = 0x33333333u;
+    int32_t signedValue = -12345;
+    uint8_t flag = 0x5Au;
+
+    printf ( "\n-- the status contract --\n" );
+
+    /* ---- a zero capacity ---- */
+
+    expectStatus ( "contract: requiredSize zero capacity",
+                   sstringRequiredSize ( "ab", 0u, &value ), SS_INVALIDSIZE );
+    expectStatus ( "contract: findLastChar zero capacity",
+                   sstringFindLastChar ( "ab", 0u, 'a', &value ), SS_INVALIDSIZE );
+    expectStatus ( "contract: findString zero needle capacity",
+                   sstringFindString ( "ab", 3u, "a", 0u, &value ), SS_INVALIDSIZE );
+    expectStatus ( "contract: findAny zero set capacity",
+                   sstringFindAny ( "ab", 3u, "a", 0u, &value ), SS_INVALIDSIZE );
+    expectStatus ( "contract: span zero capacity",
+                   sstringSpan ( "ab", 0u, "a", 2u, &value ), SS_INVALIDSIZE );
+    expectStatus ( "contract: spanNot zero capacity",
+                   sstringSpanNot ( "ab", 0u, "a", 2u, &value ), SS_INVALIDSIZE );
+    expectStatus ( "contract: countChar zero capacity",
+                   sstringCountChar ( "ab", 0u, 'a', &value ), SS_INVALIDSIZE );
+    expectStatus ( "contract: startsWith zero prefix capacity",
+                   sstringStartsWith ( "ab", 3u, "a", 0u, &flag ), SS_INVALIDSIZE );
+    expectStatus ( "contract: endsWith zero suffix capacity",
+                   sstringEndsWith ( "ab", 3u, "b", 0u, &flag ), SS_INVALIDSIZE );
+    expectStatus ( "contract: isPrintableAscii zero capacity",
+                   sstringIsPrintableAscii ( "ab", 0u, &flag ), SS_INVALIDSIZE );
+    expectStatus ( "contract: isNumeric zero capacity",
+                   sstringIsNumeric ( "12", 0u, &flag ), SS_INVALIDSIZE );
+    expectStatus ( "contract: isAlpha zero capacity",
+                   sstringIsAlpha ( "ab", 0u, &flag ), SS_INVALIDSIZE );
+    expectStatus ( "contract: isAlphaNumeric zero capacity",
+                   sstringIsAlphaNumeric ( "a1", 0u, &flag ), SS_INVALIDSIZE );
+    expectStatus ( "contract: isHex zero capacity",
+                   sstringIsHex ( "a1", 0u, &flag ), SS_INVALIDSIZE );
+    expectStatus ( "contract: toU32 zero capacity",
+                   sstringToU32 ( "12", 0u, &value ), SS_INVALIDSIZE );
+    expectStatus ( "contract: toI32 zero capacity",
+                   sstringToI32 ( "12", 0u, &signedValue ), SS_INVALIDSIZE );
+    expectStatus ( "contract: toU32Hex zero capacity",
+                   sstringToU32Hex ( "1f", 0u, &value ), SS_INVALIDSIZE );
+
+    /* ---- an unterminated string, read only ---- */
+
+    expectStatus ( "contract: findAny unterminated string",
+                   sstringFindAny ( unterminated, 4u, "x", 2u, &value ), SS_UNTERMINATED );
+    expectStatus ( "contract: spanNot unterminated string",
+                   sstringSpanNot ( unterminated, 4u, "x", 2u, &value ), SS_UNTERMINATED );
+    expectStatus ( "contract: token unterminated string",
+                   sstringToken ( unterminated, 4u, ",", 2u, &cursor, &start, &length ), SS_UNTERMINATED );
+    expectStatus ( "contract: compareCI neither string terminates",
+                   sstringCompareCI ( unterminated, 4u, shouting, 4u, &signedValue ), SS_UNTERMINATED );
+    expectStatus ( "contract: startsWith unterminated string",
+                   sstringStartsWith ( unterminated, 4u, "ab", 3u, &flag ), SS_UNTERMINATED );
+    expectStatus ( "contract: endsWith unterminated string",
+                   sstringEndsWith ( unterminated, 4u, "cd", 3u, &flag ), SS_UNTERMINATED );
+    expectStatus ( "contract: isNumeric unterminated string",
+                   sstringIsNumeric ( unterminated, 4u, &flag ), SS_UNTERMINATED );
+    expectStatus ( "contract: isAlpha unterminated string",
+                   sstringIsAlpha ( unterminated, 4u, &flag ), SS_UNTERMINATED );
+    expectStatus ( "contract: isAlphaNumeric unterminated string",
+                   sstringIsAlphaNumeric ( unterminated, 4u, &flag ), SS_UNTERMINATED );
+    expectStatus ( "contract: isHex unterminated string",
+                   sstringIsHex ( unterminated, 4u, &flag ), SS_UNTERMINATED );
+    expectStatus ( "contract: toU32 unterminated string",
+                   sstringToU32 ( unterminated, 4u, &value ), SS_UNTERMINATED );
+    expectStatus ( "contract: toI32 unterminated string",
+                   sstringToI32 ( unterminated, 4u, &signedValue ), SS_UNTERMINATED );
+    expectStatus ( "contract: toU32Hex unterminated string",
+                   sstringToU32Hex ( unterminated, 4u, &value ), SS_UNTERMINATED );
+
+    /* Every output above started as a sentinel no answer could produce, so a
+       refusal that wrote anything at all, even a zero, shows here. */
+    expectValue ( "contract: no refusal wrote a value", value, 0xA5A5A5A5u );
+    expectValue ( "contract: no refusal moved the token cursor", cursor, 0x11111111u );
+    expectValue ( "contract: no refusal wrote a token start", start, 0x22222222u );
+    expectValue ( "contract: no refusal wrote a token length", length, 0x33333333u );
+    expectValue ( "contract: no refusal wrote a flag", ( uint32_t ) flag, 0x5Au );
+    report ( "contract: no refusal wrote a signed value", ( uint8_t ) ( ( signedValue == -12345 ) ? TRUE : FALSE ) );
+
+    /* ---- an unterminated source, with a destination that must not move ---- */
+
+    fillPattern ( dest, sizeof ( dest ) );
+    rawCopy ( snapshot, dest, sizeof ( dest ) );
+
+    expectStatus ( "contract: substring unterminated source",
+                   sstringSubstring ( dest, sizeof ( dest ), unterminated, 4u, 0u, 2u ), SS_UNTERMINATED );
+    expectStatus ( "contract: trim unterminated source",
+                   sstringTrim ( dest, sizeof ( dest ), unterminated, 4u ), SS_UNTERMINATED );
+    expectStatus ( "contract: trimLeft unterminated source",
+                   sstringTrimLeft ( dest, sizeof ( dest ), unterminated, 4u ), SS_UNTERMINATED );
+    expectStatus ( "contract: trimRight unterminated source",
+                   sstringTrimRight ( dest, sizeof ( dest ), unterminated, 4u ), SS_UNTERMINATED );
+    expectStatus ( "contract: toUpper unterminated source",
+                   sstringToUpper ( dest, sizeof ( dest ), unterminated, 4u ), SS_UNTERMINATED );
+    expectStatus ( "contract: toLower unterminated source",
+                   sstringToLower ( dest, sizeof ( dest ), shouting, 4u ), SS_UNTERMINATED );
+    expectStatus ( "contract: replaceChar unterminated source",
+                   sstringReplaceChar ( dest, sizeof ( dest ), unterminated, 4u, 'a', 'b' ), SS_UNTERMINATED );
+    expectStatus ( "contract: reverse unterminated source",
+                   sstringReverse ( dest, sizeof ( dest ), unterminated, 4u ), SS_UNTERMINATED );
+    expectUnchanged ( "contract: no unterminated source wrote a byte", dest, snapshot, sizeof ( dest ) );
+
+    /* ---- a result one byte too long for the destination ---- */
+
+    expectStatus ( "contract: trim result too long",
+                   sstringTrim ( dest, 3u, "  abc  ", LITERAL_SIZE ( "  abc  " ) ), SS_OVERFLOW );
+    expectStatus ( "contract: trimLeft result too long",
+                   sstringTrimLeft ( dest, 3u, "  abc", LITERAL_SIZE ( "  abc" ) ), SS_OVERFLOW );
+    expectStatus ( "contract: trimRight result too long",
+                   sstringTrimRight ( dest, 3u, "abc  ", LITERAL_SIZE ( "abc  " ) ), SS_OVERFLOW );
+    expectStatus ( "contract: toLower result too long",
+                   sstringToLower ( dest, 3u, "ABC", LITERAL_SIZE ( "ABC" ) ), SS_OVERFLOW );
+    expectStatus ( "contract: replaceChar result too long",
+                   sstringReplaceChar ( dest, 3u, "abc", LITERAL_SIZE ( "abc" ), 'a', 'b' ), SS_OVERFLOW );
+    expectStatus ( "contract: reverse result too long",
+                   sstringReverse ( dest, 3u, "abc", LITERAL_SIZE ( "abc" ) ), SS_OVERFLOW );
+    expectUnchanged ( "contract: no result that did not fit wrote a byte", dest, snapshot, sizeof ( dest ) );
+
+    /* ---- a destination that runs ahead of its own source ---- */
+
+    ( void ) sstringCopy ( shared, sizeof ( shared ), "  abc  ", LITERAL_SIZE ( "  abc  " ) );
+    rawCopy ( sharedSnapshot, shared, sizeof ( shared ) );
+
+    expectStatus ( "contract: trim into a destination ahead of its source",
+                   sstringTrim ( &shared[ 3 ], 13u, shared, sizeof ( shared ) ), SS_OVERLAP );
+    expectStatus ( "contract: trimLeft into a destination ahead of its source",
+                   sstringTrimLeft ( &shared[ 3 ], 13u, shared, sizeof ( shared ) ), SS_OVERLAP );
+    expectStatus ( "contract: trimRight into a destination ahead of its source",
+                   sstringTrimRight ( &shared[ 1 ], 15u, shared, sizeof ( shared ) ), SS_OVERLAP );
+    expectUnchanged ( "contract: no refused overlap wrote a byte", shared, sharedSnapshot, sizeof ( shared ) );
+}
+
+/**
  * @brief   Runs every test group and reports the totals.
  * @return  0 when every case passed, 1 otherwise.
  */
@@ -1610,6 +1770,7 @@ int main ( void )
     testPredicates ( );
     testConversion ( );
     testUncoveredBranches ( );
+    testStatusContract ( );
 
     printf ( "\n%lu cases, %lu failed\n",
              ( unsigned long ) casesRun, ( unsigned long ) casesFailed );

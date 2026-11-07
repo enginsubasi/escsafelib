@@ -3,8 +3,8 @@
   *
   * @file      SScale_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the sscale module.
   *
@@ -13,6 +13,8 @@
   *
   * @par History
   * 05/08/2026 Created. @n
+  * 07/11/2026 A table changed by its caller after Init, which no case had @n
+  *            reached, as tools/tracecheck.py requires. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -1129,6 +1131,41 @@ static void testUncoveredBranches ( void )
 }
 
 /**
+ * @brief   Asks Apply and ApplyClamped about a table its caller changed after
+ *          Init.
+ * @note    The table belongs to the caller and the driver only points at it,
+ *          so validating it once at Init proves nothing about a table the
+ *          caller rewrote afterwards. These cases pin what the two functions
+ *          do then: they refuse with SC_INVALIDTABLE rather than divide by a
+ *          flat segment or extrapolate from a segment that is not there.
+ *          tools/tracecheck.py found that no case had ever reached them.
+ * @note    Changing the table after Init is a contract violation, not a use
+ *          the module supports. The cases exist because a safety library is
+ *          judged by what it does when its caller is wrong.
+ */
+static void testTableChangedAfterInit ( void )
+{
+    int32_t x[ 4 ] = { 0, 10, 20, 30 };
+    int32_t y[ 4 ] = { 0, 100, 200, 300 };
+    sscale_t scale;
+    int32_t result = 12345;
+
+    ( void ) sscaleInit ( &scale, x, 4u, y, 4u, 4u );
+    x[ 2 ] = 10;
+    expectStatus ( "changed table: apply on a flat segment",
+                   sscaleApply ( &scale, 10, &result ), SC_INVALIDTABLE );
+    expectStatus ( "changed table: applyClamped on a flat segment",
+                   sscaleApplyClamped ( &scale, 10, &result ), SC_INVALIDTABLE );
+
+    x[ 0 ] = 32;
+    x[ 2 ] = 20;
+    expectStatus ( "changed table: applyClamped with its first breakpoint moved past the rest",
+                   sscaleApplyClamped ( &scale, 23, &result ), SC_INVALIDTABLE );
+
+    expectI32 ( "changed table: no refused call wrote the result", result, 12345 );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -1150,6 +1187,7 @@ int main ( void )
     testSweepLinear ( );
     testNoWriteOnFailure ( );
     testUncoveredBranches ( );
+    testTableChangedAfterInit ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

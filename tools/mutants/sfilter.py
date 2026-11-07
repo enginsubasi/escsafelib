@@ -61,7 +61,7 @@ MUTANTS = [
     {
         "id": 'M10',
         "what": 'the unready guard on the moving average is dropped',
-        "old": '    else if ( ( driver->buffer == NULL ) || ( driver->capacity == 0 ) )',
+        "old": '    else if ( ( driver->buffer == NULL ) || ( driver->capacity == 0u ) )',
         "new": '    else if ( FALSE )',
     },
     {
@@ -83,5 +83,11 @@ MUTANTS = [
         "equivalent": 'On every compiler this library is built with, a right shift of a negative int64_t is arithmetic, which is exactly what shiftDown computes. The mutant reintroduces implementation-defined behaviour, not a wrong answer, so no host test can see it; MISRA Rule 10.1 does, and that is why shiftDown exists.',
         "old": '        *value = ( int32_t ) shiftDown ( driver->accumulator, driver->shift );\n        retVal = SF_OK;\n    }\n\n    return ( retVal );\n}\n\n/**\n * @brief   Reads',
         "new": '        *value = ( int32_t ) ( driver->accumulator >> driver->shift );\n        retVal = SF_OK;\n    }\n\n    return ( retVal );\n}\n\n/**\n * @brief   Reads',
+    },
+    {
+        "id": 'M14',
+        "what": 'the exponential filter reports a failure after a good update',
+        "old": '                            + ( int64_t ) sample;\n\n        *value = ( int32_t ) shiftDown ( driver->accumulator, driver->shift );\n        retVal = SF_OK;',
+        "new": '                            + ( int64_t ) sample;\n\n        *value = ( int32_t ) shiftDown ( driver->accumulator, driver->shift );\n        retVal = SF_EMPTY;',
     },
 ]

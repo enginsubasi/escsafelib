@@ -3,8 +3,8 @@
   *
   * @file      SMemory_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      04/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the smemory module.
   *
@@ -13,6 +13,8 @@
   *
   * @par History
   * 04/08/2026 Created. @n
+  * 07/11/2026 Every status a return block promises is asked for at least @n
+  *            once, as tools/tracecheck.py requires. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -735,6 +737,57 @@ static void testUncoveredBranches ( void )
 }
 
 /**
+ * @brief   Asks for each status a return block promises that the suite had
+ *          never expected.
+ * @note    tools/tracecheck.py found these. The NULL and zero
+ *          capacity guards of the counted copy and set had only been reached
+ *          through their whole-buffer wrappers, and the counted copy had
+ *          never been handed two ranges that intersect.
+ */
+static void testStatusContract ( void )
+{
+    unsigned char a[ BUFSIZE ];
+    unsigned char snapshot[ BUFSIZE ];
+    uint8_t same = TRUE;
+    uint32_t i = 0;
+
+    for ( i = 0; i < BUFSIZE; ++i )
+    {
+        a[ i ] = ( unsigned char ) ( i + 1u );
+        snapshot[ i ] = a[ i ];
+    }
+
+    expectStatus ( "contract: copyN NULL destination",
+                   smemoryCopyN ( NULL, BUFSIZE, a, BUFSIZE, 1u ), SM_NULLPTR );
+    expectStatus ( "contract: copyN zero source capacity",
+                   smemoryCopyN ( a, BUFSIZE, snapshot, 0u, 1u ), SM_INVALIDSIZE );
+    expectStatus ( "contract: copyN into its own source, shifted",
+                   smemoryCopyN ( &a[ 1 ], BUFSIZE - 1u, a, BUFSIZE, 4u ), SM_OVERLAP );
+    expectStatus ( "contract: setN NULL destination",
+                   smemorySetN ( NULL, BUFSIZE, 0xA5u, 1u ), SM_NULLPTR );
+    expectStatus ( "contract: setN zero capacity",
+                   smemorySetN ( a, 0u, 0xA5u, 0u ), SM_INVALIDSIZE );
+    expectStatus ( "contract: clear NULL destination",
+                   smemoryClear ( NULL, BUFSIZE ), SM_NULLPTR );
+    expectStatus ( "contract: clear zero capacity",
+                   smemoryClear ( a, 0u ), SM_INVALIDSIZE );
+
+    for ( i = 0; i < BUFSIZE; ++i )
+    {
+        if ( a[ i ] != snapshot[ i ] )
+        {
+            same = FALSE;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+    }
+
+    report ( "contract: no refused call wrote a byte", same );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -746,6 +799,7 @@ int main ( void )
     testSearch ( );
     testTypedBuffer ( );
     testUncoveredBranches ( );
+    testStatusContract ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

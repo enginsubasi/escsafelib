@@ -18,8 +18,8 @@ HEAD = r"""/**
   *
   * @file      SArray_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      04/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the sarray module.
   *
@@ -28,6 +28,8 @@ HEAD = r"""/**
   *
   * @par History
   * 04/08/2026 Created. @n
+  * 07/11/2026 Overlapping ranges for CopyN, and u8 and u16 sums that @n
+  *            overflow, as tools/tracecheck.py requires. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -49,6 +51,17 @@ HEAD = r"""/**
 
 static uint32_t checks = 0;
 static uint32_t failures = 0;
+
+/* Enough elements to carry a uint32_t accumulator past its top. 16843010
+   bytes of 255 are 4294967550, and with the last one zero they land exactly
+   on 4294967295. 65538 halfwords of 65535 are 4295032830, and with the last
+   one zero exactly 4294967295 again. Sixteen megabytes and 128 kilobytes:
+   far too large for a small target, which is why they are static and why
+   only the host runs them. */
+#define SUMOVF_U8_COUNT     16843010u
+#define SUMOVF_U16_COUNT    65538u
+static uint8_t sumOverflowu8[ SUMOVF_U8_COUNT ];
+static uint16_t sumOverflowu16[ SUMOVF_U16_COUNT ];
 
 /**
  * @brief   Records the outcome of one case and prints the failures.
@@ -334,6 +347,11 @@ static void test${S} ( void )
     want[ 0 ] = 10; want[ 1 ] = 11; want[ 2 ] = 12; want[ 3 ] = 0;
     want[ 4 ] = 0; want[ 5 ] = 0; want[ 6 ] = 0; want[ 7 ] = 0;
     expectArray${S} ( "${S} copyN: only the first three written", b, want, 8 );
+
+    setSeq${S} ( a, 8, 10 );
+    snapshot${S} ( snap, a, 8 );
+    expectStatus ( "${S} copyN: overlapping ranges", sarrayCopyN${S} ( &a[ 0 ], 6, &a[ 2 ], 6, 4 ), SA_OVERLAP );
+    expectArray${S} ( "${S} copyN: array untouched after overlap", a, snap, 8 );
 
     /* ---- Move ---- */
 
@@ -797,6 +815,36 @@ ${SUMOVF}
 ${EXTRA}}
 """)
 
+SUMOVF_U8 = """
+    for ( index = 0; index < SUMOVF_U8_COUNT; ++index )
+    {
+        sumOverflowu8[ index ] = 255u;
+    }
+
+    sum = 12345u;
+    expectStatus ( "u8 sum: overflow", sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT, &sum ), SA_OVERFLOW );
+    expectU32 ( "u8 sum: output untouched after overflow", sum, 12345u );
+
+    sumOverflowu8[ SUMOVF_U8_COUNT - 1u ] = 0;
+    expectStatus ( "u8 sum: exactly at the limit", sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT, &sum ), SA_OK );
+    expectU32 ( "u8 sum: exactly at the limit result", sum, 4294967295u );
+"""
+
+SUMOVF_U16 = """
+    for ( index = 0; index < SUMOVF_U16_COUNT; ++index )
+    {
+        sumOverflowu16[ index ] = 65535u;
+    }
+
+    sum = 12345u;
+    expectStatus ( "u16 sum: overflow", sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT, &sum ), SA_OVERFLOW );
+    expectU32 ( "u16 sum: output untouched after overflow", sum, 12345u );
+
+    sumOverflowu16[ SUMOVF_U16_COUNT - 1u ] = 0;
+    expectStatus ( "u16 sum: exactly at the limit", sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT, &sum ), SA_OK );
+    expectU32 ( "u16 sum: exactly at the limit result", sum, 4294967295u );
+"""
+
 SUMOVF_U32 = """
     a[ 0 ] = 4294967295u;
     a[ 1 ] = 1;
@@ -886,7 +934,11 @@ def main():
     for suffix, ctype, acc, maxv, pcast, pfmt, human in TYPES:
         sumovf = ""
         extra = ""
-        if suffix == "u32":
+        if suffix == "u8":
+            sumovf = SUMOVF_U8
+        elif suffix == "u16":
+            sumovf = SUMOVF_U16
+        elif suffix == "u32":
             sumovf = SUMOVF_U32
         elif suffix == "i32":
             sumovf = SUMOVF_I32

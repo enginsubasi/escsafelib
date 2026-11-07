@@ -3,8 +3,8 @@
   *
   * @file      SBits_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      06/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the sbits module.
   *
@@ -13,6 +13,7 @@
   *
   * @par History
   * 06/08/2026 Created. @n
+  * 07/11/2026 MC/DC cases for the width check of sbitsSetBytes. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -635,6 +636,36 @@ static void testBytes ( void )
 }
 
 /**
+ * @brief   Takes the condition outcomes MC/DC found no case had taken.
+ * @note    sbitsSetBytes had been refused a width of zero but never one above
+ *          thirty two, so the second half of its width check had never been
+ *          shown to matter on its own.
+ */
+static void testConditionCoverage ( void )
+{
+    uint8_t data[ 8 ] = { 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u };
+    uint32_t i = 0;
+    uint8_t untouched = TRUE;
+
+    expectStatus ( "mcdc: setBytes width above thirty two",
+                   sbitsSetBytes ( data, 8u, 0u, 33u, 0u ), SB_INVALIDPARAM );
+
+    for ( i = 0; i < 8u; ++i )
+    {
+        if ( data[ i ] != 0u )
+        {
+            untouched = FALSE;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+    }
+
+    report ( "mcdc: the refused width wrote nothing", untouched );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -646,6 +677,7 @@ int main ( void )
     testSigned ( );
     testBits ( );
     testBytes ( );
+    testConditionCoverage ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

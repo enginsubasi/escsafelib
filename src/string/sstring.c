@@ -3,8 +3,8 @@
   *
   * @file      sstring.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.3.2
-  * @date      05/11/2026
+  * @version   0.3.3
+  * @date      07/11/2026
   *
   * @brief     Safe string handling function library file.
   *
@@ -42,6 +42,9 @@
   *            overlap deviation now names Rule 11.6 as well and every @n
   *            function it covers. Rule 10.4 deviation recorded in the @n
   *            banner. @n
+  * 07/11/2026 Unsigned operands are compared and combined with unsigned @n
+  *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
+  *            is narrowed to enum and Boolean comparisons. @n
   *
   * @note
   * Six invariants hold for every function in this file.
@@ -88,12 +91,14 @@
   *
   * @note
   * MISRA C:2012 deviation, Rule 10.4, operands of different essential type
-  * categories. Every status in this library is a uint8_t, and it is
-  * compared with the members of the module's status enum, with TRUE and
-  * FALSE, and with unsuffixed constants such as 0. One status type across
-  * every module is what lets a caller treat them all alike, and none of
-  * these comparisons can change a value through the conversion the rule
-  * guards against.
+  * categories. Every status, state and flag in this library is a uint8_t,
+  * and it is compared with the members of the module's enums and with TRUE
+  * and FALSE, which are plain int constants. One status type across every
+  * module is what lets a caller treat them all alike, and none of these
+  * comparisons can change a value through the conversion the rule guards
+  * against. The deviation covers those comparisons and nothing else: an
+  * unsigned value is never compared or combined with an unsuffixed
+  * constant.
   *
   ******************************************************************************
   */
@@ -125,7 +130,7 @@ static uint8_t isOverlapping ( const void* a, uint32_t aSize, const void* b, uin
     uintptr_t aEnd = 0;
     uintptr_t bEnd = 0;
 
-    if ( ( aSize == 0 ) || ( bSize == 0 ) )
+    if ( ( aSize == 0u ) || ( bSize == 0u ) )
     {
         retVal = FALSE;
     }
@@ -244,7 +249,7 @@ uint8_t sstringLength ( const char* str, uint32_t strSize, uint32_t* length )
     {
         retVal = SS_NULLPTR;
     }
-    else if ( strSize == 0 )
+    else if ( strSize == 0u )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -294,7 +299,7 @@ uint8_t sstringRequiredSize ( const char* src, uint32_t srcSize, uint32_t* requi
 
         if ( retVal == SS_OK )
         {
-            *required = srcLen + 1;
+            *required = srcLen + 1u;
         }
         else
         {
@@ -330,7 +335,7 @@ uint8_t sstringCopy ( char* dest, uint32_t destSize, const char* src, uint32_t s
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -340,7 +345,7 @@ uint8_t sstringCopy ( char* dest, uint32_t destSize, const char* src, uint32_t s
 
         if ( retVal == SS_OK )
         {
-            if ( isOverlapping ( dest, srcLen + 1, src, srcLen + 1 ) == TRUE )
+            if ( isOverlapping ( dest, srcLen + 1u, src, srcLen + 1u ) == TRUE )
             {
                 retVal = SS_OVERLAP;
             }
@@ -392,11 +397,11 @@ uint8_t sstringCopyN ( char* dest, uint32_t destSize, const char* src, uint32_t 
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
-    else if ( count == 0 )
+    else if ( count == 0u )
     {
         dest[ 0 ] = '\0';
         retVal = SS_OK;
@@ -422,7 +427,7 @@ uint8_t sstringCopyN ( char* dest, uint32_t destSize, const char* src, uint32_t 
         {
             retVal = SS_OVERFLOW;
         }
-        else if ( isOverlapping ( dest, copyLen + 1, src, copyLen ) == TRUE )
+        else if ( isOverlapping ( dest, copyLen + 1u, src, copyLen ) == TRUE )
         {
             retVal = SS_OVERLAP;
         }
@@ -469,7 +474,7 @@ uint8_t sstringMove ( char* dest, uint32_t destSize, const char* src, uint32_t s
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -532,7 +537,7 @@ uint8_t sstringConcat ( char* dest, uint32_t destSize, const char* src, uint32_t
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -548,7 +553,7 @@ uint8_t sstringConcat ( char* dest, uint32_t destSize, const char* src, uint32_t
 
             if ( retVal == SS_OK )
             {
-                if ( isOverlapping ( &dest[ destLen ], srcLen + 1, src, srcLen + 1 ) == TRUE )
+                if ( isOverlapping ( &dest[ destLen ], srcLen + 1u, src, srcLen + 1u ) == TRUE )
                 {
                     retVal = SS_OVERLAP;
                 }
@@ -605,7 +610,7 @@ uint8_t sstringConcatN ( char* dest, uint32_t destSize, const char* src, uint32_
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -620,7 +625,7 @@ uint8_t sstringConcatN ( char* dest, uint32_t destSize, const char* src, uint32_
             scanBound = smallerOf ( count, srcSize );
             scanBound = smallerOf ( scanBound, remaining );
 
-            if ( scanBound == 0 )
+            if ( scanBound == 0u )
             {
                 appendLen = 0;
             }
@@ -642,7 +647,7 @@ uint8_t sstringConcatN ( char* dest, uint32_t destSize, const char* src, uint32_
             {
                 retVal = SS_OVERFLOW;
             }
-            else if ( isOverlapping ( &dest[ destLen ], appendLen + 1, src, appendLen ) == TRUE )
+            else if ( isOverlapping ( &dest[ destLen ], appendLen + 1u, src, appendLen ) == TRUE )
             {
                 retVal = SS_OVERLAP;
             }
@@ -694,7 +699,7 @@ uint8_t sstringCompare ( const char* a, uint32_t aSize, const char* b, uint32_t 
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( aSize == 0 ) || ( bSize == 0 ) )
+    else if ( ( aSize == 0u ) || ( bSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -760,7 +765,7 @@ uint8_t sstringCompareN ( const char* a, uint32_t aSize, const char* b, uint32_t
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( aSize == 0 ) || ( bSize == 0 ) )
+    else if ( ( aSize == 0u ) || ( bSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -816,7 +821,7 @@ uint8_t sstringClear ( char* dest, uint32_t destSize )
     {
         retVal = SS_NULLPTR;
     }
-    else if ( destSize == 0 )
+    else if ( destSize == 0u )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -857,7 +862,7 @@ uint8_t sstringClearSecure ( char* dest, uint32_t destSize )
     {
         retVal = SS_NULLPTR;
     }
-    else if ( destSize == 0 )
+    else if ( destSize == 0u )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -1421,7 +1426,7 @@ uint8_t sstringToken ( const char* str, uint32_t strSize, const char* delims, ui
                 }
                 else
                 {
-                    position = i + 1;
+                    position = i + 1u;
                 }
             }
 
@@ -1443,7 +1448,7 @@ uint8_t sstringToken ( const char* str, uint32_t strSize, const char* delims, ui
                     }
                     else
                     {
-                        position = i + 1;
+                        position = i + 1u;
                     }
                 }
 
@@ -1638,7 +1643,7 @@ uint8_t sstringSubstring ( char* dest, uint32_t destSize, const char* src, uint3
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -1661,7 +1666,7 @@ uint8_t sstringSubstring ( char* dest, uint32_t destSize, const char* src, uint3
                 {
                     retVal = SS_OVERFLOW;
                 }
-                else if ( isUnsafeOverlap ( dest, takeLen + 1, &src[ start ], takeLen ) == TRUE )
+                else if ( isUnsafeOverlap ( dest, takeLen + 1u, &src[ start ], takeLen ) == TRUE )
                 {
                     retVal = SS_OVERLAP;
                 }
@@ -1714,7 +1719,7 @@ uint8_t sstringTrimLeft ( char* dest, uint32_t destSize, const char* src, uint32
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -1777,7 +1782,7 @@ uint8_t sstringTrimRight ( char* dest, uint32_t destSize, const char* src, uint3
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -1791,7 +1796,7 @@ uint8_t sstringTrimRight ( char* dest, uint32_t destSize, const char* src, uint3
             {
                 if ( isWhitespace ( src[ i ] ) == FALSE )
                 {
-                    keep = i + 1;
+                    keep = i + 1u;
                 }
                 else
                 {
@@ -1840,7 +1845,7 @@ uint8_t sstringTrim ( char* dest, uint32_t destSize, const char* src, uint32_t s
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -1869,7 +1874,7 @@ uint8_t sstringTrim ( char* dest, uint32_t destSize, const char* src, uint32_t s
             {
                 if ( isWhitespace ( src[ i ] ) == FALSE )
                 {
-                    keep = i + 1;
+                    keep = i + 1u;
                 }
                 else
                 {
@@ -1912,7 +1917,7 @@ uint8_t sstringToUpper ( char* dest, uint32_t destSize, const char* src, uint32_
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -1922,7 +1927,7 @@ uint8_t sstringToUpper ( char* dest, uint32_t destSize, const char* src, uint32_
 
         if ( retVal == SS_OK )
         {
-            if ( isUnsafeOverlap ( dest, srcLen + 1, src, srcLen + 1 ) == TRUE )
+            if ( isUnsafeOverlap ( dest, srcLen + 1u, src, srcLen + 1u ) == TRUE )
             {
                 retVal = SS_OVERLAP;
             }
@@ -1968,7 +1973,7 @@ uint8_t sstringToLower ( char* dest, uint32_t destSize, const char* src, uint32_
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -1978,7 +1983,7 @@ uint8_t sstringToLower ( char* dest, uint32_t destSize, const char* src, uint32_
 
         if ( retVal == SS_OK )
         {
-            if ( isUnsafeOverlap ( dest, srcLen + 1, src, srcLen + 1 ) == TRUE )
+            if ( isUnsafeOverlap ( dest, srcLen + 1u, src, srcLen + 1u ) == TRUE )
             {
                 retVal = SS_OVERLAP;
             }
@@ -2033,7 +2038,7 @@ uint8_t sstringReplaceChar ( char* dest, uint32_t destSize, const char* src, uin
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -2047,7 +2052,7 @@ uint8_t sstringReplaceChar ( char* dest, uint32_t destSize, const char* src, uin
 
         if ( retVal == SS_OK )
         {
-            if ( isUnsafeOverlap ( dest, srcLen + 1, src, srcLen + 1 ) == TRUE )
+            if ( isUnsafeOverlap ( dest, srcLen + 1u, src, srcLen + 1u ) == TRUE )
             {
                 retVal = SS_OVERLAP;
             }
@@ -2105,7 +2110,7 @@ uint8_t sstringReverse ( char* dest, uint32_t destSize, const char* src, uint32_
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( destSize == 0 ) || ( srcSize == 0 ) )
+    else if ( ( destSize == 0u ) || ( srcSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -2115,7 +2120,7 @@ uint8_t sstringReverse ( char* dest, uint32_t destSize, const char* src, uint32_
 
         if ( retVal == SS_OK )
         {
-            if ( isOverlapping ( dest, srcLen + 1, src, srcLen + 1 ) == TRUE )
+            if ( isOverlapping ( dest, srcLen + 1u, src, srcLen + 1u ) == TRUE )
             {
                 retVal = SS_OVERLAP;
             }
@@ -2123,7 +2128,7 @@ uint8_t sstringReverse ( char* dest, uint32_t destSize, const char* src, uint32_
             {
                 for ( i = 0; i < srcLen; ++i )
                 {
-                    dest[ i ] = src[ ( srcLen - 1 ) - i ];
+                    dest[ i ] = src[ ( srcLen - 1u ) - i ];
                 }
 
                 dest[ srcLen ] = '\0';
@@ -2169,7 +2174,7 @@ uint8_t sstringCompareCI ( const char* a, uint32_t aSize, const char* b, uint32_
     {
         retVal = SS_NULLPTR;
     }
-    else if ( ( aSize == 0 ) || ( bSize == 0 ) )
+    else if ( ( aSize == 0u ) || ( bSize == 0u ) )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -2381,7 +2386,7 @@ uint8_t sstringIsPrintableAscii ( const char* str, uint32_t strSize, uint8_t* re
 
         if ( retVal == SS_OK )
         {
-            if ( strLen == 0 )
+            if ( strLen == 0u )
             {
                 verdict = FALSE;
             }
@@ -2442,7 +2447,7 @@ uint8_t sstringIsNumeric ( const char* str, uint32_t strSize, uint8_t* result )
 
         if ( retVal == SS_OK )
         {
-            if ( strLen == 0 )
+            if ( strLen == 0u )
             {
                 verdict = FALSE;
             }
@@ -2501,7 +2506,7 @@ uint8_t sstringIsAlpha ( const char* str, uint32_t strSize, uint8_t* result )
 
         if ( retVal == SS_OK )
         {
-            if ( strLen == 0 )
+            if ( strLen == 0u )
             {
                 verdict = FALSE;
             }
@@ -2560,7 +2565,7 @@ uint8_t sstringIsAlphaNumeric ( const char* str, uint32_t strSize, uint8_t* resu
 
         if ( retVal == SS_OK )
         {
-            if ( strLen == 0 )
+            if ( strLen == 0u )
             {
                 verdict = FALSE;
             }
@@ -2620,7 +2625,7 @@ uint8_t sstringIsHex ( const char* str, uint32_t strSize, uint8_t* result )
 
         if ( retVal == SS_OK )
         {
-            if ( strLen == 0 )
+            if ( strLen == 0u )
             {
                 verdict = FALSE;
             }
@@ -2719,7 +2724,7 @@ uint8_t sstringToU32 ( const char* str, uint32_t strSize, uint32_t* value )
 
         if ( retVal == SS_OK )
         {
-            if ( strLen == 0 )
+            if ( strLen == 0u )
             {
                 retVal = SS_INVALIDFORMAT;
             }
@@ -2924,7 +2929,7 @@ uint8_t sstringToU32Hex ( const char* str, uint32_t strSize, uint32_t* value )
 
         if ( retVal == SS_OK )
         {
-            if ( strLen == 0 )
+            if ( strLen == 0u )
             {
                 retVal = SS_INVALIDFORMAT;
             }
@@ -2994,7 +2999,7 @@ uint8_t sstringFromU32 ( char* dest, uint32_t destSize, uint32_t value )
     {
         retVal = SS_NULLPTR;
     }
-    else if ( destSize == 0 )
+    else if ( destSize == 0u )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -3064,7 +3069,7 @@ uint8_t sstringFromI32 ( char* dest, uint32_t destSize, int32_t value )
     {
         retVal = SS_NULLPTR;
     }
-    else if ( destSize == 0 )
+    else if ( destSize == 0u )
     {
         retVal = SS_INVALIDSIZE;
     }
@@ -3160,7 +3165,7 @@ uint8_t sstringFromU32Hex ( char* dest, uint32_t destSize, uint32_t value, uint8
     {
         retVal = SS_NULLPTR;
     }
-    else if ( destSize == 0 )
+    else if ( destSize == 0u )
     {
         retVal = SS_INVALIDSIZE;
     }

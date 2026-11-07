@@ -3,8 +3,8 @@
   *
   * @file      SVote_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the svote module.
   *
@@ -13,6 +13,8 @@
   *
   * @par History
   * 05/08/2026 Created. @n
+  * 07/11/2026 Every status a return block promises is asked for at least @n
+  *            once, as tools/tracecheck.py requires. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -718,6 +720,37 @@ static void testNoWriteOnFailure ( void )
 }
 
 /**
+ * @brief   Asks for each status a return block promises that the suite had
+ *          never expected.
+ * @note    tools/tracecheck.py found these.
+ */
+static void testStatusContract ( void )
+{
+    int32_t values[ 4 ] = { 10, 20, 30, 40 };
+    int32_t slightlyNegative[ 3 ] = { -1, 0, 0 };
+    int32_t out = -12345;
+    uint32_t mask = 0xA5A5A5A5u;
+
+    expectStatus ( "contract: outliers zero count",
+                   svoteOutliers ( values, 4u, 0u, 10, 1u, &mask ), SV_INVALIDSIZE );
+    expectStatus ( "contract: outliers required group of zero",
+                   svoteOutliers ( values, 4u, 4u, 10, 0u, &mask ), SV_INVALIDPARAM );
+    expectStatus ( "contract: selectLow zero count",
+                   svoteSelectLow ( values, 4u, 0u, &out ), SV_INVALIDSIZE );
+    expectStatus ( "contract: selectHigh NULL output",
+                   svoteSelectHigh ( values, 4u, 4u, NULL ), SV_NULLPTR );
+    expectU32 ( "contract: no refusal wrote the mask", mask, 0xA5A5A5A5u );
+    expectI32 ( "contract: no refusal wrote the result", out, -12345 );
+
+    /* A negative remainder below half the divisor rounds back to zero. The
+       mean's rounding had only been asked about negative remainders that
+       round away; MC/DC found the other outcome untaken. */
+    expectStatus ( "contract: mean of -1, 0, 0",
+                   svoteMean ( slightlyNegative, 3u, 3u, &out ), SV_OK );
+    expectI32 ( "contract: rounds a third below zero back to zero", out, 0 );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -732,6 +765,7 @@ int main ( void )
     testDerived ( );
     testSweep ( );
     testNoWriteOnFailure ( );
+    testStatusContract ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );
