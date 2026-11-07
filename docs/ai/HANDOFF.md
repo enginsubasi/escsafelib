@@ -186,5 +186,6 @@ Historical milestones and prior findings are recorded in
 
 ## Remaining work
 
-1. Read the CI run of this commit.
-2. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.
+CI run `42365008390` of `0b73ec6`: every job success.
+
+1. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.
