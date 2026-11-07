@@ -44,27 +44,17 @@ echo "== compiler =="
 "${CC[@]}" --version 2>/dev/null | head -1 || { echo "  ${CC[*]} not found"; exit 2; }
 echo
 
-MODULES=(
-  "bits     sbits         SBits"
-  "fixed    sfixed        SFixed"
-  "filter   sfilter       SFilter"
-  "string   sstring       SString"
-  "array    sarray        SArray"
-  "memory   smemory       SMemory"
-  "math     smath         SMath"
-  "ring     sring         SRing"
-  "diag     sdiag         SDiag"
-  "fault    sfault        SFault"
-  "scale    sscale        SScale"
-  "state    sstate        SState"
-  "vote     svote         SVote"
-  "watch    swatch        SWatch"
-  "signal   ssignal       SSignal"
-  "e2e      se2e          SE2e"
-  "log      slog          SLog"
-  "store    sstore        SStore"
-  "pid      spid          SPid"
-)
+# Every module is found from src/, never listed: src/<domain>/<module>.c,
+# and its suite is test/S<Module>_Test/, the module name with its second
+# letter capitalised, the rule tools/tracecheck.py applies. A new module is
+# built, run and measured here without this file changing.
+MODULES=()
+for f in src/*/*.c; do
+  d=$( basename "$( dirname "$f" )" )
+  n=$( basename "$f" .c )
+  rest=${n:1}
+  MODULES+=( "$d $n S${rest^}" )
+done
 
 fail=0
 
@@ -176,13 +166,13 @@ done
 
 echo
 echo "== the modules working together =="
-# Every other suite tests one module. This one runs thirteen of them as a
-# chain, because a module can satisfy its own contract exactly and
+# Every other suite tests one module. This one runs several of them as a
+# chain, linked against all of them, because a module can satisfy its own contract exactly and
 # still be impossible to use next to its neighbour.
 if "${CC[@]}" -Wall -Wextra -Wpedantic -std=c99 -g \
-     -Iinc/bits -Iinc/diag -Iinc/fault -Iinc/filter -Iinc/ring -Iinc/scale -Iinc/state -Iinc/vote -Iinc/watch -Iinc/math -Iinc/e2e -Iinc/signal -Iinc/log -Iinc/store \
+     $( for d in inc/*/; do printf -- " -I%s" "${d%/}"; done ) \
      test/Integration_Test/Integration_Test.c \
-     src/bits/sbits.c src/diag/sdiag.c src/fault/sfault.c src/filter/sfilter.c src/ring/sring.c src/scale/sscale.c src/state/sstate.c src/vote/svote.c src/watch/swatch.c src/math/smath.c src/e2e/se2e.c src/signal/ssignal.c src/log/slog.c src/store/sstore.c \
+     src/*/*.c \
      -o "$OUT/integration" 2>"$OUT/integration_build.log"; then
   if [ -s "$OUT/integration_build.log" ]; then
     echo "  WARNINGS"; sed 's/^/      /' "$OUT/integration_build.log" | head -20; fail=1

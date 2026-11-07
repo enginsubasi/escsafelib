@@ -38,195 +38,25 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Build the sstring test program
+      # One suite per module, found from src/ rather than listed here, so a
+      # module added without touching this file is still built and run. The
+      # suite is the module name with its second letter capitalised, the rule
+      # tools/tracecheck.py applies.
+      - name: Build and run every module's suite
         run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/string \
-            test/SString_Test/SString_Test.c src/string/sstring.c \
-            -o sstring_test
-
-      - name: Run the sstring test program
-        run: ./sstring_test
-
-      - name: Build the sarray test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/array \
-            test/SArray_Test/SArray_Test.c src/array/sarray.c \
-            -o sarray_test
-
-      - name: Run the sarray test program
-        run: ./sarray_test
-
-      - name: Build the smemory test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/memory \
-            test/SMemory_Test/SMemory_Test.c src/memory/smemory.c \
-            -o smemory_test
-
-      - name: Run the smemory test program
-        run: ./smemory_test
-
-      - name: Build the smath test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/math \
-            test/SMath_Test/SMath_Test.c src/math/smath.c \
-            -o smath_test
-
-      - name: Run the smath test program
-        run: ./smath_test
-
-      - name: Build the sdiag test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/diag \
-            test/SDiag_Test/SDiag_Test.c src/diag/sdiag.c \
-            -o sdiag_test
-
-      - name: Run the sdiag test program
-        run: ./sdiag_test
-
-      - name: Build the sring test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/ring \
-            test/SRing_Test/SRing_Test.c src/ring/sring.c \
-            -o sring_test
-
-      - name: Run the sring test program
-        run: ./sring_test
-
-      - name: Build the sfilter test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/filter \
-            test/SFilter_Test/SFilter_Test.c src/filter/sfilter.c \
-            -o sfilter_test
-
-      - name: Run the sfilter test program
-        run: ./sfilter_test
-
-      - name: Build the sfixed test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/fixed \
-            test/SFixed_Test/SFixed_Test.c src/fixed/sfixed.c \
-            -o sfixed_test
-
-      - name: Run the sfixed test program
-        run: ./sfixed_test
-
-      - name: Build the sscale test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/scale \
-            test/SScale_Test/SScale_Test.c src/scale/sscale.c \
-            -o sscale_test
-
-      - name: Run the sscale test program
-        run: ./sscale_test
-
-      - name: Build the svote test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/vote \
-            test/SVote_Test/SVote_Test.c src/vote/svote.c \
-            -o svote_test
-
-      - name: Run the svote test program
-        run: ./svote_test
-
-      - name: Build the sfault test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/fault \
-            test/SFault_Test/SFault_Test.c src/fault/sfault.c \
-            -o sfault_test
-
-      - name: Run the sfault test program
-        run: ./sfault_test
-
-      - name: Build the sstate test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/state \
-            test/SState_Test/SState_Test.c src/state/sstate.c \
-            -o sstate_test
-
-      - name: Run the sstate test program
-        run: ./sstate_test
-
-      - name: Build the swatch test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/watch \
-            test/SWatch_Test/SWatch_Test.c src/watch/swatch.c \
-            -o swatch_test
-
-      - name: Run the swatch test program
-        run: ./swatch_test
-
-      - name: Build the sbits test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/bits \
-            test/SBits_Test/SBits_Test.c src/bits/sbits.c \
-            -o sbits_test
-
-      - name: Run the sbits test program
-        run: ./sbits_test
-
-      - name: Build the ssignal test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/signal \
-            test/SSignal_Test/SSignal_Test.c src/signal/ssignal.c \
-            -o ssignal_test
-
-      - name: Run the ssignal test program
-        run: ./ssignal_test
-
-      - name: Build the se2e test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/e2e \
-            test/SE2e_Test/SE2e_Test.c src/e2e/se2e.c \
-            -o se2e_test
-
-      - name: Run the se2e test program
-        run: ./se2e_test
-
-      - name: Build the slog test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/log \
-            test/SLog_Test/SLog_Test.c src/log/slog.c \
-            -o slog_test
-
-      - name: Run the slog test program
-        run: ./slog_test
-
-      - name: Build the sstore test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/store \
-            test/SStore_Test/SStore_Test.c src/store/sstore.c \
-            -o sstore_test
-
-      - name: Run the sstore test program
-        run: ./sstore_test
-
-      - name: Build the spid test program
-        run: |
-          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/pid \
-            test/SPid_Test/SPid_Test.c src/pid/spid.c \
-            -o spid_test
-
-      - name: Run the spid test program
-        run: ./spid_test
+          status=0
+          for f in src/*/*.c; do
+            d=$( basename "$( dirname "$f" )" ); n=$( basename "$f" .c ); rest=${n:1}; t="S${rest^}"
+            echo "== $n"
+            if ! ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
+                 -I"inc/$d" "test/${t}_Test/${t}_Test.c" "$f" -o "${n}_test"; then
+              echo "::error::$n did not build with ${{ matrix.cc }}"; status=1; continue
+            fi
+            if ! "./${n}_test"; then
+              echo "::error::the $n suite failed with ${{ matrix.cc }}"; status=1
+            fi
+          done
+          exit $status
 
       # The generated modules must still be exactly what their generator
       # produces. A non empty diff means somebody edited the output by hand
@@ -250,233 +80,23 @@ jobs:
       # machine, which is why the out of bounds read in sstringCopy had to
       # be proven with a guard page instead. Here it works, so this is the
       # first place the module is checked by a real memory sanitizer.
-      - name: Build sstring with sanitizers
+      - name: Build and run every module's suite under the sanitizers
         run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/string \
-            test/SString_Test/SString_Test.c src/string/sstring.c \
-            -o sstring_san
-
-      - name: Run sstring under sanitizers
-        run: ./sstring_san
-
-      - name: Build sarray with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/array \
-            test/SArray_Test/SArray_Test.c src/array/sarray.c \
-            -o sarray_san
-
-      - name: Run sarray under sanitizers
-        run: ./sarray_san
-
-      - name: Build smemory with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/memory \
-            test/SMemory_Test/SMemory_Test.c src/memory/smemory.c \
-            -o smemory_san
-
-      - name: Run smemory under sanitizers
-        run: ./smemory_san
-
-      - name: Build smath with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/math \
-            test/SMath_Test/SMath_Test.c src/math/smath.c \
-            -o smath_san
-
-      - name: Run smath under sanitizers
-        run: ./smath_san
-
-      - name: Build sdiag with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/diag \
-            test/SDiag_Test/SDiag_Test.c src/diag/sdiag.c \
-            -o sdiag_san
-
-      - name: Run sdiag under sanitizers
-        run: ./sdiag_san
-
-      - name: Build sring with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/ring \
-            test/SRing_Test/SRing_Test.c src/ring/sring.c \
-            -o sring_san
-
-      - name: Run sring under sanitizers
-        run: ./sring_san
-
-      - name: Build sfilter with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/filter \
-            test/SFilter_Test/SFilter_Test.c src/filter/sfilter.c \
-            -o sfilter_san
-
-      - name: Run sfilter under sanitizers
-        run: ./sfilter_san
-
-      - name: Build sfixed with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/fixed \
-            test/SFixed_Test/SFixed_Test.c src/fixed/sfixed.c \
-            -o sfixed_san
-
-      - name: Run sfixed under sanitizers
-        run: ./sfixed_san
-
-      - name: Build sscale with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/scale \
-            test/SScale_Test/SScale_Test.c src/scale/sscale.c \
-            -o sscale_san
-
-      - name: Run sscale under sanitizers
-        run: ./sscale_san
-
-      - name: Build svote with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/vote \
-            test/SVote_Test/SVote_Test.c src/vote/svote.c \
-            -o svote_san
-
-      - name: Run svote under sanitizers
-        run: ./svote_san
-
-      - name: Build sfault with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/fault \
-            test/SFault_Test/SFault_Test.c src/fault/sfault.c \
-            -o sfault_san
-
-      - name: Run sfault under sanitizers
-        run: ./sfault_san
-
-      - name: Build sstate with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/state \
-            test/SState_Test/SState_Test.c src/state/sstate.c \
-            -o sstate_san
-
-      - name: Run sstate under sanitizers
-        run: ./sstate_san
-
-      - name: Build swatch with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/watch \
-            test/SWatch_Test/SWatch_Test.c src/watch/swatch.c \
-            -o swatch_san
-
-      - name: Run swatch under sanitizers
-        run: ./swatch_san
-
-      - name: Build sbits with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/bits \
-            test/SBits_Test/SBits_Test.c src/bits/sbits.c \
-            -o sbits_san
-
-      - name: Run sbits under sanitizers
-        run: ./sbits_san
-
-      - name: Build ssignal with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/signal \
-            test/SSignal_Test/SSignal_Test.c src/signal/ssignal.c \
-            -o ssignal_san
-
-      - name: Run ssignal under sanitizers
-        run: ./ssignal_san
-
-      - name: Build se2e with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/e2e \
-            test/SE2e_Test/SE2e_Test.c src/e2e/se2e.c \
-            -o se2e_san
-
-      - name: Run se2e under sanitizers
-        run: ./se2e_san
-
-      - name: Build slog with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/log \
-            test/SLog_Test/SLog_Test.c src/log/slog.c \
-            -o slog_san
-
-      - name: Run slog under sanitizers
-        run: ./slog_san
-
-      - name: Build sstore with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/store \
-            test/SStore_Test/SStore_Test.c src/store/sstore.c \
-            -o sstore_san
-
-      - name: Run sstore under sanitizers
-        run: ./sstore_san
-
-      - name: Build spid with sanitizers
-        run: |
-          clang -Wall -Wextra -std=c99 -g \
-            -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -fno-omit-frame-pointer \
-            -Iinc/pid \
-            test/SPid_Test/SPid_Test.c src/pid/spid.c \
-            -o spid_san
-
-      - name: Run spid under sanitizers
-        run: ./spid_san
+          status=0
+          for f in src/*/*.c; do
+            d=$( basename "$( dirname "$f" )" ); n=$( basename "$f" .c ); rest=${n:1}; t="S${rest^}"
+            echo "== $n"
+            if ! clang -Wall -Wextra -std=c99 -g \
+                 -fsanitize=address,undefined -fno-sanitize-recover=all \
+                 -fno-omit-frame-pointer \
+                 -I"inc/$d" "test/${t}_Test/${t}_Test.c" "$f" -o "${n}_san"; then
+              echo "::error::$n did not build with the sanitizers"; status=1; continue
+            fi
+            if ! "./${n}_san"; then
+              echo "::error::the $n suite failed under the sanitizers"; status=1
+            fi
+          done
+          exit $status
 
   cross-compile:
     name: Cross compile for ARM
@@ -559,15 +179,15 @@ jobs:
       - uses: actions/checkout@v5
 
       # Blocking. Every other suite tests one module; this one runs
-      # thirteen of them as a chain. A module can satisfy its own contract
+      # several of them as a chain. A module can satisfy its own contract
       # exactly and still be impossible to use next to its neighbour,
       # and until this existed nothing would have noticed.
       - name: Build the integration test program
         run: |
           gcc -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/bits -Iinc/diag -Iinc/fault -Iinc/filter -Iinc/ring -Iinc/scale -Iinc/state -Iinc/vote -Iinc/watch -Iinc/math -Iinc/e2e -Iinc/signal -Iinc/log -Iinc/store \
+            $( for d in inc/*/; do printf -- " -I%s" "${d%/}"; done ) \
             test/Integration_Test/Integration_Test.c \
-            src/bits/sbits.c src/diag/sdiag.c src/fault/sfault.c src/filter/sfilter.c src/ring/sring.c src/scale/sscale.c src/state/sstate.c src/vote/svote.c src/watch/swatch.c src/math/smath.c src/e2e/se2e.c src/signal/ssignal.c src/log/slog.c src/store/sstore.c \
+            src/*/*.c \
             -o integration_test
 
       - name: Run it
@@ -578,9 +198,9 @@ jobs:
           clang -Wall -Wextra -std=c99 -g \
             -fsanitize=address,undefined -fno-sanitize-recover=all \
             -fno-omit-frame-pointer \
-            -Iinc/bits -Iinc/diag -Iinc/fault -Iinc/filter -Iinc/ring -Iinc/scale -Iinc/state -Iinc/vote -Iinc/watch -Iinc/math -Iinc/e2e -Iinc/signal -Iinc/log -Iinc/store \
+            $( for d in inc/*/; do printf -- " -I%s" "${d%/}"; done ) \
             test/Integration_Test/Integration_Test.c \
-            src/bits/sbits.c src/diag/sdiag.c src/fault/sfault.c src/filter/sfilter.c src/ring/sring.c src/scale/sscale.c src/state/sstate.c src/vote/svote.c src/watch/swatch.c src/math/smath.c src/e2e/se2e.c src/signal/ssignal.c src/log/slog.c src/store/sstore.c \
+            src/*/*.c \
             -o integration_san
           ./integration_san
 
@@ -747,10 +367,7 @@ jobs:
             --suppress=unreadVariable \
             --suppress=staticFunction \
             --suppress=unmatchedSuppression \
-            -Iinc/string -Iinc/array -Iinc/memory -Iinc/math \
-            -Iinc/ring -Iinc/filter -Iinc/fixed -Iinc/diag \
-            -Iinc/scale -Iinc/vote -Iinc/fault -Iinc/state -Iinc/watch \
-            -Iinc/bits -Iinc/signal -Iinc/e2e -Iinc/log -Iinc/store -Iinc/pid \
+            $( for d in inc/*/; do printf -- " -I%s" "${d%/}"; done ) \
             src/ 2>&1 | tee cppcheck.log
 
       # tools/misra.sh runs the addon through cppcheck --dump, applies the

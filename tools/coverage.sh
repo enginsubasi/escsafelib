@@ -62,27 +62,17 @@ if "${CC[@]}" --coverage -fcondition-coverage -c "$OUT/probe.c" -o "$OUT/probe.o
   GCOVMCDC=( -g )
 fi
 
-MODULES=(
-  "bits     sbits         SBits"
-  "array    sarray        SArray"
-  "diag     sdiag         SDiag"
-  "fault    sfault        SFault"
-  "filter   sfilter       SFilter"
-  "fixed    sfixed        SFixed"
-  "math     smath         SMath"
-  "memory   smemory       SMemory"
-  "ring     sring         SRing"
-  "scale    sscale        SScale"
-  "state    sstate        SState"
-  "string   sstring       SString"
-  "vote     svote         SVote"
-  "watch    swatch        SWatch"
-  "signal   ssignal       SSignal"
-  "e2e      se2e          SE2e"
-  "log      slog          SLog"
-  "store    sstore        SStore"
-  "pid      spid          SPid"
-)
+# Every module is found from src/, never listed: src/<domain>/<module>.c,
+# and its suite is test/S<Module>_Test/, the module name with its second
+# letter capitalised, the rule tools/tracecheck.py applies. A new module is
+# built, run and measured here without this file changing.
+MODULES=()
+for f in src/*/*.c; do
+  d=$( basename "$( dirname "$f" )" )
+  n=$( basename "$f" .c )
+  rest=${n:1}
+  MODULES+=( "$d $n S${rest^}" )
+done
 
 fail=0
 
@@ -117,14 +107,18 @@ for m in "${MODULES[@]}"; do
     printf "%-10s SUITE FAILED exit=%s\n" "$n" "$rc"; fail=1; continue
   fi
 
-  # The integration suite exercises thirteen of the modules as a chain, so its
+  # The integration suite exercises several of the modules as a chain, so its
   # coverage belongs in these numbers. Linking it against the same object
   # accumulates into the same data file, which is what gcov counts.
   if grep -q "\"$n.h\"" "$REPO/test/Integration_Test/Integration_Test.c"; then
-    if "${CC[@]}" --coverage -O0 -std=c99          -I"$REPO/inc/bits" -I"$REPO/inc/diag" -I"$REPO/inc/fault"          -I"$REPO/inc/filter" -I"$REPO/inc/ring" -I"$REPO/inc/scale"          -I"$REPO/inc/state" -I"$REPO/inc/vote" -I"$REPO/inc/watch"          -I"$REPO/inc/math" -I"$REPO/inc/e2e" -I"$REPO/inc/signal" -I"$REPO/inc/log" -I"$REPO/inc/store"          "$REPO/test/Integration_Test/Integration_Test.c"          $( for g in bits/sbits diag/sdiag fault/sfault filter/sfilter                      ring/sring scale/sscale state/sstate vote/svote                      watch/swatch math/smath e2e/se2e signal/ssignal log/slog store/sstore; do
-              gn=$( basename "$g" )
-              if [ "$gn" = "$n" ]; then echo "$work/$n.o"; else echo "$REPO/src/$g.c"; fi
-            done )          -o "$work/integration.exe" 2>>"$work/build.log"; then
+    if "${CC[@]}" --coverage -O0 -std=c99 \
+         $( for d in "$REPO"/inc/*/; do printf -- " -I%s" "${d%/}"; done ) \
+         "$REPO/test/Integration_Test/Integration_Test.c" \
+         $( for g in "$REPO"/src/*/*.c; do
+              gn=$( basename "$g" .c )
+              if [ "$gn" = "$n" ]; then echo "$work/$n.o"; else echo "$g"; fi
+            done ) \
+         -o "$work/integration.exe" 2>>"$work/build.log"; then
       ( cd "$work" && ./integration.exe >/dev/null 2>&1 )
     else
       echo "  (the integration suite did not build for $n)"

@@ -502,6 +502,14 @@ Cleaning it up needs care, because the ordinary ways of checking for it lie:
 `.github/workflows/ci.yml` runs on every push and pull request to `main`. It is split into two tiers on purpose:
 
 - **Blocking** — `test` (gcc and clang, builds and runs the suite), `sanitizers` (ASan and UBSan, which is where AddressSanitizer actually works), `cross-compile` (arm-none-eabi build, `-fanalyzer`, and the header coexistence check). Every one of these was verified locally before the workflow was written, so a red result is a real regression.
+
+**No list of modules is kept anywhere.** Since 07/11/2026 the CI test and
+sanitizer jobs, the integration build, the cppcheck include path,
+`run_all.sh` and `coverage.sh` all find the modules from `src/*/*.c`, and a
+suite at `test/S<Module>_Test/`, the module name with its second letter
+capitalised. Before that every new module meant editing five lists, and a
+missed one was a module silently not tested. `misra.sh`, `size.sh`,
+`stack.py` and the checkers already worked this way.
 - **Also blocking since 05/11/2026** — `cppcheck` (general checks and MISRA through `tools/misra.sh`), `host-analyzer` (gcc `-fanalyzer -Werror`) and `docs` (doxygen, warning free). **Until 04/11/2026 these three were reporting jobs that were green whatever they found**: cppcheck piped into `tee`, doxygen only printed its warnings, and the analyzer had no `-Werror`, so no green result from before then proves anything. Each now exits non zero on a finding, each runs a control that must produce one first, and each was flipped only after a CI run of it came back clean. Their findings are printed as annotations, which the public API serves without admin rights, so a failure can be read from this machine.
 - **Reporting** (`continue-on-error: true`) — the mutation, size and coverage measurements. They are information rather than gates: mutation takes a while, and what counts as too big or too little covered is not a number this repository should choose. **Flip a reporting job to blocking only once a CI run of it comes back clean**, and read that from the job conclusion, not from the absence of a red workflow.
 

@@ -195,7 +195,10 @@ Historical milestones and prior findings are recorded in
    and a VLA). No recursion or dynamic frame; deepest M0+ chain 200 B
    (`sscale` map). Found compiler-emitted memset/memcpy/memmove; documented.
    CI step added as reporting (`continue-on-error`) until a clean run.
-3. Module lists discovered instead of hand kept (run_all, coverage, CI).
+3. Module lists discovered. **Done.** CI test and sanitizer jobs are one
+   loop step each over `src/*/*.c`; integration builds and the cppcheck
+   include path use every `inc/*/` and `src/*/*.c`; `run_all.sh` and
+   `coverage.sh` discover too. Local results identical before and after.
 4. MC/DC classification as a checked manifest; coverage job blocking.
 5. Mutation job blocking.
 6. Release tag: the owner's decision, not started.
