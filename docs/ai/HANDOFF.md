@@ -199,7 +199,12 @@ Historical milestones and prior findings are recorded in
    loop step each over `src/*/*.c`; integration builds and the cppcheck
    include path use every `inc/*/` and `src/*/*.c`; `run_all.sh` and
    `coverage.sh` discover too. Local results identical before and after.
-4. MC/DC classification as a checked manifest; coverage job blocking.
+4. MC/DC classification as a checked manifest. **Done.**
+   `tools/mcdccheck.py` + `tools/mcdc_exceptions.tsv` (60 keys, 64 gaps,
+   with a count for repeated identical lines in the March test), run by
+   `coverage.sh` after its controls; negative control: one record removed
+   and one bogus added, both reported. Coverage job still reporting until
+   a CI run of the check comes back clean.
 5. Mutation job blocking.
 6. Release tag: the owner's decision, not started.
 

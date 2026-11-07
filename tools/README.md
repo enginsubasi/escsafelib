@@ -225,6 +225,13 @@ with `gcov-NN`). The MC/DC gaps go to `<module>.conditions.txt`.
 PATH="/c/Program Files/CodeBlocks/MinGW/bin:$PATH" bash tools/coverage.sh gcc
 ```
 
+With MC/DC measured it then runs `mcdccheck.py`: every gap must match a
+record in `mcdc_exceptions.tsv` (module, function, line hash, condition,
+count and the reason it cannot be reached), and every record must still
+match a gap, or the run fails. That is the gate, not a percentage: a new
+gap is either a case to write or a record to add after reading the code,
+and the tool prints the record it would take. Its controls run first.
+
 Under GitHub Actions it also prints the table as one `::notice`, naming
 the compiler and gcov it used. The job log needs admin rights to read and
 annotations do not, so that is how CI's numbers, and whether CI measured

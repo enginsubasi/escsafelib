@@ -295,7 +295,12 @@ The "now" column is from 07/11/2026, after the cases `tools/tracecheck.py`
 and the MC/DC classification asked for. MC/DC on the same run equals branch
 coverage in every module but `sdiag` (87.2%); its gaps are written to
 `<module>.conditions.txt`, and **every one of them, in all nineteen modules,
-has been classified.** 128 condition outcomes were cases nobody had written, and they
+has been classified** — and the classification is checked, not written
+down: each of the 64 unreachable ones is a record in
+`tools/mcdc_exceptions.tsv` with its reason, keyed by function and line hash
+like the 10.4 manifest, and `tools/mcdccheck.py`, which `coverage.sh` runs
+after measuring, fails on a gap no record explains and on a record no gap
+needs. A percentage is never the gate. 128 condition outcomes were cases nobody had written, and they
 are in the suites now. Most were one argument of a guard that had only been
 refused alongside another — `( dest == NULL ) || ( src == NULL )` tested
 only with `dest` NULL, a capacity pair tested only on its first half — so a

@@ -177,4 +177,29 @@ if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
   echo "::notice title=coverage by ${CC[*]} and ${GCOV}::${summary}"
 fi
 
+# Every MC/DC gap must be one tools/mcdc_exceptions.tsv explains, and every
+# record there must still be needed. A gap nobody explained is a missing
+# case or an unreviewed one, so this, not a percentage, is what fails the
+# run. Only when the compiler measured MC/DC at all.
+if [ "${#MCDC[@]}" -gt 0 ]; then
+  PYTHON=${PYTHON:-}
+  if [ -z "$PYTHON" ]; then
+    for candidate in python3 python; do
+      if "$candidate" -c "import sys" > /dev/null 2>&1; then PYTHON=$candidate; break; fi
+    done
+  fi
+  native() { if command -v cygpath > /dev/null 2>&1; then cygpath -w "$1"; else echo "$1"; fi; }
+  ANNOTATE=()
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then ANNOTATE=( --annotate ); fi
+  echo
+  echo "== every MC/DC gap is a reviewed one =="
+  if ! "$PYTHON" "$( native "$REPO/tools/mcdccheck.py" )" --self-test; then
+    echo "CONTROL FAILED: the MC/DC gap checker failed its own controls"
+    exit 2
+  fi
+  if ! "$PYTHON" "$( native "$REPO/tools/mcdccheck.py" )" --dir "$( native "$OUT" )" "${ANNOTATE[@]}"; then
+    fail=1
+  fi
+fi
+
 exit "$fail"
