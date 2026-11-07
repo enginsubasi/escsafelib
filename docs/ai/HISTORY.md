@@ -173,8 +173,9 @@ not required to resume the project.
   holding a status comparison beside an unsuffixed unsigned one is refused
   at the second comparison's column, where the old line test passed it.
 - `coverage.sh` prints its table as one GitHub notice, so CI's numbers can
-  be read without log access. `upload-artifact` moved to v5 after the run
-  warned about Node.js 20.
+  be read without log access; the first such notice confirmed the runner
+  measured with gcc-14 and gcov-14 and matched the local numbers exactly.
+  `upload-artifact` moved to v7 (v4 and v5 still run on Node.js 20).
 
 ## Open work carried forward
 

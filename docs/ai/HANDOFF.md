@@ -38,7 +38,8 @@ Historical milestones and prior findings are recorded in
    member as an operand. The addon control now goes through the same
    `--cli` path.
 4. **CI.** `coverage.sh` prints its table as one `::notice` under GitHub
-   Actions. `actions/upload-artifact@v5` (v4 drew a Node.js 20 warning).
+   Actions. `actions/upload-artifact@v7`: v4 and v5 both drew a Node.js 20
+   deprecation warning; v6 and later declare `node24`.
 
 ## Decisions and reasons
 
@@ -68,13 +69,20 @@ Historical milestones and prior findings are recorded in
   refused at column 51, by expression.
 - `bash tools/coverage.sh gcc` with `GITHUB_ACTIONS=true`: table below in
   `CLAUDE.md`, notice line printed. doxygen 1.17.0: 0 warnings.
-- Not verifiable here: apt cppcheck 2.13's `--cli` JSON on the runner (the
-  key order is not relied on; the parser reads JSON), and whether the
-  runner's notice shows `gcc-14` and `gcov-14`. Both are in the next CI run.
+- CI run `42344832905` of `4bbfa37`: every job success. The MISRA job ran
+  the image's cppcheck through `--cli` and the expression check (a parse
+  failure would have left 359 stale records and failed it). The coverage
+  notice reads `coverage by gcc-14 and gcov-14`, with every module's
+  numbers identical to the local MinGW gcc 14.2 run. Both upload steps
+  still warned about Node.js 20 under v5, hence v7.
 
 ## Remaining work
 
-1. Read the CI run of the new commit: job conclusions, the MISRA job in
-   particular (first use of `--cli` on the runner), and the coverage
-   job's notice annotation (check-run annotations API).
+1. Confirm on the next CI run that the Node.js 20 warning is gone and the
+   coverage notice shows its percent signs.
 2. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.
+
+No other open item is recorded. Candidates if the owner wants more:
+flipping the coverage job to blocking at the current numbers, or a
+target-side measurement plan for an integrator (not something this
+repository can run).

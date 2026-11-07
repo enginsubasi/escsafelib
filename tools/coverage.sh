@@ -145,7 +145,8 @@ for m in "${MODULES[@]}"; do
 
   printf "%-10s %10s %9s%% %10s %9s%% %9s%%\n" \
     "$n" "${lines:-?}" "${linepc:-?}" "${branches:-?}" "${takenpc:-?}" "${mcdcpc:-n/a}"
-  summary="${summary}$n lines ${linepc:-?}%, branches ${takenpc:-?}%, MC/DC ${mcdcpc:-n/a}%0A"
+  # A workflow command reads %XX as an escape, so a literal % is %25.
+  summary="${summary}$n lines ${linepc:-?}%25, branches ${takenpc:-?}%25, MC/DC ${mcdcpc:-n/a}%25%0A"
 
   # The lines gcov marks ##### were never executed. Pull them out with their
   # numbers so each one can be looked at rather than counted.
