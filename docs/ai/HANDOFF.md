@@ -24,7 +24,7 @@ Historical milestones and prior findings are recorded in
      corruption apart (timeout is `swatch`'s, by decision). No
      compatibility claim with any specification. **Done.**
   5. `slog` (prefix `SL_`): fault event memory in a caller-owned table,
-     saturating counters, full-table policy chosen at Init.
+     saturating counters, full-table policy chosen at Init. **Done.**
   6. `sstore` (prefix `SO_`): record header, version, length and CRC over a
      byte buffer; choose the valid and newer of two copies.
   7. `spid` (prefix `SP_`): Q16.16 PID with anti-windup and output limits,
@@ -111,9 +111,27 @@ Historical milestones and prior findings are recorded in
   gcc 16 analyzer, ARM M0+/M4 analyzer clean; `.data`/`.bss` 0;
   `run_all.sh` ALL GREEN. CI of the `ssignal` commit: every job success.
 
+## Piece 5: `slog`
+
+- New module `inc/log/slog.h`, `src/log/slog.c`: `slogInit`, `slogRecord`,
+  `slogFind`, `slogGet`, `slogCount`, `slogLost`, `slogRemove`, `slogClear`
+  over a caller-owned `slogentry_t` table. Policies `SL_POLICY_KEEP`
+  (refuse with `SL_FULL`) and `SL_POLICY_REPLACE` (evict the entry with the
+  largest unsigned `cycle - lastCycle`, first on a tie); every refused or
+  displaced event counts in `lost`, saturating. Remove fills the hole with
+  the last entry. `isReady` also refuses `used > capacity`.
+- Verified: 127 cases on zig with UBSan and gcc 14 strict; tracecheck
+  caught two unasserted `SL_OK`s on the first run (fixed); M1-M14 all
+  killed; coverage 100% lines, branches and MC/DC; MISRA 0 differences
+  after 15 reviewed records (384 in all); cppcheck, analyzers, ARM, header
+  check clean; `.data`/`.bss` 0; `run_all.sh` ALL GREEN.
+- Registration is now one script per module (scratchpad, not committed):
+  `run_all.sh` and `coverage.sh` lists, the CI matrix and sanitizer steps
+  and the CI cppcheck include list.
+
 ## Remaining work
 
-1. Pieces 5-7 above, in order.
+1. Pieces 6-7 above, in order.
 2. Read the CI run of the suite rename commit.
 
 The first `se2e` commit (`ca747f9`) failed CI in tracecheck only: its suite was

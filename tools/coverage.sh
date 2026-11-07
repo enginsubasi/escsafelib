@@ -79,6 +79,7 @@ MODULES=(
   "watch    swatch        SWatch"
   "signal   ssignal       SSignal"
   "e2e      se2e          SE2e"
+  "log      slog          SLog"
 )
 
 fail=0

@@ -198,6 +198,16 @@ jobs:
       - name: Run the se2e test program
         run: ./se2e_test
 
+      - name: Build the slog test program
+        run: |
+          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
+            -Iinc/log \
+            test/SLog_Test/SLog_Test.c src/log/slog.c \
+            -o slog_test
+
+      - name: Run the slog test program
+        run: ./slog_test
+
       # The generated modules must still be exactly what their generator
       # produces. A non empty diff means somebody edited the output by hand
       # and the next generator run would silently revert it.
@@ -411,6 +421,18 @@ jobs:
 
       - name: Run se2e under sanitizers
         run: ./se2e_san
+
+      - name: Build slog with sanitizers
+        run: |
+          clang -Wall -Wextra -std=c99 -g \
+            -fsanitize=address,undefined -fno-sanitize-recover=all \
+            -fno-omit-frame-pointer \
+            -Iinc/log \
+            test/SLog_Test/SLog_Test.c src/log/slog.c \
+            -o slog_san
+
+      - name: Run slog under sanitizers
+        run: ./slog_san
 
   cross-compile:
     name: Cross compile for ARM
@@ -677,7 +699,7 @@ jobs:
             -Iinc/string -Iinc/array -Iinc/memory -Iinc/math \
             -Iinc/ring -Iinc/filter -Iinc/fixed -Iinc/diag \
             -Iinc/scale -Iinc/vote -Iinc/fault -Iinc/state -Iinc/watch \
-            -Iinc/bits -Iinc/signal -Iinc/e2e \
+            -Iinc/bits -Iinc/signal -Iinc/e2e -Iinc/log \
             src/ 2>&1 | tee cppcheck.log
 
       # tools/misra.sh runs the addon through cppcheck --dump, applies the

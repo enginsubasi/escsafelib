@@ -58,7 +58,7 @@ the comments nor the machine filter constitute formal approval.
 
 | Rule | Category in inspected PDF | Recorded scope | Repository rationale and review boundary |
 |---|---|---|---|
-| 10.4 | Required | 369 diagnostic occurrences in 349 module/function/line-hash keys (636 at baseline) | The recorded rationale is `uint8_t` status, state and flag comparisons with enum members and the `TRUE`/`FALSE` macros. Unsigned comparisons and arithmetic with unsuffixed constants were removed from the code rather than covered. The manifest detects new, changed and stale occurrences. The checker also classifies each expression: the operator at the reported column must be `==` or `!=` with a `TRUE`/`FALSE` expansion or one of the module's own enum members as a direct operand, according to cppcheck's dump. |
+| 10.4 | Required | 384 diagnostic occurrences in 363 module/function/line-hash keys (636 at baseline) | The recorded rationale is `uint8_t` status, state and flag comparisons with enum members and the `TRUE`/`FALSE` macros. Unsigned comparisons and arithmetic with unsuffixed constants were removed from the code rather than covered. The manifest detects new, changed and stale occurrences. The checker also classifies each expression: the operator at the reported column must be `==` or `!=` with a `TRUE`/`FALSE` expansion or one of the module's own enum members as a direct operand, according to cppcheck's dump. |
 | 11.4 | Advisory | `sarray`, `sstring` | Pointer addresses support overlap and copy-direction checks. Confirm the target's address representation and the relevant operation. |
 | 11.6 | Required | `sarray`, `smemory`, `sstring` | Address conversions through `void*` support range checks. `uintptr_t` availability alone does not prove that integer order matches the required memory-range model on every target. |
 | 11.5 | Advisory | `sdiag`, `smemory` | Byte inspection uses `unsigned char*`. Keep the rationale bounded to that use; it is not a blanket permission to access arbitrary types through a converted pointer. |
@@ -70,7 +70,7 @@ the automated filter to observed source occurrences. On 2026-11-07 every
 occurrence outside the status/enum/Boolean argument was removed from the
 code (636 to 359), and the checker gained a line-level rationale test. Later
 the same day it gained an expression-level one, which reads the operator the
-addon reports from cppcheck's own token tree; all occurrences pass it (369 after the `sbits` byte order block, `ssignal` and `se2e`),
+addon reports from cppcheck's own token tree; all occurrences pass it (384 after the `sbits` byte order block, `ssignal`, `se2e` and `slog`),
 and a control line holding a status comparison beside an unsuffixed unsigned
 one is refused at the second comparison's column. That classification is
 only as good as the analyser's parse and column report: it narrows what a
