@@ -208,7 +208,9 @@ Historical milestones and prior findings are recorded in
 5. Mutation job blocking. **Done**, with coverage (gated by mcdccheck)
    and the stack step, after clean CI runs (`42369536307`, `42370036750`).
    Only `size` stays reporting.
-6. Release tag: the owner's decision, not started.
+6. Release tag. **Done** at the owner's request: annotated `v1.0.0` on
+   `fc27616`, pushed. The release notes are the tag message, as for
+   v0.1.0-v0.2.0; there is no changelog file.
 
 ## Remaining work
 

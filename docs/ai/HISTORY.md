@@ -210,6 +210,16 @@ ARM hardware; cross-compile, `-fanalyzer` and `size.sh` as before).
   rather than classified. Final: 399 functions, 4800 cases, 318 mutants
   (297 killed, 21 equivalent), 420 Rule 10.4 occurrences.
 
+## 2026-11-07 — Follow-up list and v1.0.0 (Claude)
+
+- Six wrapping counters made saturating; `tools/stack.py` (no recursion,
+  no dynamic frames, compiler-emitted memset/memcpy/memmove documented);
+  module lists discovered from `src/` everywhere; `tools/mcdccheck.py` with
+  `tools/mcdc_exceptions.tsv`; mutation, coverage and stack checks made
+  blocking after clean CI runs.
+- Tagged `v1.0.0` on `fc27616`: 19 modules, 399 functions, 4832 cases,
+  321 mutants (300 killed, 21 equivalent).
+
 ## Open work carried forward
 
 See [HANDOFF.md](HANDOFF.md).
