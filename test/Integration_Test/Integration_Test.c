@@ -3,8 +3,8 @@
   *
   * @file      Integration_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      06/08/2026
+  * @version   0.2.0
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the modules working together.
   *
@@ -13,6 +13,8 @@
   *
   * @par History
   * 06/08/2026 Created. @n
+  * 07/11/2026 A protected link: se2e with sdiag's CRC, sbits byte order, @n
+  *            ssignal and sfault. @n
   *
   * @note
   * Every other suite in this repository tests one module. Nothing tested
@@ -40,6 +42,11 @@
   *   sfault   a disagreement has to persist before it is believed
   *   sstate   the machine may only take the transitions its table allows
   *   swatch   the cycle has to happen, and neither late nor early
+  *
+  * A second path protects a frame end to end:
+  *
+  *   se2e     a counter and sdiag's CRC over an implicit data identifier
+  *   ssignal  the two tracks unpacked from it are checked for plausibility
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -69,6 +76,8 @@
 #include "svote.h"
 #include "swatch.h"
 #include "smath.h"
+#include "se2e.h"
+#include "ssignal.h"
 
 static uint32_t checks = 0;
 static uint32_t failures = 0;
@@ -763,6 +772,93 @@ static void testUnitsAndSeams ( void )
 }
 
 /**
+ * @brief   Checks a protected link end to end: sdiag's CRC injected into
+ *          se2e, two readings packed big endian with sbits, judged by
+ *          ssignal, and a corrupted frame qualified by sfault.
+ * @note    The se2e banner says sdiag's eight bit CRCs plug in as they are.
+ *          This is where that is shown: sdiagCrc8SaeUpdate is passed with no
+ *          wrapper, so a mismatch in its shape is a compile error under the
+ *          warning set here, and a frame protected with it is accepted at
+ *          the other end and a corrupted one is not.
+ */
+static void testProtectedLink ( void )
+{
+    se2etx_t tx;
+    se2erx_t rx;
+    sfault_t corrupt;
+    uint8_t frame[ 6 ] = { 0u, 0u, 0u, 0u, 0u, 0u };
+    uint32_t rawA = 0;
+    uint32_t rawB = 0;
+    uint32_t i = 0;
+    uint8_t result = 0xEEu;
+    uint8_t verdict = 0xEEu;
+    uint8_t agree = FALSE;
+    uint8_t confirmed = FALSE;
+    uint8_t present = FALSE;
+
+    expectStatus ( "link: sender with sdiag's CRC",
+                   se2eTxInit ( &tx, 0x0310u, sdiagCrc8SaeUpdate, SD_CRC8_SEED ), SE_OK );
+    expectStatus ( "link: receiver with the same",
+                   se2eRxInit ( &rx, 0x0310u, 2u, sdiagCrc8SaeUpdate, SD_CRC8_SEED ), SE_OK );
+    expectStatus ( "link: a corrupt frame qualifier", sfaultInit ( &corrupt, 3u, 2u, FALSE ), SU_OK );
+
+    /* Two tracks of one pedal, the second at half the slope. */
+    expectStatus ( "link: pack the first track", sbitsWriteBE ( frame, 6u, 2u, 2u, 800u ), SB_OK );
+    expectStatus ( "link: pack the second track", sbitsWriteBE ( frame, 6u, 4u, 2u, 400u ), SB_OK );
+    expectStatus ( "link: protect the frame", se2eProtect ( &tx, frame, 6u ), SE_OK );
+
+    expectStatus ( "link: check the frame", se2eCheck ( &rx, frame, 6u, &result ), SE_OK );
+    expectU32 ( "link: the first frame is the reference", ( uint32_t ) result, ( uint32_t ) SE_RESULT_INITIAL );
+
+    expectStatus ( "link: unpack the first track", sbitsReadBE ( frame, 6u, 2u, 2u, &rawA ), SB_OK );
+    expectStatus ( "link: unpack the second track", sbitsReadBE ( frame, 6u, 4u, 2u, &rawB ), SB_OK );
+    expectStatus ( "link: the first track in range",
+                   ssignalCheckRange ( ( int32_t ) rawA, 0, 1000, &verdict ), SG_OK );
+    expectU32 ( "link: inside", ( uint32_t ) verdict, ( uint32_t ) SG_VERDICT_INSIDE );
+    expectStatus ( "link: the two tracks compared",
+                   ssignalCorrelate ( ( int32_t ) rawA, ( int32_t ) rawB, 1, 2, 0, 5u, &agree ), SG_OK );
+    expectU32 ( "link: they agree", ( uint32_t ) agree, ( uint32_t ) TRUE );
+
+    /* The next frame arrives with one bit flipped, three cycles running. */
+    expectStatus ( "link: protect the next frame", se2eProtect ( &tx, frame, 6u ), SE_OK );
+    frame[ 3 ] = ( uint8_t ) ( frame[ 3 ] ^ 0x01u );
+
+    for ( i = 0u; i < 3u; ++i )
+    {
+        ( void ) se2eCheck ( &rx, frame, 6u, &result );
+
+        if ( result == SE_RESULT_ERROR )
+        {
+            present = TRUE;
+        }
+        else
+        {
+            present = FALSE;
+        }
+
+        ( void ) sfaultUpdate ( &corrupt, present );
+
+        if ( i == 1u )
+        {
+            ( void ) sfaultIsConfirmed ( &corrupt, &confirmed );
+            expectU32 ( "link: two bad frames are not yet a fault", ( uint32_t ) confirmed, ( uint32_t ) FALSE );
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+    }
+
+    ( void ) sfaultIsConfirmed ( &corrupt, &confirmed );
+    expectU32 ( "link: the third is", ( uint32_t ) confirmed, ( uint32_t ) TRUE );
+
+    /* Repaired, the frame is in sequence: the bad ones moved nothing. */
+    frame[ 3 ] = ( uint8_t ) ( frame[ 3 ] ^ 0x01u );
+    expectStatus ( "link: the repaired frame", se2eCheck ( &rx, frame, 6u, &result ), SE_OK );
+    expectU32 ( "link: is in sequence", ( uint32_t ) result, ( uint32_t ) SE_RESULT_OK );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -776,6 +872,7 @@ int main ( void )
     testChannelDrift ( );
     testMissedCycle ( );
     testUnitsAndSeams ( );
+    testProtectedLink ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

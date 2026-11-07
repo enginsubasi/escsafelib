@@ -78,6 +78,7 @@ MODULES=(
   "vote     svote         SVote"
   "watch    swatch        SWatch"
   "signal   ssignal       SSignal"
+  "e2e      se2e          SE2E"
 )
 
 fail=0
@@ -113,11 +114,11 @@ for m in "${MODULES[@]}"; do
     printf "%-10s SUITE FAILED exit=%s\n" "$n" "$rc"; fail=1; continue
   fi
 
-  # The integration suite exercises nine of the modules as a chain, so its
+  # The integration suite exercises eleven of the modules as a chain, so its
   # coverage belongs in these numbers. Linking it against the same object
   # accumulates into the same data file, which is what gcov counts.
   if grep -q "\"$n.h\"" "$REPO/test/Integration_Test/Integration_Test.c"; then
-    if "${CC[@]}" --coverage -O0 -std=c99          -I"$REPO/inc/bits" -I"$REPO/inc/diag" -I"$REPO/inc/fault"          -I"$REPO/inc/filter" -I"$REPO/inc/ring" -I"$REPO/inc/scale"          -I"$REPO/inc/state" -I"$REPO/inc/vote" -I"$REPO/inc/watch"          -I"$REPO/inc/math"          "$REPO/test/Integration_Test/Integration_Test.c"          $( for g in bits/sbits diag/sdiag fault/sfault filter/sfilter                      ring/sring scale/sscale state/sstate vote/svote                      watch/swatch math/smath; do
+    if "${CC[@]}" --coverage -O0 -std=c99          -I"$REPO/inc/bits" -I"$REPO/inc/diag" -I"$REPO/inc/fault"          -I"$REPO/inc/filter" -I"$REPO/inc/ring" -I"$REPO/inc/scale"          -I"$REPO/inc/state" -I"$REPO/inc/vote" -I"$REPO/inc/watch"          -I"$REPO/inc/math" -I"$REPO/inc/e2e" -I"$REPO/inc/signal"          "$REPO/test/Integration_Test/Integration_Test.c"          $( for g in bits/sbits diag/sdiag fault/sfault filter/sfilter                      ring/sring scale/sscale state/sstate vote/svote                      watch/swatch math/smath e2e/se2e signal/ssignal; do
               gn=$( basename "$g" )
               if [ "$gn" = "$n" ]; then echo "$work/$n.o"; else echo "$REPO/src/$g.c"; fi
             done )          -o "$work/integration.exe" 2>>"$work/build.log"; then

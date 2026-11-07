@@ -24,6 +24,7 @@ fails leaves its destination untouched.
 | `inc/fixed/sfixed.h` | 19 functions. Q16.16 fixed point: conversion, checked arithmetic, rounding, interpolation and square root. No floating point. |
 | `inc/scale/sscale.h` | 12 functions. Piecewise linear scaling: a validated breakpoint table in either direction, its inverse, and the two point map that needs no table. |
 | `inc/bits/sbits.h` | 18 functions. Bit field packing in a word and across a byte array, and integers of one to four bytes in an explicitly named byte order, with the position, the width and the value all checked. No shift by the width of the type, and no right shift of a signed value. |
+| `inc/e2e/se2e.h` | 5 functions. End to end protection: a counter and an injected eight bit CRC over an implicit data identifier, and a receiver that tells in sequence, lost, repeated, out of sequence and corrupted apart. sdiag's CRC-8s plug in directly. |
 | `inc/signal/ssignal.h` | 7 functions. Signal plausibility: range and gradient checks that say below or above, two sensor correlation without rounding, and a stuck signal detector. Observation only; qualification is `sfault`'s. |
 | `inc/watch/swatch.h` | 12 functions. Deadline and liveness supervision driven by a caller supplied tick: too late and too soon are both faults, and the arithmetic survives the tick counter wrapping. |
 | `inc/state/sstate.h` | 12 functions. Guarded state machine: a transition table validated at Init, illegal transitions refused and counted, and reachability queries over the whole table. |
@@ -195,12 +196,15 @@ gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/bits \
 
 gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/signal \
   test/SSignal_Test/SSignal_Test.c src/signal/ssignal.c -o ssignal_test && ./ssignal_test
+
+gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/e2e \
+  test/SE2E_Test/SE2E_Test.c src/e2e/se2e.c -o se2e_test && ./se2e_test
 ```
 
 ## The modules together
 
 Every suite in `test/<Name>_Test/` covers one module. `test/Integration_Test/`
-covers nine of them as a chain, because a module can satisfy its own
+covers eleven of them as a chain, because a module can satisfy its own
 contract exactly and still be impossible to use next to its neighbour.
 
 It models a two channel pedal position sensor: a frame arrives on a ring,
@@ -209,17 +213,21 @@ out of four bytes, raw counts become per mille of travel through a
 calibration table, each channel is smoothed, the two are compared, a
 disagreement is qualified over several cycles before it counts, and a
 qualified disagreement puts the state machine in its safe state. A cycle
-that does not happen is a missed deadline.
+that does not happen is a missed deadline. A second path protects a frame
+end to end with se2e and sdiag's CRC, packs two tracks big endian with
+sbits, checks them with ssignal and qualifies corrupted frames with sfault.
 
 ```bash
 gcc -Wall -Wextra -Wpedantic -std=c99 \
   -Iinc/bits -Iinc/diag -Iinc/fault -Iinc/filter -Iinc/ring \
   -Iinc/scale -Iinc/state -Iinc/vote -Iinc/watch -Iinc/math \
+  -Iinc/e2e -Iinc/signal \
   test/Integration_Test/Integration_Test.c \
   src/bits/sbits.c src/diag/sdiag.c src/fault/sfault.c \
   src/filter/sfilter.c src/ring/sring.c src/scale/sscale.c \
   src/state/sstate.c src/vote/svote.c src/watch/swatch.c \
-  src/math/smath.c -o integration_test && ./integration_test
+  src/math/smath.c src/e2e/se2e.c src/signal/ssignal.c \
+  -o integration_test && ./integration_test
 ```
 
 ## Generated modules

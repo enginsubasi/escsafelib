@@ -21,8 +21,8 @@ Historical milestones and prior findings are recorded in
      **Done.**
   4. `se2e` (prefix `SE_`): counter, data ID and injected CRC on send; a
      receiver state machine telling repetition, loss, wrong order,
-     corruption and timeout apart. No compatibility claim with any
-     specification.
+     corruption apart (timeout is `swatch`'s, by decision). No
+     compatibility claim with any specification. **Done.**
   5. `slog` (prefix `SL_`): fault event memory in a caller-owned table,
      saturating counters, full-table policy chosen at Init.
   6. `sstore` (prefix `SO_`): record header, version, length and CRC over a
@@ -88,9 +88,31 @@ Historical milestones and prior findings are recorded in
   coexistence clean; `.data`/`.bss` 0, 460 B on M0+; `run_all.sh` ALL
   GREEN.
 
+## Piece 4: `se2e`
+
+- New module `inc/e2e/se2e.h`, `src/e2e/se2e.c`: `se2eTxInit`,
+  `se2eProtect`, `se2eRxInit`, `se2eCheck`, `se2eRxResync`. Frame: byte 0
+  CRC, byte 1 counter, payload after (`SE2E_HEADERSIZE` 2). CRC over the
+  16-bit data ID (low byte first, never sent), the counter and the payload,
+  through an injected `se2ecrc_t` shaped like `sdiagCrc8SaeUpdate`.
+- Decisions: status says whether the check ran, `SE2ERESULT` says what the
+  frame is (OK, OKSOMELOST, INITIAL, REPEATED, WRONGSEQUENCE, ERROR); no
+  timeout (no frame means no call; `swatch` and `sfault` own that); every
+  good non-repeated frame becomes the reference, a wrong sequence
+  included; `maxDelta` 1-127; zeroed driver refused by `crc == NULL`.
+- The integration suite gained `testProtectedLink`: `sdiagCrc8SaeUpdate`
+  passed to se2e with no wrapper, `sbitsWriteBE`/`ReadBE`, `ssignal` range
+  and correlation, and `sfault` confirming three corrupted frames. 38 to
+  57 cases; its build lines in `run_all.sh`, `coverage.sh`, CI and the
+  README now name eleven modules.
+- Verified: 75 cases on zig with UBSan and gcc 14 strict; M1-M12 all
+  killed; coverage 100% lines, branches, MC/DC; checkers 0; MISRA full
+  tree 0 differences after three reviewed records (369 in all); cppcheck,
+  gcc 16 analyzer, ARM M0+/M4 analyzer clean; `.data`/`.bss` 0;
+  `run_all.sh` ALL GREEN. CI of the `ssignal` commit: every job success.
+
 ## Remaining work
 
-1. Pieces 4-7 above, in order.
-2. Read the CI run of the `ssignal` commit: first run of the new matrix
-   and sanitizer steps.
+1. Pieces 5-7 above, in order.
+2. Read the CI run of the `se2e` commit.
 2. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.
