@@ -94,4 +94,10 @@ MUTANTS = [
         "old": 'uint8_t smathAbsi32 ( int32_t value, int32_t* result )\n{\n    uint8_t retVal = SH_OK;\n\n    if ( result == NULL )\n    {\n        retVal = SH_NULLPTR;\n    }\n    else if ( value == INT32_MIN',
         "new": 'uint8_t smathAbsi32 ( int32_t value, int32_t* result )\n{\n    uint8_t retVal = SH_OK;\n\n    if ( result == NULL )\n    {\n        retVal = SH_NULLPTR;\n    }\n    else if ( FALSE',
     },
+    {
+        "id": 'M16',
+        "what": 'the u16 range test forgets its lower bound',
+        "old": 'uint8_t smathInRangeu16 ( uint16_t value, uint16_t low, uint16_t high, uint8_t* result )\n{\n    uint8_t retVal = SH_OK;\n\n    if ( result == NULL )\n    {\n        retVal = SH_NULLPTR;\n    }\n    else if ( low > high )\n    {\n        retVal = SH_INVALIDRANGE;\n    }\n    else\n    {\n        if ( ( value >= low ) && ( value <= high ) )',
+        "new": 'uint8_t smathInRangeu16 ( uint16_t value, uint16_t low, uint16_t high, uint8_t* result )\n{\n    uint8_t retVal = SH_OK;\n\n    if ( result == NULL )\n    {\n        retVal = SH_NULLPTR;\n    }\n    else if ( low > high )\n    {\n        retVal = SH_INVALIDRANGE;\n    }\n    else\n    {\n        if ( ( TRUE ) && ( value <= high ) )',
+    },
 ]

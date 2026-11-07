@@ -3,7 +3,7 @@
   *
   * @file      SFilter_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
+  * @version   0.1.2
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the sfilter module.
@@ -15,6 +15,7 @@
   * 05/08/2026 Created. @n
   * 07/11/2026 Every status a return block promises is asked for at least @n
   *            once, as tools/tracecheck.py requires. @n
+  * 07/11/2026 MC/DC cases: each Get refuses its driver and its output on its own. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -955,6 +956,39 @@ static void testStatusContract ( void )
 }
 
 /**
+ * @brief   Takes the condition outcomes MC/DC found no case had taken.
+ * @note    Branch coverage was satisfied by each of these decisions, because
+ *          some outcome of each had been seen. MC/DC asks for each condition
+ *          to be shown to decide on its own, and these had only ever been
+ *          refused alongside another: a guard testing only its first
+ *          pointer, or only one of two capacities, would have passed.
+ */
+static void testConditionCoverage ( void )
+{
+    sfilteravg_t average;
+    int32_t window[ 4 ] = { 0, 0, 0, 0 };
+    sfilterema_t ema;
+    sfilterdebounce_t debounce;
+    sfilterslew_t slew;
+    sfilterhyst_t hyst;
+    int32_t value = -12345;
+
+    expectStatus ( "mcdc: avgInit", sfilterAvgInit ( &average, window, 4u ), SF_OK );
+    expectStatus ( "mcdc: emaInit", sfilterEmaInit ( &ema, 2u, 0 ), SF_OK );
+    expectStatus ( "mcdc: debounceInit", sfilterDebounceInit ( &debounce, 3u, FALSE ), SF_OK );
+    expectStatus ( "mcdc: slewInit", sfilterSlewInit ( &slew, 10, 10, 0 ), SF_OK );
+    expectStatus ( "mcdc: hystInit", sfilterHystInit ( &hyst, 10, 20, FALSE ), SF_OK );
+
+    expectStatus ( "mcdc: avgGet NULL driver", sfilterAvgGet ( NULL, &value ), SF_NULLPTR );
+    expectStatus ( "mcdc: avgCount NULL output", sfilterAvgCount ( &average, NULL ), SF_NULLPTR );
+    expectStatus ( "mcdc: emaGet NULL output", sfilterEmaGet ( &ema, NULL ), SF_NULLPTR );
+    expectStatus ( "mcdc: debounceGet NULL output", sfilterDebounceGet ( &debounce, NULL ), SF_NULLPTR );
+    expectStatus ( "mcdc: slewGet NULL output", sfilterSlewGet ( &slew, NULL ), SF_NULLPTR );
+    expectStatus ( "mcdc: hystGet NULL output", sfilterHystGet ( &hyst, NULL ), SF_NULLPTR );
+    expectI32 ( "mcdc: no refusal wrote the value", value, -12345 );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -969,6 +1003,7 @@ int main ( void )
     testMedian ( );
     testUncoveredBranches ( );
     testStatusContract ( );
+    testConditionCoverage ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

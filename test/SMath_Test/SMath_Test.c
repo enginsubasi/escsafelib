@@ -3,8 +3,8 @@
   *
   * @file      SMath_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the smath module.
   *
@@ -13,6 +13,7 @@
   *
   * @par History
   * 05/08/2026 Created. @n
+  * 07/11/2026 InRange below and on its lower bound, which no case had asked. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -470,6 +471,10 @@ static void targetedu8 ( void )
     expectU32 ( "u8 inRange: on the upper bound result", ( uint32_t ) flag, TRUE );
     expectStatus ( "u8 inRange: above", smathInRangeu8 ( 11, 5, 10, &flag ), SH_OK );
     expectU32 ( "u8 inRange: above result", ( uint32_t ) flag, FALSE );
+    expectStatus ( "u8 inRange: on the lower bound", smathInRangeu8 ( 5, 5, 10, &flag ), SH_OK );
+    expectU32 ( "u8 inRange: on the lower bound result", ( uint32_t ) flag, TRUE );
+    expectStatus ( "u8 inRange: below", smathInRangeu8 ( 4, 5, 10, &flag ), SH_OK );
+    expectU32 ( "u8 inRange: below result", ( uint32_t ) flag, FALSE );
     expectStatus ( "u8 inRange: reversed bounds",
                    smathInRangeu8 ( 7, 10, 5, &flag ), SH_INVALIDRANGE );
 
@@ -883,6 +888,10 @@ static void targetedu16 ( void )
     expectU32 ( "u16 inRange: on the upper bound result", ( uint32_t ) flag, TRUE );
     expectStatus ( "u16 inRange: above", smathInRangeu16 ( 11, 5, 10, &flag ), SH_OK );
     expectU32 ( "u16 inRange: above result", ( uint32_t ) flag, FALSE );
+    expectStatus ( "u16 inRange: on the lower bound", smathInRangeu16 ( 5, 5, 10, &flag ), SH_OK );
+    expectU32 ( "u16 inRange: on the lower bound result", ( uint32_t ) flag, TRUE );
+    expectStatus ( "u16 inRange: below", smathInRangeu16 ( 4, 5, 10, &flag ), SH_OK );
+    expectU32 ( "u16 inRange: below result", ( uint32_t ) flag, FALSE );
     expectStatus ( "u16 inRange: reversed bounds",
                    smathInRangeu16 ( 7, 10, 5, &flag ), SH_INVALIDRANGE );
 
@@ -1296,6 +1305,10 @@ static void targetedu32 ( void )
     expectU32 ( "u32 inRange: on the upper bound result", ( uint32_t ) flag, TRUE );
     expectStatus ( "u32 inRange: above", smathInRangeu32 ( 11, 5, 10, &flag ), SH_OK );
     expectU32 ( "u32 inRange: above result", ( uint32_t ) flag, FALSE );
+    expectStatus ( "u32 inRange: on the lower bound", smathInRangeu32 ( 5, 5, 10, &flag ), SH_OK );
+    expectU32 ( "u32 inRange: on the lower bound result", ( uint32_t ) flag, TRUE );
+    expectStatus ( "u32 inRange: below", smathInRangeu32 ( 4, 5, 10, &flag ), SH_OK );
+    expectU32 ( "u32 inRange: below result", ( uint32_t ) flag, FALSE );
     expectStatus ( "u32 inRange: reversed bounds",
                    smathInRangeu32 ( 7, 10, 5, &flag ), SH_INVALIDRANGE );
 
@@ -1744,6 +1757,10 @@ static void targetedi32 ( void )
     expectU32 ( "i32 inRange: on the upper bound result", ( uint32_t ) flag, TRUE );
     expectStatus ( "i32 inRange: above", smathInRangei32 ( 11, 5, 10, &flag ), SH_OK );
     expectU32 ( "i32 inRange: above result", ( uint32_t ) flag, FALSE );
+    expectStatus ( "i32 inRange: on the lower bound", smathInRangei32 ( 5, 5, 10, &flag ), SH_OK );
+    expectU32 ( "i32 inRange: on the lower bound result", ( uint32_t ) flag, TRUE );
+    expectStatus ( "i32 inRange: below", smathInRangei32 ( 4, 5, 10, &flag ), SH_OK );
+    expectU32 ( "i32 inRange: below result", ( uint32_t ) flag, FALSE );
     expectStatus ( "i32 inRange: reversed bounds",
                    smathInRangei32 ( 7, 10, 5, &flag ), SH_INVALIDRANGE );
 

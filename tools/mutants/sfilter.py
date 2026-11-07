@@ -90,4 +90,10 @@ MUTANTS = [
         "old": '                            + ( int64_t ) sample;\n\n        *value = ( int32_t ) shiftDown ( driver->accumulator, driver->shift );\n        retVal = SF_OK;',
         "new": '                            + ( int64_t ) sample;\n\n        *value = ( int32_t ) shiftDown ( driver->accumulator, driver->shift );\n        retVal = SF_EMPTY;',
     },
+    {
+        "id": 'M15',
+        "what": 'the hysteresis query does not check its output',
+        "old": 'uint8_t sfilterHystGet ( const sfilterhyst_t* driver, uint8_t* state )\n{\n    uint8_t retVal = SF_OK;\n\n    if ( ( driver == NULL ) || ( state == NULL ) )',
+        "new": 'uint8_t sfilterHystGet ( const sfilterhyst_t* driver, uint8_t* state )\n{\n    uint8_t retVal = SF_OK;\n\n    if ( driver == NULL )',
+    },
 ]

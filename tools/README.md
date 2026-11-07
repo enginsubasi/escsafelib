@@ -216,11 +216,18 @@ bytes past the end quite happily.
 ## coverage.sh
 
 Statement and branch coverage of every module against its own suite, using
-gcc's `--coverage` and gcov.
+gcc's `--coverage` and gcov, and MC/DC when the compiler has
+`-fcondition-coverage` (gcc 14 and later; a `gcc-NN` compiler is paired
+with `gcov-NN`). The MC/DC gaps go to `<module>.conditions.txt`.
 
 ```bash
 PATH="/c/Program Files/CodeBlocks/MinGW/bin:$PATH" bash tools/coverage.sh gcc
 ```
+
+Under GitHub Actions it also prints the table as one `::notice`, naming
+the compiler and gcov it used. The job log needs admin rights to read and
+annotations do not, so that is how CI's numbers, and whether CI measured
+MC/DC at all, are read from outside.
 
 It leaves the annotated listings behind on purpose. **Read them; the
 percentage is not the result.** Every uncovered line is either a case nobody
@@ -282,13 +289,24 @@ recorded line in the same function raises the count and is reported.
 A full-tree run fails on new, changed or stale occurrences; a partial run
 checks only the selected modules' records. Each difference is printed with
 the exact record that would have to be added or deleted. The manifest pins
-observed findings; it does not approve a formal deviation or prove each
-finding's rationale.
+observed findings; it does not approve a formal deviation.
+
+What it does check is each finding's rationale, by expression. The addon is
+run with `--cli`, whose JSON carries the column the text form leaves out,
+and the column names the operator the finding is about. In the cppcheck
+dump that operator must be `==` or `!=`, and one of its two operands must
+be `TRUE` or `FALSE` as the preprocessor expanded them, or a member of the
+module's own status enum. A finding that is anything else fails the run,
+manifest or not. A line test alone would pass a line holding a status
+comparison and an unsuffixed unsigned one side by side; a control built
+exactly that way is refused at its column.
 
 `misra_occurrences.py --self-test` checks function attribution, matching,
 added, removed, moved-to-another-function, duplicate and
-changed-fingerprint cases. Nothing writes the manifest: review the source
-line and its rationale before adding or deleting a record by hand.
+changed-fingerprint cases, the expression test against a hand written dump
+(including a header token at the same place as the operator), and the
+JSON parsing. Nothing writes the manifest: review the source line before
+adding or deleting a record by hand.
 
 `CPPCHECK`, `MISRA_PY` and `PYTHON` override where the tools are found.
 

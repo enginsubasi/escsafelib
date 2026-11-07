@@ -3,7 +3,7 @@
   *
   * @file      SScale_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
+  * @version   0.1.2
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the sscale module.
@@ -15,6 +15,7 @@
   * 05/08/2026 Created. @n
   * 07/11/2026 A table changed by its caller after Init, which no case had @n
   *            reached, as tools/tracecheck.py requires. @n
+  * 07/11/2026 MC/DC cases: single pointer refusals and the inside of a falling map. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -1166,6 +1167,51 @@ static void testTableChangedAfterInit ( void )
 }
 
 /**
+ * @brief   Takes the condition outcomes MC/DC found no case had taken.
+ * @note    Branch coverage was satisfied by each of these decisions, because
+ *          some outcome of each had been seen. MC/DC asks for each condition
+ *          to be shown to decide on its own, and these had only ever been
+ *          refused alongside another: a guard testing only its first
+ *          pointer, or only one of two capacities, would have passed.
+ *          It also covers a falling map that had not been asked about every
+ *          side of its range.
+ */
+static void testConditionCoverage ( void )
+{
+    const int32_t fallX[ 3 ] = { 100, 50, 0 };
+    const int32_t fallY[ 3 ] = { 0, 10, 20 };
+    sscale_t driver;
+    sscale_t falling;
+    int32_t low = -12345;
+    int32_t high = -12345;
+    int32_t out = -12345;
+    uint32_t count = 0xA5A5A5A5u;
+    uint8_t flag = 0x5Au;
+
+    expectStatus ( "mcdc: init", sscaleInit ( &driver, ascX, 7u, ascY, 7u, 7u ), SC_OK );
+    expectStatus ( "mcdc: inDomain NULL driver", sscaleInDomain ( NULL, 0, &flag ), SC_NULLPTR );
+    expectStatus ( "mcdc: range NULL driver", sscaleRange ( NULL, &low, &high ), SC_NULLPTR );
+    expectStatus ( "mcdc: range NULL high", sscaleRange ( &driver, &low, NULL ), SC_NULLPTR );
+    expectStatus ( "mcdc: count NULL driver", sscaleCount ( NULL, &count ), SC_NULLPTR );
+    expectStatus ( "mcdc: isIncreasing NULL driver", sscaleIsIncreasing ( NULL, &flag ), SC_NULLPTR );
+    expectI32 ( "mcdc: no refusal wrote low", low, -12345 );
+    expectI32 ( "mcdc: no refusal wrote high", high, -12345 );
+    expectU32 ( "mcdc: no refusal wrote the count", count, 0xA5A5A5A5u );
+    expectU32 ( "mcdc: no refusal wrote the flag", ( uint32_t ) flag, 0x5Au );
+
+    /* A falling table and a falling linear map, inside and below. */
+    expectStatus ( "mcdc: init falling", sscaleInit ( &falling, fallX, 3u, fallY, 3u, 3u ), SC_OK );
+    expectStatus ( "mcdc: applyClamped inside a falling table", sscaleApplyClamped ( &falling, 75, &out ), SC_OK );
+    expectI32 ( "mcdc: applyClamped inside a falling table result", out, 5 );
+    expectStatus ( "mcdc: linear below a falling range",
+                   sscaleLinear ( -1, 100, 0, 0, 1000, &out ), SC_OUTOFRANGE );
+    expectI32 ( "mcdc: linear refusal left the result", out, 5 );
+    expectStatus ( "mcdc: linearClamped inside a falling range",
+                   sscaleLinearClamped ( 50, 100, 0, 0, 1000, &out ), SC_OK );
+    expectI32 ( "mcdc: linearClamped inside a falling range result", out, 500 );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -1188,6 +1234,7 @@ int main ( void )
     testNoWriteOnFailure ( );
     testUncoveredBranches ( );
     testTableChangedAfterInit ( );
+    testConditionCoverage ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

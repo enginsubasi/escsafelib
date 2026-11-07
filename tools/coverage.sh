@@ -55,6 +55,7 @@ esac
 
 MCDC=()
 GCOVMCDC=()
+summary=""
 printf 'int f ( int a, int b ) { return ( a && b ); }\n' > "$OUT/probe.c"
 if "${CC[@]}" --coverage -fcondition-coverage -c "$OUT/probe.c" -o "$OUT/probe.o" >/dev/null 2>&1; then
   MCDC=( -fcondition-coverage )
@@ -144,6 +145,7 @@ for m in "${MODULES[@]}"; do
 
   printf "%-10s %10s %9s%% %10s %9s%% %9s%%\n" \
     "$n" "${lines:-?}" "${linepc:-?}" "${branches:-?}" "${takenpc:-?}" "${mcdcpc:-n/a}"
+  summary="${summary}$n lines ${linepc:-?}%, branches ${takenpc:-?}%, MC/DC ${mcdcpc:-n/a}%0A"
 
   # The lines gcov marks ##### were never executed. Pull them out with their
   # numbers so each one can be looked at rather than counted.
@@ -166,5 +168,13 @@ fi
 echo
 echo "A percentage is not the result. Classify every entry: a case nobody"
 echo "wrote is a hole, a branch the API cannot reach is a comment."
+
+# On GitHub the table also goes out as one notice. A job's log needs admin
+# rights to read and its annotations do not, so this is how the numbers CI
+# measured, and whether it measured MC/DC at all, can be read from here.
+# One notice rather than one per module, because a step shows only ten.
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+  echo "::notice title=coverage by ${CC[*]} and ${GCOV}::${summary}"
+fi
 
 exit "$fail"

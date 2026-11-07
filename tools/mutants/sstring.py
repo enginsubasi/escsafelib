@@ -126,4 +126,16 @@ MUTANTS = [
         "old": '    uint32_t i = 0;\n\n    if ( ( str == NULL ) || ( value == NULL ) )\n    {\n        retVal = SS_NULLPTR;\n    }\n    else\n    {\n        retVal = sstringLength ( str, strSize, &strLen );\n\n        if ( retVal == SS_OK )\n        {\n            if ( strLen == 0u )\n            {\n                retVal = SS_INVALIDFORMAT;\n            }\n            else\n            {\n                for ( i = 0; ( i < strLen ) && ( done == FALSE ); ++i )\n                {\n                    if ( isDigitAscii ( str[ i ] ) == FALSE )',
         "new": '    uint32_t i = 0;\n\n    if ( ( str == NULL ) || ( value == NULL ) )\n    {\n        retVal = SS_NULLPTR;\n    }\n    else\n    {\n        retVal = sstringLength ( str, strSize, &strLen );\n\n        if ( retVal == SS_UNTERMINATED )\n        {\n            strLen = strSize;\n            retVal = SS_OK;\n        }\n\n        if ( retVal == SS_OK )\n        {\n            if ( strLen == 0u )\n            {\n                retVal = SS_INVALIDFORMAT;\n            }\n            else\n            {\n                for ( i = 0; ( i < strLen ) && ( done == FALSE ); ++i )\n                {\n                    if ( isDigitAscii ( str[ i ] ) == FALSE )',
     },
+    {
+        "id": 'M20',
+        "what": 'the capital letters run one past Z',
+        "old": "static uint8_t isAlphaAscii ( char ch )\n{\n    uint8_t retVal = FALSE;\n\n    if ( ( ( ch >= 'A' ) && ( ch <= 'Z' ) ) || ( ( ch >= 'a' ) && ( ch <= 'z' ) ) )",
+        "new": "static uint8_t isAlphaAscii ( char ch )\n{\n    uint8_t retVal = FALSE;\n\n    if ( ( ( ch >= 'A' ) && ( ch <= '[' ) ) || ( ( ch >= 'a' ) && ( ch <= 'z' ) ) )",
+    },
+    {
+        "id": 'M21',
+        "what": 'a form feed is no longer whitespace',
+        "old": "static uint8_t isWhitespace ( char ch )\n{\n    uint8_t retVal = FALSE;\n\n    if ( ( ch == ' ' ) || ( ch == '\\t' ) || ( ch == '\\n' ) ||\n         ( ch == '\\r' ) || ( ch == '\\v' ) || ( ch == '\\f' ) )",
+        "new": "static uint8_t isWhitespace ( char ch )\n{\n    uint8_t retVal = FALSE;\n\n    if ( ( ch == ' ' ) || ( ch == '\\t' ) || ( ch == '\\n' ) ||\n         ( ch == '\\r' ) || ( ch == '\\v' ) )",
+    },
 ]

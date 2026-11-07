@@ -18,7 +18,7 @@ HEAD = r"""/**
   *
   * @file      SArray_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
+  * @version   0.1.2
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the sarray module.
@@ -30,6 +30,10 @@ HEAD = r"""/**
   * 04/08/2026 Created. @n
   * 07/11/2026 Overlapping ranges for CopyN, and u8 and u16 sums that @n
   *            overflow, as tools/tracecheck.py requires. @n
+  * 07/11/2026 MC/DC cases: Swap's first index, CompareN's second capacity, @n
+  *            rotations by one and by one less than the length, sums that @n
+  *            overflow before their last element, and CopyN between the @n
+  *            adjacent halves of one array in both directions. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -52,14 +56,15 @@ HEAD = r"""/**
 static uint32_t checks = 0;
 static uint32_t failures = 0;
 
-/* Enough elements to carry a uint32_t accumulator past its top. 16843010
-   bytes of 255 are 4294967550, and with the last one zero they land exactly
-   on 4294967295. 65538 halfwords of 65535 are 4295032830, and with the last
-   one zero exactly 4294967295 again. Sixteen megabytes and 128 kilobytes:
-   far too large for a small target, which is why they are static and why
-   only the host runs them. */
-#define SUMOVF_U8_COUNT     16843010u
-#define SUMOVF_U16_COUNT    65538u
+/* Enough elements to carry a uint32_t accumulator past its top. 16843009
+   bytes of 255 are exactly 4294967295, so the next one overflows; the array
+   holds one more after that, so a sum over all of it overflows before its
+   last element and has to stop there. 65537 halfwords of 65535 are exactly
+   4294967295 as well, with two more behind them. Sixteen megabytes and 128
+   kilobytes: far too large for a small target, which is why they are static
+   and why only the host runs them. */
+#define SUMOVF_U8_COUNT     16843011u
+#define SUMOVF_U16_COUNT    65539u
 static uint8_t sumOverflowu8[ SUMOVF_U8_COUNT ];
 static uint16_t sumOverflowu16[ SUMOVF_U16_COUNT ];
 
@@ -353,6 +358,23 @@ static void test${S} ( void )
     expectStatus ( "${S} copyN: overlapping ranges", sarrayCopyN${S} ( &a[ 0 ], 6, &a[ 2 ], 6, 4 ), SA_OVERLAP );
     expectArray${S} ( "${S} copyN: array untouched after overlap", a, snap, 8 );
 
+    /* The two halves of one array, each way round: the two ways a pair of
+       ranges can miss each other, which the overlap test has to tell apart
+       from the ways they meet. */
+    setSeq${S} ( a, 8, 10 );
+    expectStatus ( "${S} copyN: into the adjacent half above",
+                   sarrayCopyN${S} ( &a[ 4 ], 4, &a[ 0 ], 4, 4 ), SA_OK );
+    want[ 0 ] = 10; want[ 1 ] = 11; want[ 2 ] = 12; want[ 3 ] = 13;
+    want[ 4 ] = 10; want[ 5 ] = 11; want[ 6 ] = 12; want[ 7 ] = 13;
+    expectArray${S} ( "${S} copyN: into the adjacent half above contents", a, want, 8 );
+
+    setSeq${S} ( a, 8, 10 );
+    expectStatus ( "${S} copyN: into the adjacent half below",
+                   sarrayCopyN${S} ( &a[ 0 ], 4, &a[ 4 ], 4, 4 ), SA_OK );
+    want[ 0 ] = 14; want[ 1 ] = 15; want[ 2 ] = 16; want[ 3 ] = 17;
+    want[ 4 ] = 14; want[ 5 ] = 15; want[ 6 ] = 16; want[ 7 ] = 17;
+    expectArray${S} ( "${S} copyN: into the adjacent half below contents", a, want, 8 );
+
     /* ---- Move ---- */
 
     setSeq${S} ( a, 8, 10 );
@@ -390,6 +412,8 @@ static void test${S} ( void )
     expectArray${S} ( "${S} swap: same index changes nothing", a, snap, 8 );
     expectStatus ( "${S} swap: index out of range", sarraySwap${S} ( a, 8, 0, 8 ), SA_OUTOFRANGE );
     expectArray${S} ( "${S} swap: array untouched after failure", a, snap, 8 );
+    expectStatus ( "${S} swap: first index out of range", sarraySwap${S} ( a, 8, 8, 0 ), SA_OUTOFRANGE );
+    expectArray${S} ( "${S} swap: array untouched after the first index fails", a, snap, 8 );
 
     /* ---- Compare ---- */
 
@@ -422,6 +446,8 @@ static void test${S} ( void )
 
     expectStatus ( "${S} compareN: count above a capacity",
                    sarrayCompareN${S} ( a, 4, b, 8, 5, &result ), SA_OUTOFRANGE );
+    expectStatus ( "${S} compareN: count above b capacity",
+                   sarrayCompareN${S} ( a, 8, b, 4, 5, &result ), SA_OUTOFRANGE );
 
     b[ 6 ] = 99;
     expectStatus ( "${S} compareN: equal prefix", sarrayCompareN${S} ( a, 8, b, 8, 3, &result ), SA_OK );
@@ -600,6 +626,20 @@ ${SUMOVF}
     setSeq${S} ( a, 8, 10 );
     expectStatus ( "${S} rotate: by more than the length", sarrayRotate${S} ( a, 8, 11 ), SA_OK );
     expectArray${S} ( "${S} rotate: an oversized shift is reduced modulo the length", a, want, 8 );
+
+    /* By one and by one less than the length, so each of the two partial
+       reversals is handed a range of a single element. */
+    setSeq${S} ( a, 8, 10 );
+    expectStatus ( "${S} rotate: by one", sarrayRotate${S} ( a, 8, 1 ), SA_OK );
+    want[ 0 ] = 11; want[ 1 ] = 12; want[ 2 ] = 13; want[ 3 ] = 14;
+    want[ 4 ] = 15; want[ 5 ] = 16; want[ 6 ] = 17; want[ 7 ] = 10;
+    expectArray${S} ( "${S} rotate: by one contents", a, want, 8 );
+
+    setSeq${S} ( a, 8, 10 );
+    expectStatus ( "${S} rotate: by seven", sarrayRotate${S} ( a, 8, 7 ), SA_OK );
+    want[ 0 ] = 17; want[ 1 ] = 10; want[ 2 ] = 11; want[ 3 ] = 12;
+    want[ 4 ] = 13; want[ 5 ] = 14; want[ 6 ] = 15; want[ 7 ] = 16;
+    expectArray${S} ( "${S} rotate: by seven contents", a, want, 8 );
 
     expectStatus ( "${S} rotate: NULL array", sarrayRotate${S} ( NULL, 8, 1 ), SA_NULLPTR );
     expectStatus ( "${S} rotate: zero capacity", sarrayRotate${S} ( a, 0, 1 ), SA_INVALIDSIZE );
@@ -822,11 +862,13 @@ SUMOVF_U8 = """
     }
 
     sum = 12345u;
-    expectStatus ( "u8 sum: overflow", sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT, &sum ), SA_OVERFLOW );
+    expectStatus ( "u8 sum: overflow", sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT - 1u, &sum ), SA_OVERFLOW );
     expectU32 ( "u8 sum: output untouched after overflow", sum, 12345u );
+    expectStatus ( "u8 sum: overflow before the last element",
+                   sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT, &sum ), SA_OVERFLOW );
+    expectU32 ( "u8 sum: output untouched after an early overflow", sum, 12345u );
 
-    sumOverflowu8[ SUMOVF_U8_COUNT - 1u ] = 0;
-    expectStatus ( "u8 sum: exactly at the limit", sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT, &sum ), SA_OK );
+    expectStatus ( "u8 sum: exactly at the limit", sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT - 2u, &sum ), SA_OK );
     expectU32 ( "u8 sum: exactly at the limit result", sum, 4294967295u );
 """
 
@@ -837,11 +879,13 @@ SUMOVF_U16 = """
     }
 
     sum = 12345u;
-    expectStatus ( "u16 sum: overflow", sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT, &sum ), SA_OVERFLOW );
+    expectStatus ( "u16 sum: overflow", sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT - 1u, &sum ), SA_OVERFLOW );
     expectU32 ( "u16 sum: output untouched after overflow", sum, 12345u );
+    expectStatus ( "u16 sum: overflow before the last element",
+                   sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT, &sum ), SA_OVERFLOW );
+    expectU32 ( "u16 sum: output untouched after an early overflow", sum, 12345u );
 
-    sumOverflowu16[ SUMOVF_U16_COUNT - 1u ] = 0;
-    expectStatus ( "u16 sum: exactly at the limit", sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT, &sum ), SA_OK );
+    expectStatus ( "u16 sum: exactly at the limit", sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT - 2u, &sum ), SA_OK );
     expectU32 ( "u16 sum: exactly at the limit result", sum, 4294967295u );
 """
 
@@ -853,6 +897,10 @@ SUMOVF_U32 = """
     sum = 12345u;
     expectStatus ( "u32 sum: overflow again", sarraySumu32 ( a, 2, &sum ), SA_OVERFLOW );
     expectU32 ( "u32 sum: output untouched after overflow", sum, 12345u );
+
+    a[ 2 ] = 0;
+    expectStatus ( "u32 sum: overflow before the last element", sarraySumu32 ( a, 3, &sum ), SA_OVERFLOW );
+    expectU32 ( "u32 sum: output untouched after an early overflow", sum, 12345u );
 
     a[ 0 ] = 4294967294u;
     a[ 1 ] = 1;
@@ -872,6 +920,10 @@ SUMOVF_I32 = """
     sum = 12345;
     expectStatus ( "i32 sum: overflow downward again", sarraySumi32 ( a, 2, &sum ), SA_OVERFLOW );
     expectI32 ( "i32 sum: output untouched after overflow", sum, 12345 );
+
+    a[ 2 ] = 0;
+    expectStatus ( "i32 sum: overflow before the last element", sarraySumi32 ( a, 3, &sum ), SA_OVERFLOW );
+    expectI32 ( "i32 sum: output untouched after an early overflow", sum, 12345 );
 
     a[ 0 ] = 2147483647;
     a[ 1 ] = -1;

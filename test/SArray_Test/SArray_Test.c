@@ -3,7 +3,7 @@
   *
   * @file      SArray_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
+  * @version   0.1.2
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the sarray module.
@@ -15,6 +15,10 @@
   * 04/08/2026 Created. @n
   * 07/11/2026 Overlapping ranges for CopyN, and u8 and u16 sums that @n
   *            overflow, as tools/tracecheck.py requires. @n
+  * 07/11/2026 MC/DC cases: Swap's first index, CompareN's second capacity, @n
+  *            rotations by one and by one less than the length, sums that @n
+  *            overflow before their last element, and CopyN between the @n
+  *            adjacent halves of one array in both directions. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -37,14 +41,15 @@
 static uint32_t checks = 0;
 static uint32_t failures = 0;
 
-/* Enough elements to carry a uint32_t accumulator past its top. 16843010
-   bytes of 255 are 4294967550, and with the last one zero they land exactly
-   on 4294967295. 65538 halfwords of 65535 are 4295032830, and with the last
-   one zero exactly 4294967295 again. Sixteen megabytes and 128 kilobytes:
-   far too large for a small target, which is why they are static and why
-   only the host runs them. */
-#define SUMOVF_U8_COUNT     16843010u
-#define SUMOVF_U16_COUNT    65538u
+/* Enough elements to carry a uint32_t accumulator past its top. 16843009
+   bytes of 255 are exactly 4294967295, so the next one overflows; the array
+   holds one more after that, so a sum over all of it overflows before its
+   last element and has to stop there. 65537 halfwords of 65535 are exactly
+   4294967295 as well, with two more behind them. Sixteen megabytes and 128
+   kilobytes: far too large for a small target, which is why they are static
+   and why only the host runs them. */
+#define SUMOVF_U8_COUNT     16843011u
+#define SUMOVF_U16_COUNT    65539u
 static uint8_t sumOverflowu8[ SUMOVF_U8_COUNT ];
 static uint16_t sumOverflowu16[ SUMOVF_U16_COUNT ];
 
@@ -336,6 +341,23 @@ static void testu8 ( void )
     expectStatus ( "u8 copyN: overlapping ranges", sarrayCopyNu8 ( &a[ 0 ], 6, &a[ 2 ], 6, 4 ), SA_OVERLAP );
     expectArrayu8 ( "u8 copyN: array untouched after overlap", a, snap, 8 );
 
+    /* The two halves of one array, each way round: the two ways a pair of
+       ranges can miss each other, which the overlap test has to tell apart
+       from the ways they meet. */
+    setSequ8 ( a, 8, 10 );
+    expectStatus ( "u8 copyN: into the adjacent half above",
+                   sarrayCopyNu8 ( &a[ 4 ], 4, &a[ 0 ], 4, 4 ), SA_OK );
+    want[ 0 ] = 10; want[ 1 ] = 11; want[ 2 ] = 12; want[ 3 ] = 13;
+    want[ 4 ] = 10; want[ 5 ] = 11; want[ 6 ] = 12; want[ 7 ] = 13;
+    expectArrayu8 ( "u8 copyN: into the adjacent half above contents", a, want, 8 );
+
+    setSequ8 ( a, 8, 10 );
+    expectStatus ( "u8 copyN: into the adjacent half below",
+                   sarrayCopyNu8 ( &a[ 0 ], 4, &a[ 4 ], 4, 4 ), SA_OK );
+    want[ 0 ] = 14; want[ 1 ] = 15; want[ 2 ] = 16; want[ 3 ] = 17;
+    want[ 4 ] = 14; want[ 5 ] = 15; want[ 6 ] = 16; want[ 7 ] = 17;
+    expectArrayu8 ( "u8 copyN: into the adjacent half below contents", a, want, 8 );
+
     /* ---- Move ---- */
 
     setSequ8 ( a, 8, 10 );
@@ -373,6 +395,8 @@ static void testu8 ( void )
     expectArrayu8 ( "u8 swap: same index changes nothing", a, snap, 8 );
     expectStatus ( "u8 swap: index out of range", sarraySwapu8 ( a, 8, 0, 8 ), SA_OUTOFRANGE );
     expectArrayu8 ( "u8 swap: array untouched after failure", a, snap, 8 );
+    expectStatus ( "u8 swap: first index out of range", sarraySwapu8 ( a, 8, 8, 0 ), SA_OUTOFRANGE );
+    expectArrayu8 ( "u8 swap: array untouched after the first index fails", a, snap, 8 );
 
     /* ---- Compare ---- */
 
@@ -405,6 +429,8 @@ static void testu8 ( void )
 
     expectStatus ( "u8 compareN: count above a capacity",
                    sarrayCompareNu8 ( a, 4, b, 8, 5, &result ), SA_OUTOFRANGE );
+    expectStatus ( "u8 compareN: count above b capacity",
+                   sarrayCompareNu8 ( a, 8, b, 4, 5, &result ), SA_OUTOFRANGE );
 
     b[ 6 ] = 99;
     expectStatus ( "u8 compareN: equal prefix", sarrayCompareNu8 ( a, 8, b, 8, 3, &result ), SA_OK );
@@ -542,11 +568,13 @@ static void testu8 ( void )
     }
 
     sum = 12345u;
-    expectStatus ( "u8 sum: overflow", sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT, &sum ), SA_OVERFLOW );
+    expectStatus ( "u8 sum: overflow", sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT - 1u, &sum ), SA_OVERFLOW );
     expectU32 ( "u8 sum: output untouched after overflow", sum, 12345u );
+    expectStatus ( "u8 sum: overflow before the last element",
+                   sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT, &sum ), SA_OVERFLOW );
+    expectU32 ( "u8 sum: output untouched after an early overflow", sum, 12345u );
 
-    sumOverflowu8[ SUMOVF_U8_COUNT - 1u ] = 0;
-    expectStatus ( "u8 sum: exactly at the limit", sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT, &sum ), SA_OK );
+    expectStatus ( "u8 sum: exactly at the limit", sarraySumu8 ( sumOverflowu8, SUMOVF_U8_COUNT - 2u, &sum ), SA_OK );
     expectU32 ( "u8 sum: exactly at the limit result", sum, 4294967295u );
 
     /* ---- Reverse ---- */
@@ -596,6 +624,20 @@ static void testu8 ( void )
     setSequ8 ( a, 8, 10 );
     expectStatus ( "u8 rotate: by more than the length", sarrayRotateu8 ( a, 8, 11 ), SA_OK );
     expectArrayu8 ( "u8 rotate: an oversized shift is reduced modulo the length", a, want, 8 );
+
+    /* By one and by one less than the length, so each of the two partial
+       reversals is handed a range of a single element. */
+    setSequ8 ( a, 8, 10 );
+    expectStatus ( "u8 rotate: by one", sarrayRotateu8 ( a, 8, 1 ), SA_OK );
+    want[ 0 ] = 11; want[ 1 ] = 12; want[ 2 ] = 13; want[ 3 ] = 14;
+    want[ 4 ] = 15; want[ 5 ] = 16; want[ 6 ] = 17; want[ 7 ] = 10;
+    expectArrayu8 ( "u8 rotate: by one contents", a, want, 8 );
+
+    setSequ8 ( a, 8, 10 );
+    expectStatus ( "u8 rotate: by seven", sarrayRotateu8 ( a, 8, 7 ), SA_OK );
+    want[ 0 ] = 17; want[ 1 ] = 10; want[ 2 ] = 11; want[ 3 ] = 12;
+    want[ 4 ] = 13; want[ 5 ] = 14; want[ 6 ] = 15; want[ 7 ] = 16;
+    expectArrayu8 ( "u8 rotate: by seven contents", a, want, 8 );
 
     expectStatus ( "u8 rotate: NULL array", sarrayRotateu8 ( NULL, 8, 1 ), SA_NULLPTR );
     expectStatus ( "u8 rotate: zero capacity", sarrayRotateu8 ( a, 0, 1 ), SA_INVALIDSIZE );
@@ -1015,6 +1057,23 @@ static void testu16 ( void )
     expectStatus ( "u16 copyN: overlapping ranges", sarrayCopyNu16 ( &a[ 0 ], 6, &a[ 2 ], 6, 4 ), SA_OVERLAP );
     expectArrayu16 ( "u16 copyN: array untouched after overlap", a, snap, 8 );
 
+    /* The two halves of one array, each way round: the two ways a pair of
+       ranges can miss each other, which the overlap test has to tell apart
+       from the ways they meet. */
+    setSequ16 ( a, 8, 10 );
+    expectStatus ( "u16 copyN: into the adjacent half above",
+                   sarrayCopyNu16 ( &a[ 4 ], 4, &a[ 0 ], 4, 4 ), SA_OK );
+    want[ 0 ] = 10; want[ 1 ] = 11; want[ 2 ] = 12; want[ 3 ] = 13;
+    want[ 4 ] = 10; want[ 5 ] = 11; want[ 6 ] = 12; want[ 7 ] = 13;
+    expectArrayu16 ( "u16 copyN: into the adjacent half above contents", a, want, 8 );
+
+    setSequ16 ( a, 8, 10 );
+    expectStatus ( "u16 copyN: into the adjacent half below",
+                   sarrayCopyNu16 ( &a[ 0 ], 4, &a[ 4 ], 4, 4 ), SA_OK );
+    want[ 0 ] = 14; want[ 1 ] = 15; want[ 2 ] = 16; want[ 3 ] = 17;
+    want[ 4 ] = 14; want[ 5 ] = 15; want[ 6 ] = 16; want[ 7 ] = 17;
+    expectArrayu16 ( "u16 copyN: into the adjacent half below contents", a, want, 8 );
+
     /* ---- Move ---- */
 
     setSequ16 ( a, 8, 10 );
@@ -1052,6 +1111,8 @@ static void testu16 ( void )
     expectArrayu16 ( "u16 swap: same index changes nothing", a, snap, 8 );
     expectStatus ( "u16 swap: index out of range", sarraySwapu16 ( a, 8, 0, 8 ), SA_OUTOFRANGE );
     expectArrayu16 ( "u16 swap: array untouched after failure", a, snap, 8 );
+    expectStatus ( "u16 swap: first index out of range", sarraySwapu16 ( a, 8, 8, 0 ), SA_OUTOFRANGE );
+    expectArrayu16 ( "u16 swap: array untouched after the first index fails", a, snap, 8 );
 
     /* ---- Compare ---- */
 
@@ -1084,6 +1145,8 @@ static void testu16 ( void )
 
     expectStatus ( "u16 compareN: count above a capacity",
                    sarrayCompareNu16 ( a, 4, b, 8, 5, &result ), SA_OUTOFRANGE );
+    expectStatus ( "u16 compareN: count above b capacity",
+                   sarrayCompareNu16 ( a, 8, b, 4, 5, &result ), SA_OUTOFRANGE );
 
     b[ 6 ] = 99;
     expectStatus ( "u16 compareN: equal prefix", sarrayCompareNu16 ( a, 8, b, 8, 3, &result ), SA_OK );
@@ -1221,11 +1284,13 @@ static void testu16 ( void )
     }
 
     sum = 12345u;
-    expectStatus ( "u16 sum: overflow", sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT, &sum ), SA_OVERFLOW );
+    expectStatus ( "u16 sum: overflow", sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT - 1u, &sum ), SA_OVERFLOW );
     expectU32 ( "u16 sum: output untouched after overflow", sum, 12345u );
+    expectStatus ( "u16 sum: overflow before the last element",
+                   sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT, &sum ), SA_OVERFLOW );
+    expectU32 ( "u16 sum: output untouched after an early overflow", sum, 12345u );
 
-    sumOverflowu16[ SUMOVF_U16_COUNT - 1u ] = 0;
-    expectStatus ( "u16 sum: exactly at the limit", sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT, &sum ), SA_OK );
+    expectStatus ( "u16 sum: exactly at the limit", sarraySumu16 ( sumOverflowu16, SUMOVF_U16_COUNT - 2u, &sum ), SA_OK );
     expectU32 ( "u16 sum: exactly at the limit result", sum, 4294967295u );
 
     /* ---- Reverse ---- */
@@ -1275,6 +1340,20 @@ static void testu16 ( void )
     setSequ16 ( a, 8, 10 );
     expectStatus ( "u16 rotate: by more than the length", sarrayRotateu16 ( a, 8, 11 ), SA_OK );
     expectArrayu16 ( "u16 rotate: an oversized shift is reduced modulo the length", a, want, 8 );
+
+    /* By one and by one less than the length, so each of the two partial
+       reversals is handed a range of a single element. */
+    setSequ16 ( a, 8, 10 );
+    expectStatus ( "u16 rotate: by one", sarrayRotateu16 ( a, 8, 1 ), SA_OK );
+    want[ 0 ] = 11; want[ 1 ] = 12; want[ 2 ] = 13; want[ 3 ] = 14;
+    want[ 4 ] = 15; want[ 5 ] = 16; want[ 6 ] = 17; want[ 7 ] = 10;
+    expectArrayu16 ( "u16 rotate: by one contents", a, want, 8 );
+
+    setSequ16 ( a, 8, 10 );
+    expectStatus ( "u16 rotate: by seven", sarrayRotateu16 ( a, 8, 7 ), SA_OK );
+    want[ 0 ] = 17; want[ 1 ] = 10; want[ 2 ] = 11; want[ 3 ] = 12;
+    want[ 4 ] = 13; want[ 5 ] = 14; want[ 6 ] = 15; want[ 7 ] = 16;
+    expectArrayu16 ( "u16 rotate: by seven contents", a, want, 8 );
 
     expectStatus ( "u16 rotate: NULL array", sarrayRotateu16 ( NULL, 8, 1 ), SA_NULLPTR );
     expectStatus ( "u16 rotate: zero capacity", sarrayRotateu16 ( a, 0, 1 ), SA_INVALIDSIZE );
@@ -1694,6 +1773,23 @@ static void testu32 ( void )
     expectStatus ( "u32 copyN: overlapping ranges", sarrayCopyNu32 ( &a[ 0 ], 6, &a[ 2 ], 6, 4 ), SA_OVERLAP );
     expectArrayu32 ( "u32 copyN: array untouched after overlap", a, snap, 8 );
 
+    /* The two halves of one array, each way round: the two ways a pair of
+       ranges can miss each other, which the overlap test has to tell apart
+       from the ways they meet. */
+    setSequ32 ( a, 8, 10 );
+    expectStatus ( "u32 copyN: into the adjacent half above",
+                   sarrayCopyNu32 ( &a[ 4 ], 4, &a[ 0 ], 4, 4 ), SA_OK );
+    want[ 0 ] = 10; want[ 1 ] = 11; want[ 2 ] = 12; want[ 3 ] = 13;
+    want[ 4 ] = 10; want[ 5 ] = 11; want[ 6 ] = 12; want[ 7 ] = 13;
+    expectArrayu32 ( "u32 copyN: into the adjacent half above contents", a, want, 8 );
+
+    setSequ32 ( a, 8, 10 );
+    expectStatus ( "u32 copyN: into the adjacent half below",
+                   sarrayCopyNu32 ( &a[ 0 ], 4, &a[ 4 ], 4, 4 ), SA_OK );
+    want[ 0 ] = 14; want[ 1 ] = 15; want[ 2 ] = 16; want[ 3 ] = 17;
+    want[ 4 ] = 14; want[ 5 ] = 15; want[ 6 ] = 16; want[ 7 ] = 17;
+    expectArrayu32 ( "u32 copyN: into the adjacent half below contents", a, want, 8 );
+
     /* ---- Move ---- */
 
     setSequ32 ( a, 8, 10 );
@@ -1731,6 +1827,8 @@ static void testu32 ( void )
     expectArrayu32 ( "u32 swap: same index changes nothing", a, snap, 8 );
     expectStatus ( "u32 swap: index out of range", sarraySwapu32 ( a, 8, 0, 8 ), SA_OUTOFRANGE );
     expectArrayu32 ( "u32 swap: array untouched after failure", a, snap, 8 );
+    expectStatus ( "u32 swap: first index out of range", sarraySwapu32 ( a, 8, 8, 0 ), SA_OUTOFRANGE );
+    expectArrayu32 ( "u32 swap: array untouched after the first index fails", a, snap, 8 );
 
     /* ---- Compare ---- */
 
@@ -1763,6 +1861,8 @@ static void testu32 ( void )
 
     expectStatus ( "u32 compareN: count above a capacity",
                    sarrayCompareNu32 ( a, 4, b, 8, 5, &result ), SA_OUTOFRANGE );
+    expectStatus ( "u32 compareN: count above b capacity",
+                   sarrayCompareNu32 ( a, 8, b, 4, 5, &result ), SA_OUTOFRANGE );
 
     b[ 6 ] = 99;
     expectStatus ( "u32 compareN: equal prefix", sarrayCompareNu32 ( a, 8, b, 8, 3, &result ), SA_OK );
@@ -1902,6 +2002,10 @@ static void testu32 ( void )
     expectStatus ( "u32 sum: overflow again", sarraySumu32 ( a, 2, &sum ), SA_OVERFLOW );
     expectU32 ( "u32 sum: output untouched after overflow", sum, 12345u );
 
+    a[ 2 ] = 0;
+    expectStatus ( "u32 sum: overflow before the last element", sarraySumu32 ( a, 3, &sum ), SA_OVERFLOW );
+    expectU32 ( "u32 sum: output untouched after an early overflow", sum, 12345u );
+
     a[ 0 ] = 4294967294u;
     a[ 1 ] = 1;
     expectStatus ( "u32 sum: exactly at the limit", sarraySumu32 ( a, 2, &sum ), SA_OK );
@@ -1954,6 +2058,20 @@ static void testu32 ( void )
     setSequ32 ( a, 8, 10 );
     expectStatus ( "u32 rotate: by more than the length", sarrayRotateu32 ( a, 8, 11 ), SA_OK );
     expectArrayu32 ( "u32 rotate: an oversized shift is reduced modulo the length", a, want, 8 );
+
+    /* By one and by one less than the length, so each of the two partial
+       reversals is handed a range of a single element. */
+    setSequ32 ( a, 8, 10 );
+    expectStatus ( "u32 rotate: by one", sarrayRotateu32 ( a, 8, 1 ), SA_OK );
+    want[ 0 ] = 11; want[ 1 ] = 12; want[ 2 ] = 13; want[ 3 ] = 14;
+    want[ 4 ] = 15; want[ 5 ] = 16; want[ 6 ] = 17; want[ 7 ] = 10;
+    expectArrayu32 ( "u32 rotate: by one contents", a, want, 8 );
+
+    setSequ32 ( a, 8, 10 );
+    expectStatus ( "u32 rotate: by seven", sarrayRotateu32 ( a, 8, 7 ), SA_OK );
+    want[ 0 ] = 17; want[ 1 ] = 10; want[ 2 ] = 11; want[ 3 ] = 12;
+    want[ 4 ] = 13; want[ 5 ] = 14; want[ 6 ] = 15; want[ 7 ] = 16;
+    expectArrayu32 ( "u32 rotate: by seven contents", a, want, 8 );
 
     expectStatus ( "u32 rotate: NULL array", sarrayRotateu32 ( NULL, 8, 1 ), SA_NULLPTR );
     expectStatus ( "u32 rotate: zero capacity", sarrayRotateu32 ( a, 0, 1 ), SA_INVALIDSIZE );
@@ -2373,6 +2491,23 @@ static void testi32 ( void )
     expectStatus ( "i32 copyN: overlapping ranges", sarrayCopyNi32 ( &a[ 0 ], 6, &a[ 2 ], 6, 4 ), SA_OVERLAP );
     expectArrayi32 ( "i32 copyN: array untouched after overlap", a, snap, 8 );
 
+    /* The two halves of one array, each way round: the two ways a pair of
+       ranges can miss each other, which the overlap test has to tell apart
+       from the ways they meet. */
+    setSeqi32 ( a, 8, 10 );
+    expectStatus ( "i32 copyN: into the adjacent half above",
+                   sarrayCopyNi32 ( &a[ 4 ], 4, &a[ 0 ], 4, 4 ), SA_OK );
+    want[ 0 ] = 10; want[ 1 ] = 11; want[ 2 ] = 12; want[ 3 ] = 13;
+    want[ 4 ] = 10; want[ 5 ] = 11; want[ 6 ] = 12; want[ 7 ] = 13;
+    expectArrayi32 ( "i32 copyN: into the adjacent half above contents", a, want, 8 );
+
+    setSeqi32 ( a, 8, 10 );
+    expectStatus ( "i32 copyN: into the adjacent half below",
+                   sarrayCopyNi32 ( &a[ 0 ], 4, &a[ 4 ], 4, 4 ), SA_OK );
+    want[ 0 ] = 14; want[ 1 ] = 15; want[ 2 ] = 16; want[ 3 ] = 17;
+    want[ 4 ] = 14; want[ 5 ] = 15; want[ 6 ] = 16; want[ 7 ] = 17;
+    expectArrayi32 ( "i32 copyN: into the adjacent half below contents", a, want, 8 );
+
     /* ---- Move ---- */
 
     setSeqi32 ( a, 8, 10 );
@@ -2410,6 +2545,8 @@ static void testi32 ( void )
     expectArrayi32 ( "i32 swap: same index changes nothing", a, snap, 8 );
     expectStatus ( "i32 swap: index out of range", sarraySwapi32 ( a, 8, 0, 8 ), SA_OUTOFRANGE );
     expectArrayi32 ( "i32 swap: array untouched after failure", a, snap, 8 );
+    expectStatus ( "i32 swap: first index out of range", sarraySwapi32 ( a, 8, 8, 0 ), SA_OUTOFRANGE );
+    expectArrayi32 ( "i32 swap: array untouched after the first index fails", a, snap, 8 );
 
     /* ---- Compare ---- */
 
@@ -2442,6 +2579,8 @@ static void testi32 ( void )
 
     expectStatus ( "i32 compareN: count above a capacity",
                    sarrayCompareNi32 ( a, 4, b, 8, 5, &result ), SA_OUTOFRANGE );
+    expectStatus ( "i32 compareN: count above b capacity",
+                   sarrayCompareNi32 ( a, 8, b, 4, 5, &result ), SA_OUTOFRANGE );
 
     b[ 6 ] = 99;
     expectStatus ( "i32 compareN: equal prefix", sarrayCompareNi32 ( a, 8, b, 8, 3, &result ), SA_OK );
@@ -2585,6 +2724,10 @@ static void testi32 ( void )
     expectStatus ( "i32 sum: overflow downward again", sarraySumi32 ( a, 2, &sum ), SA_OVERFLOW );
     expectI32 ( "i32 sum: output untouched after overflow", sum, 12345 );
 
+    a[ 2 ] = 0;
+    expectStatus ( "i32 sum: overflow before the last element", sarraySumi32 ( a, 3, &sum ), SA_OVERFLOW );
+    expectI32 ( "i32 sum: output untouched after an early overflow", sum, 12345 );
+
     a[ 0 ] = 2147483647;
     a[ 1 ] = -1;
     expectStatus ( "i32 sum: a negative element pulls it back", sarraySumi32 ( a, 2, &sum ), SA_OK );
@@ -2637,6 +2780,20 @@ static void testi32 ( void )
     setSeqi32 ( a, 8, 10 );
     expectStatus ( "i32 rotate: by more than the length", sarrayRotatei32 ( a, 8, 11 ), SA_OK );
     expectArrayi32 ( "i32 rotate: an oversized shift is reduced modulo the length", a, want, 8 );
+
+    /* By one and by one less than the length, so each of the two partial
+       reversals is handed a range of a single element. */
+    setSeqi32 ( a, 8, 10 );
+    expectStatus ( "i32 rotate: by one", sarrayRotatei32 ( a, 8, 1 ), SA_OK );
+    want[ 0 ] = 11; want[ 1 ] = 12; want[ 2 ] = 13; want[ 3 ] = 14;
+    want[ 4 ] = 15; want[ 5 ] = 16; want[ 6 ] = 17; want[ 7 ] = 10;
+    expectArrayi32 ( "i32 rotate: by one contents", a, want, 8 );
+
+    setSeqi32 ( a, 8, 10 );
+    expectStatus ( "i32 rotate: by seven", sarrayRotatei32 ( a, 8, 7 ), SA_OK );
+    want[ 0 ] = 17; want[ 1 ] = 10; want[ 2 ] = 11; want[ 3 ] = 12;
+    want[ 4 ] = 13; want[ 5 ] = 14; want[ 6 ] = 15; want[ 7 ] = 16;
+    expectArrayi32 ( "i32 rotate: by seven contents", a, want, 8 );
 
     expectStatus ( "i32 rotate: NULL array", sarrayRotatei32 ( NULL, 8, 1 ), SA_NULLPTR );
     expectStatus ( "i32 rotate: zero capacity", sarrayRotatei32 ( a, 0, 1 ), SA_INVALIDSIZE );

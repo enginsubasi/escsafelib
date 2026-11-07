@@ -3,7 +3,7 @@
   *
   * @file      SString_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.2.1
+  * @version   0.2.2
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the sstring module.
@@ -18,6 +18,8 @@
   *            and for the short unterminated source regression. @n
   * 07/11/2026 Every status a return block promises is asked for at least @n
   *            once, as tools/tracecheck.py requires. @n
+  * 07/11/2026 MC/DC cases: single argument refusals, loops that stop the other way and @n
+  *            the ends of the character classes. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -1746,6 +1748,134 @@ static void testStatusContract ( void )
 }
 
 /**
+ * @brief   Takes the condition outcomes MC/DC found no case had taken.
+ * @note    Branch coverage was satisfied by each of these decisions, because
+ *          some outcome of each had been seen. MC/DC asks for each condition
+ *          to be shown to decide on its own, and these had only ever been
+ *          refused alongside another: a guard testing only its first
+ *          pointer, or only one of two capacities, would have passed.
+ *          The rest are the ends of the character classes, and loops that
+ *          had only ever stopped one of their two ways.
+ */
+static void testConditionCoverage ( void )
+{
+    char dest[ 8 ] = { 'z', 'z', 'z', 'z', 'z', 'z', 'z', 'z' };
+    const char snapshot[ 8 ] = { 'z', 'z', 'z', 'z', 'z', 'z', 'z', 'z' };
+    const char left[ 8 ] = { 'a', 'b', '\0', 'q', 'q', 'q', 'q', 'q' };
+    const char right[ 8 ] = { 'a', 'b', '\0', 'r', 'r', 'r', 'r', 'r' };
+    uint32_t value = 0xA5A5A5A5u;
+    uint32_t cursor = 0u;
+    uint32_t start = 0x22222222u;
+    uint32_t length = 0x33333333u;
+    int32_t order = 99;
+    uint8_t flag = 0x5Au;
+
+    printf ( "\n-- condition coverage --\n" );
+
+    /* ---- one pointer alone ---- */
+
+    expectStatus ( "mcdc: findLastChar NULL output", sstringFindLastChar ( "abc", 4u, 'b', NULL ), SS_NULLPTR );
+    expectStatus ( "mcdc: findString NULL string", sstringFindString ( NULL, 4u, "b", 2u, &value ), SS_NULLPTR );
+    expectStatus ( "mcdc: findString NULL output", sstringFindString ( "abc", 4u, "b", 2u, NULL ), SS_NULLPTR );
+    expectStatus ( "mcdc: findAny NULL string", sstringFindAny ( NULL, 4u, "b", 2u, &value ), SS_NULLPTR );
+    expectStatus ( "mcdc: findAny NULL output", sstringFindAny ( "abc", 4u, "b", 2u, NULL ), SS_NULLPTR );
+    expectStatus ( "mcdc: span NULL set", sstringSpan ( "abc", 4u, NULL, 2u, &value ), SS_NULLPTR );
+    expectStatus ( "mcdc: span NULL output", sstringSpan ( "abc", 4u, "a", 2u, NULL ), SS_NULLPTR );
+    expectStatus ( "mcdc: spanNot NULL set", sstringSpanNot ( "abc", 4u, NULL, 2u, &value ), SS_NULLPTR );
+    expectStatus ( "mcdc: spanNot NULL output", sstringSpanNot ( "abc", 4u, "a", 2u, NULL ), SS_NULLPTR );
+    expectStatus ( "mcdc: countChar NULL output", sstringCountChar ( "abc", 4u, 'a', NULL ), SS_NULLPTR );
+    expectStatus ( "mcdc: toU32 NULL string", sstringToU32 ( NULL, 3u, &value ), SS_NULLPTR );
+    expectStatus ( "mcdc: toU32Hex NULL output", sstringToU32Hex ( "ff", 3u, NULL ), SS_NULLPTR );
+    expectValue ( "mcdc: no refusal wrote the index", value, 0xA5A5A5A5u );
+
+    expectStatus ( "mcdc: token NULL string",
+                   sstringToken ( NULL, 4u, ",", 2u, &cursor, &start, &length ), SS_NULLPTR );
+    expectStatus ( "mcdc: token NULL start",
+                   sstringToken ( "a,b", 4u, ",", 2u, &cursor, NULL, &length ), SS_NULLPTR );
+    expectStatus ( "mcdc: token NULL length",
+                   sstringToken ( "a,b", 4u, ",", 2u, &cursor, &start, NULL ), SS_NULLPTR );
+    expectValue ( "mcdc: no token refusal moved the cursor", cursor, 0u );
+    expectValue ( "mcdc: no token refusal wrote the start", start, 0x22222222u );
+    expectValue ( "mcdc: no token refusal wrote the length", length, 0x33333333u );
+
+    expectStatus ( "mcdc: compareCI NULL a", sstringCompareCI ( NULL, 3u, "ab", 3u, &order ), SS_NULLPTR );
+    expectStatus ( "mcdc: compareCI NULL b", sstringCompareCI ( "ab", 3u, NULL, 3u, &order ), SS_NULLPTR );
+    expectStatus ( "mcdc: toI32 NULL output", sstringToI32 ( "12", 3u, NULL ), SS_NULLPTR );
+    expectSign ( "mcdc: no refusal wrote the order", order, 1 );
+
+    expectStatus ( "mcdc: startsWith NULL prefix", sstringStartsWith ( "abc", 4u, NULL, 2u, &flag ), SS_NULLPTR );
+    expectStatus ( "mcdc: startsWith NULL output", sstringStartsWith ( "abc", 4u, "a", 2u, NULL ), SS_NULLPTR );
+    expectStatus ( "mcdc: endsWith NULL string", sstringEndsWith ( NULL, 4u, "c", 2u, &flag ), SS_NULLPTR );
+    expectStatus ( "mcdc: endsWith NULL suffix", sstringEndsWith ( "abc", 4u, NULL, 2u, &flag ), SS_NULLPTR );
+    expectStatus ( "mcdc: isPrintableAscii NULL output", sstringIsPrintableAscii ( "abc", 4u, NULL ), SS_NULLPTR );
+    expectStatus ( "mcdc: isNumeric NULL output", sstringIsNumeric ( "12", 3u, NULL ), SS_NULLPTR );
+    expectStatus ( "mcdc: isAlpha NULL output", sstringIsAlpha ( "ab", 3u, NULL ), SS_NULLPTR );
+    expectStatus ( "mcdc: isAlphaNumeric NULL output", sstringIsAlphaNumeric ( "a1", 3u, NULL ), SS_NULLPTR );
+    expectStatus ( "mcdc: isHex NULL string", sstringIsHex ( NULL, 3u, &flag ), SS_NULLPTR );
+    expectValue ( "mcdc: no refusal wrote the flag", flag, 0x5Au );
+
+    /* ---- a NULL source, a NULL destination, and one zero capacity ---- */
+
+    expectStatus ( "mcdc: substring NULL destination", sstringSubstring ( NULL, 8u, "abc", 4u, 0u, 1u ), SS_NULLPTR );
+    expectStatus ( "mcdc: substring zero source capacity", sstringSubstring ( dest, 8u, "abc", 0u, 0u, 1u ), SS_INVALIDSIZE );
+    expectStatus ( "mcdc: trimLeft NULL source", sstringTrimLeft ( dest, 8u, NULL, 3u ), SS_NULLPTR );
+    expectStatus ( "mcdc: trimLeft zero source capacity", sstringTrimLeft ( dest, 8u, " a", 0u ), SS_INVALIDSIZE );
+    expectStatus ( "mcdc: trimRight NULL source", sstringTrimRight ( dest, 8u, NULL, 3u ), SS_NULLPTR );
+    expectStatus ( "mcdc: trimRight zero source capacity", sstringTrimRight ( dest, 8u, "a ", 0u ), SS_INVALIDSIZE );
+    expectStatus ( "mcdc: trim NULL destination", sstringTrim ( NULL, 8u, " a", 3u ), SS_NULLPTR );
+    expectStatus ( "mcdc: trim zero source capacity", sstringTrim ( dest, 8u, " a", 0u ), SS_INVALIDSIZE );
+    expectStatus ( "mcdc: toUpper NULL source", sstringToUpper ( dest, 8u, NULL, 3u ), SS_NULLPTR );
+    expectStatus ( "mcdc: toUpper zero source capacity", sstringToUpper ( dest, 8u, "ab", 0u ), SS_INVALIDSIZE );
+    expectStatus ( "mcdc: toLower NULL source", sstringToLower ( dest, 8u, NULL, 3u ), SS_NULLPTR );
+    expectStatus ( "mcdc: toLower zero source capacity", sstringToLower ( dest, 8u, "AB", 0u ), SS_INVALIDSIZE );
+    expectStatus ( "mcdc: replaceChar NULL source", sstringReplaceChar ( dest, 8u, NULL, 3u, 'a', 'b' ), SS_NULLPTR );
+    expectStatus ( "mcdc: replaceChar zero source capacity",
+                   sstringReplaceChar ( dest, 8u, "ab", 0u, 'a', 'b' ), SS_INVALIDSIZE );
+    expectStatus ( "mcdc: reverse NULL source", sstringReverse ( dest, 8u, NULL, 3u ), SS_NULLPTR );
+    expectStatus ( "mcdc: reverse zero source capacity", sstringReverse ( dest, 8u, "ab", 0u ), SS_INVALIDSIZE );
+    expectStatus ( "mcdc: concatN zero destination capacity", sstringConcatN ( dest, 0u, "ab", 3u, 1u ), SS_INVALIDSIZE );
+    expectUnchanged ( "mcdc: no refusal wrote the destination", dest, snapshot, 8u );
+
+    expectStatus ( "mcdc: compare zero b capacity", sstringCompare ( "a", 2u, "b", 0u, &order ), SS_INVALIDSIZE );
+    expectStatus ( "mcdc: compareN zero a capacity", sstringCompareN ( "a", 0u, "b", 2u, 1u, &order ), SS_INVALIDSIZE );
+    expectStatus ( "mcdc: compareCI zero b capacity", sstringCompareCI ( "a", 2u, "b", 0u, &order ), SS_INVALIDSIZE );
+    expectSign ( "mcdc: no capacity refusal wrote the order", order, 1 );
+
+    /* ---- loops that stop the other way ---- */
+
+    expectStatus ( "mcdc: compareN stops at a terminator before the count",
+                   sstringCompareN ( left, 8u, right, 8u, 6u, &order ), SS_OK );
+    expectSign ( "mcdc: the bytes past the terminator are not compared", order, 0 );
+    expectStatus ( "mcdc: compareN stops at a first difference",
+                   sstringCompareN ( "xbc", 4u, "abc", 4u, 3u, &order ), SS_OK );
+    expectSign ( "mcdc: a first difference decides", order, 1 );
+    expectStatus ( "mcdc: spanNot meets no member of the set",
+                   sstringSpanNot ( "abc", 4u, "xyz", 4u, &value ), SS_OK );
+    expectValue ( "mcdc: spanNot covers the whole string", value, 3u );
+    expectStatus ( "mcdc: trimLeft of nothing but whitespace", sstringTrimLeft ( dest, 8u, "   ", 4u ), SS_OK );
+    expectString ( "mcdc: trimLeft of nothing but whitespace leaves nothing", dest, "", 8u );
+
+    /* ---- the ends of the character classes ---- */
+
+    expectStatus ( "mcdc: trim a vertical tab and a form feed", sstringTrim ( dest, 8u, "\va\f", 4u ), SS_OK );
+    expectString ( "mcdc: both are whitespace", dest, "a", 8u );
+    expectStatus ( "mcdc: isAlpha just above Z", sstringIsAlpha ( "a[", 3u, &flag ), SS_OK );
+    expectValue ( "mcdc: [ is not a letter", flag, FALSE );
+    expectStatus ( "mcdc: isAlpha just above z", sstringIsAlpha ( "a{", 3u, &flag ), SS_OK );
+    expectValue ( "mcdc: { is not a letter", flag, FALSE );
+    expectStatus ( "mcdc: toUpper just above z", sstringToUpper ( dest, 8u, "a{", 3u ), SS_OK );
+    expectString ( "mcdc: { is left alone", dest, "A{", 8u );
+    expectStatus ( "mcdc: isPrintableAscii DEL", sstringIsPrintableAscii ( "a\x7F", 3u, &flag ), SS_OK );
+    expectValue ( "mcdc: DEL is not printable", flag, FALSE );
+    expectStatus ( "mcdc: isHex below the letters", sstringIsHex ( "1:", 3u, &flag ), SS_OK );
+    expectValue ( "mcdc: a colon is not a hex digit", flag, FALSE );
+
+    value = 0xA5A5A5A5u;
+    expectStatus ( "mcdc: toU32Hex below the letters", sstringToU32Hex ( "1@", 3u, &value ), SS_INVALIDFORMAT );
+    expectValue ( "mcdc: toU32Hex refusal left the value", value, 0xA5A5A5A5u );
+}
+
+/**
  * @brief   Runs every test group and reports the totals.
  * @return  0 when every case passed, 1 otherwise.
  */
@@ -1771,6 +1901,7 @@ int main ( void )
     testConversion ( );
     testUncoveredBranches ( );
     testStatusContract ( );
+    testConditionCoverage ( );
 
     printf ( "\n%lu cases, %lu failed\n",
              ( unsigned long ) casesRun, ( unsigned long ) casesFailed );

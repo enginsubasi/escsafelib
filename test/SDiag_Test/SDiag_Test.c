@@ -3,7 +3,7 @@
   *
   * @file      SDiag_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
+  * @version   0.1.2
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the sdiag module.
@@ -15,6 +15,7 @@
   * 05/08/2026 Created. @n
   * 07/11/2026 Every status a return block promises is asked for at least @n
   *            once, as tools/tracecheck.py requires. @n
+  * 07/11/2026 MC/DC cases: each pointer refused on its own. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -651,6 +652,29 @@ static void testStatusContract ( void )
 }
 
 /**
+ * @brief   Takes the condition outcomes MC/DC found no case had taken.
+ * @note    Branch coverage was satisfied by each of these decisions, because
+ *          some outcome of each had been seen. MC/DC asks for each condition
+ *          to be shown to decide on its own, and these had only ever been
+ *          refused alongside another: a guard testing only its first
+ *          pointer, or only one of two capacities, would have passed.
+ */
+static void testConditionCoverage ( void )
+{
+    uint32_t cells[ 4 ] = { 0u, 0u, 0u, 0u };
+    const uint32_t ids[ 2 ] = { 1u, 2u };
+    const uint8_t bytes[ 4 ] = { 1u, 2u, 3u, 4u };
+    uint32_t value = 0xA5A5A5A5u;
+
+    expectStatus ( "mcdc: checksum32 NULL output", sdiagChecksum32 ( bytes, 4u, NULL ), SD_NULLPTR );
+    expectStatus ( "mcdc: ramTestNonDestructive NULL fail index",
+                   sdiagRamTestNonDestructive ( cells, 4u, NULL ), SD_NULLPTR );
+    expectStatus ( "mcdc: stackUnused NULL base", sdiagStackUnused ( NULL, 4u, 0xDEADBEEFu, &value ), SD_NULLPTR );
+    expectStatus ( "mcdc: flowExpected NULL output", sdiagFlowExpected ( ids, 2u, NULL ), SD_NULLPTR );
+    expectU32 ( "mcdc: no refusal wrote the value", value, 0xA5A5A5A5u );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -663,6 +687,7 @@ int main ( void )
     testShadow ( );
     testUncoveredBranches ( );
     testStatusContract ( );
+    testConditionCoverage ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

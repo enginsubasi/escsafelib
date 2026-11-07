@@ -84,10 +84,12 @@ if [ $? -ne 0 ]; then
     echo "CONTROL FAILED: cppcheck could not create the control dump"
     exit 2
 fi
-"$PYTHON" "$(native "$MISRA_PY")" "$(native "$WORK/control.c.dump")" > "$WORK/control.log" 2>&1
-if ! grep -q "misra-c2012-7.1" "$WORK/control.log" || ! grep -q "misra-c2012-15.1" "$WORK/control.log"; then
+"$PYTHON" "$(native "$MISRA_PY")" --cli "$(native "$WORK/control.c.dump")" > "$WORK/control.json" 2>&1
+"$PYTHON" "$(native "$REPO/tools/misra_occurrences.py")" --parse-addon control \
+    < "$WORK/control.json" > "$WORK/control.log" 2>&1
+if ! grep -q " 7\.1 " "$WORK/control.log" || ! grep -q " 15\.1 " "$WORK/control.log"; then
     echo "CONTROL FAILED: the MISRA addon did not report a file built to break it"
-    cat "$WORK/control.log"
+    cat "$WORK/control.json"
     [ "$ANNOTATE" -eq 1 ] && echo "::error::the MISRA addon is not live; see the log"
     exit 2
 fi
@@ -168,11 +170,13 @@ for m in "${MODULES[@]}"; do
         echo "MISRA FAILED: cppcheck could not create a dump for $m"
         exit 2
     fi
-    "$PYTHON" "$(native "$MISRA_PY")" "$(native "$WORK/$m.c.dump")" 2>&1 \
-        | sed -nE 's/^\[[^]]*[\\/]'"$m"'\.c:([0-9]+)\].*\[misra-c2012-([0-9.]+)\].*$/\1 \2/p' \
-        | while read -r line rule; do
+    # --cli prints one JSON object per finding, with the column the text
+    # form leaves out; the Rule 10.4 expression check needs it.
+    "$PYTHON" "$(native "$MISRA_PY")" --cli "$(native "$WORK/$m.c.dump")" 2>&1 \
+        | "$PYTHON" "$(native "$REPO/tools/misra_occurrences.py")" --parse-addon "$m" \
+        | while read -r line rule column; do
               if [ "$rule" = "10.4" ]; then
-                  printf '%s\t%s\n' "$m" "$line" >> "$WORK/rule_10_4"
+                  printf '%s\t%s\t%s\n' "$m" "$line" "$column" >> "$WORK/rule_10_4"
               elif deviated "$rule" "$m"; then
                   echo "$rule $m" >> "$WORK/deviated"
               else
@@ -193,6 +197,7 @@ fi
     --repo "$(native "$REPO")" \
     --manifest "$(native "$REPO/tools/misra_10_4.tsv")" \
     --actual "$(native "$WORK/rule_10_4")" \
+    --dumps "$(native "$WORK")" \
     "${SELECTED[@]}" > "$WORK/manifest.log" 2>&1
 manifest_rc=$?
 mismatches=$(grep -c "Rule 10.4 occurrence" "$WORK/manifest.log")

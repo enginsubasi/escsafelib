@@ -114,4 +114,10 @@ MUTANTS = [
         "old": '    if ( den == 0 )\n    {\n        retVal = FALSE;\n    }\n    else if ( spanProductFits ( x0, x1, y0, y1 ) == FALSE )',
         "new": '    if ( FALSE )\n    {\n        retVal = FALSE;\n    }\n    else if ( spanProductFits ( x0, x1, y0, y1 ) == FALSE )',
     },
+    {
+        "id": 'M19',
+        "what": 'a falling linear map forgets its lower end',
+        "old": 'uint8_t sscaleLinear ( int32_t input, int32_t inLow, int32_t inHigh, int32_t outLow, int32_t outHigh, int32_t* result )\n{\n    uint8_t retVal = SC_OK;\n    int32_t scratch = 0;\n    uint8_t inside = FALSE;\n\n    if ( result == NULL )\n    {\n        retVal = SC_NULLPTR;\n    }\n    else if ( inLow == inHigh )\n    {\n        retVal = SC_INVALIDRANGE;\n    }\n    else\n    {\n        if ( inLow < inHigh )\n        {\n            if ( ( input >= inLow ) && ( input <= inHigh ) )\n            {\n                inside = TRUE;\n            }\n            else\n            {\n                inside = FALSE;\n            }\n        }\n        else\n        {\n            if ( ( input <= inLow ) && ( input >= inHigh ) )',
+        "new": 'uint8_t sscaleLinear ( int32_t input, int32_t inLow, int32_t inHigh, int32_t outLow, int32_t outHigh, int32_t* result )\n{\n    uint8_t retVal = SC_OK;\n    int32_t scratch = 0;\n    uint8_t inside = FALSE;\n\n    if ( result == NULL )\n    {\n        retVal = SC_NULLPTR;\n    }\n    else if ( inLow == inHigh )\n    {\n        retVal = SC_INVALIDRANGE;\n    }\n    else\n    {\n        if ( inLow < inHigh )\n        {\n            if ( ( input >= inLow ) && ( input <= inHigh ) )\n            {\n                inside = TRUE;\n            }\n            else\n            {\n                inside = FALSE;\n            }\n        }\n        else\n        {\n            if ( ( input <= inLow ) && ( TRUE ) )',
+    },
 ]

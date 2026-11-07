@@ -80,8 +80,8 @@ HEAD = r"""/**
   *
   * @file      SMath_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the smath module.
   *
@@ -90,6 +90,7 @@ HEAD = r"""/**
   *
   * @par History
   * 05/08/2026 Created. @n
+  * 07/11/2026 InRange below and on its lower bound, which no case had asked. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -523,6 +524,10 @@ ${TARGETEDDECL}
     expectU32 ( "${S} inRange: on the upper bound result", ( uint32_t ) flag, TRUE );
     expectStatus ( "${S} inRange: above", smathInRange${S} ( 11, 5, 10, &flag ), SH_OK );
     expectU32 ( "${S} inRange: above result", ( uint32_t ) flag, FALSE );
+    expectStatus ( "${S} inRange: on the lower bound", smathInRange${S} ( 5, 5, 10, &flag ), SH_OK );
+    expectU32 ( "${S} inRange: on the lower bound result", ( uint32_t ) flag, TRUE );
+    expectStatus ( "${S} inRange: below", smathInRange${S} ( 4, 5, 10, &flag ), SH_OK );
+    expectU32 ( "${S} inRange: below result", ( uint32_t ) flag, FALSE );
     expectStatus ( "${S} inRange: reversed bounds",
                    smathInRange${S} ( 7, 10, 5, &flag ), SH_INVALIDRANGE );
 ${TARGETEDEXTRA}}

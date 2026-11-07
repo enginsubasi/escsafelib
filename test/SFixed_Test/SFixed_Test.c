@@ -3,7 +3,7 @@
   *
   * @file      SFixed_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
+  * @version   0.1.2
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the sfixed module.
@@ -15,6 +15,7 @@
   * 05/08/2026 Created. @n
   * 07/11/2026 Every status a return block promises is asked for at least @n
   *            once, as tools/tracecheck.py requires. @n
+  * 07/11/2026 MC/DC cases: each output of ToParts refused on its own. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -791,6 +792,29 @@ static void testStatusContract ( void )
 }
 
 /**
+ * @brief   Takes the condition outcomes MC/DC found no case had taken.
+ * @note    Branch coverage was satisfied by each of these decisions, because
+ *          some outcome of each had been seen. MC/DC asks for each condition
+ *          to be shown to decide on its own, and these had only ever been
+ *          refused alongside another: a guard testing only its first
+ *          pointer, or only one of two capacities, would have passed.
+ */
+static void testConditionCoverage ( void )
+{
+    uint8_t negative = 0x5Au;
+    int32_t whole = -12345;
+    uint32_t milli = 0xA5A5A5A5u;
+
+    expectStatus ( "mcdc: toParts NULL whole",
+                   sfixedToParts ( SFIXED_ONE, &negative, NULL, &milli ), SX_NULLPTR );
+    expectStatus ( "mcdc: toParts NULL thousandths",
+                   sfixedToParts ( SFIXED_ONE, &negative, &whole, NULL ), SX_NULLPTR );
+    expectU32 ( "mcdc: no refusal wrote the sign", ( uint32_t ) negative, 0x5Au );
+    expectI32 ( "mcdc: no refusal wrote the whole part", whole, -12345 );
+    expectU32 ( "mcdc: no refusal wrote the thousandths", milli, 0xA5A5A5A5u );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -804,6 +828,7 @@ int main ( void )
     testRoundTrip ( );
     testUncoveredBranches ( );
     testStatusContract ( );
+    testConditionCoverage ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

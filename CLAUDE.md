@@ -27,7 +27,7 @@ not turn these notes or historical test results into a compliance claim.
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All fourteen modules are implemented — 358 functions and 3841 self-checking test cases across fifteen suites: 3803 in the fourteen module suites and 38 in the integration suite. Every status a function's `@return` promises is expected by at least one case in its own suite, or recorded with its reason in `tools/trace_exceptions.tsv`; `tools/tracecheck.py` checks it.
+All fourteen modules are implemented — 358 functions and 4064 self-checking test cases across fifteen suites: 4026 in the fourteen module suites and 38 in the integration suite. Every status a function's `@return` promises is expected by at least one case in its own suite, or recorded with its reason in `tools/trace_exceptions.tsv`; `tools/tracecheck.py` checks it.
 
 ## Working language
 
@@ -149,7 +149,7 @@ python tools/mutate.py svote        # one of them
 python tools/mutate.py --list
 ```
 
-**212 mutants across the fourteen modules: 192 killed, 20 equivalent, all
+**221 mutants across the fourteen modules: 201 killed, 20 equivalent, all
 accounted for.** The defects live in `tools/mutants/<module>.py`, one file
 per module, and the runner is `tools/mutate.py`. Before that they were
 throwaway scripts in a scratch directory and the numbers in this file were
@@ -158,13 +158,13 @@ can repeat.
 
 | module | killed | equivalent | module | killed | equivalent |
 |---|---|---|---|---|---|
-| `sarray` | 16 | 6 | `sring` | 13 | 1 |
-| `sbits` | 17 | 0 | `sscale` | 17 | 1 |
+| `sarray` | 19 | 6 | `sring` | 13 | 1 |
+| `sbits` | 17 | 0 | `sscale` | 18 | 1 |
 | `sdiag` | 7 | 1 | `sstate` | 16 | 2 |
-| `sfault` | 16 | 1 | `sstring` | 15 | 4 |
-| `sfilter` | 13 | 1 | `svote` | 16 | 0 |
+| `sfault` | 16 | 1 | `sstring` | 17 | 4 |
+| `sfilter` | 14 | 1 | `svote` | 16 | 0 |
 | `sfixed` | 10 | 0 | `swatch` | 16 | 0 |
-| `smath` | 15 | 0 | `smemory` | 5 | 3 |
+| `smath` | 16 | 0 | `smemory` | 6 | 3 |
 
 `sarray`, `smath` and `sstring` were the thinnest measurement here for a
 while: five, eight and seven real mutants against ninety two, sixty eight
@@ -253,31 +253,53 @@ What that first run found, and what closing it cost:
 
 | module | branches taken, before | now | lines now |
 |---|---|---|---|
-| `sarray` | 79.4% | 97.5% | 99.3% |
-| `smemory` | 81.7% | 90.4% | 99.4% |
-| `sdiag` | 82.2% | 84.2% | 91.0% |
-| `sstring` | 83.0% | 91.4% | 99.8% |
-| `sfixed` | 86.0% | 95.6% | 100% |
-| `sscale` | 89.9% | 93.1% | 98.7% |
-| `smath` | 91.3% | 97.0% | 98.9% |
-| `sring` | 91.5% | 91.5% | 99.5% |
-| `sfilter` | 92.3% | 94.8% | 100% |
+| `sarray` | 79.4% | 98.9% | 99.3% |
+| `smemory` | 81.7% | 98.7% | 99.4% |
+| `sdiag` | 82.2% | 86.8% | 91.0% |
+| `sstring` | 83.0% | 99.4% | 99.8% |
+| `sfixed` | 86.0% | 97.4% | 100% |
+| `sscale` | 89.9% | 96.8% | 98.7% |
+| `smath` | 91.3% | 97.9% | 98.9% |
+| `sring` | 91.5% | 99.1% | 99.5% |
+| `sfilter` | 92.3% | 99.3% | 100% |
 | `sbits` | — | **100%** | 100% |
 | `sfault` | — | 99.3% | 100% |
 | `sstate` | — | 97.5% | 99.5% |
 | `svote` | — | **100%** | 100% |
 | `swatch` | — | **100%** | 100% |
 
-The "now" column is from 07/11/2026, after `tools/tracecheck.py` added the
-cases its first run asked for. MC/DC on the same run is within a point of
-branch coverage in every module (`sdiag` 83.6%, `sstring` 91.3%, the rest
-equal); its gaps are written to `<module>.conditions.txt`. `sbits`, `svote`,
-`sfault` and `sstate` have been classified: the MC/DC outcomes they were
-missing were six real cases (now in their suites, which took `sbits` and
-`svote` to every condition) and three defensive ones (the redundant half of
-`isReady` in `sfault` and `sstate`, and the reachability walk's pass bound,
-which a breadth first walk always finishes inside). **The other ten modules
-have not yet been classified.**
+The "now" column is from 07/11/2026, after the cases `tools/tracecheck.py`
+and the MC/DC classification asked for. MC/DC on the same run equals branch
+coverage in every module but `sdiag` (86.2%); its gaps are written to
+`<module>.conditions.txt`, and **every one of them, in all fourteen modules,
+has been classified.** 128 condition outcomes were cases nobody had written, and they
+are in the suites now. Most were one argument of a guard that had only been
+refused alongside another — `( dest == NULL ) || ( src == NULL )` tested
+only with `dest` NULL, a capacity pair tested only on its first half — so a
+function that checked one pointer, or one capacity, would have passed. Nine
+mutants (`sarray` M23–M25, `smath` M16, `sstring` M20–M21, `smemory` M9,
+`sscale` M19, `sfilter` M15) pass the suites as they were and die only to
+the new cases. The ones worth remembering:
+
+- **`smathInRange` had never been asked about a value below its lower
+  bound**, in any of the four families, nor about one on it. A version that
+  tested only `value <= high` passed every case.
+- **`sarray`'s overlap test had only ever seen two ranges miss each other one
+  way round.** Dropping the `aStart < bEnd` half passed; copying between the
+  two halves of one array, in both directions, now kills it.
+- **`sscaleLinear` and `sscaleLinearClamped` had never been given a falling
+  map on its far side or inside it**, and `sscaleApplyClamped` had never
+  been given an in-domain reading on a descending table.
+- `sstring`'s character classes had never met the characters just past
+  their ends (`[`, `{`, DEL, `:`, `@`), nor a vertical tab or a form feed.
+
+What remains is unreachable, listed below with the branch residue; the
+masking MC/DC gcc measures adds only these to it: `sfixedLerp` and
+`sfixedSqrt` range checks that cannot fail (an interpolation lies between
+its ends, and a root of a Q16.16 value fits), `sscale`'s
+`spanProductFits` zero input span, which validation has already refused,
+and `sstring`'s `sourceLength` asked to scan zero bytes, which no caller
+can pass.
 
 The "now" column includes the integration suite, which `coverage.sh` links
 against nine of the modules and counts. That is what took `swatch` to every
@@ -311,10 +333,13 @@ which is a comment. What remains is all of the second kind:
   an element count whose byte span passes 2^32.
 - `smath`: the unsigned saturating forms saturating toward the end they cannot
   reach — the same impossibility recorded in their `@return` blocks.
-- `sring`, `sscale`: the redundant half of `isReady`. Either condition alone
-  catches a zeroed driver, which is why both survive mutation.
-- `sscale`: `SC_INVALIDTABLE` out of `FindSegment`. A validated table
-  cannot produce it, and neither did 50 million tables changed after Init.
+- `sring`, `sscale`, `sfault`, `sstate`, `sfilter`: the redundant half of
+  `isReady` (inline in `sfilterAvgAdd`). Either condition alone catches a
+  zeroed driver, which is why both survive mutation. `sstateIsReachable`'s
+  pass bound, which a breadth first walk always finishes inside.
+- `sscale`: `SC_INVALIDTABLE` out of `FindSegment`, and the search's own
+  exhaustion and before-the-first-segment exits. A validated table
+  cannot produce them, and neither did 50 million tables changed after Init.
   `Apply`, `ApplyClamped` and the degenerate-segment guard in `interpolate`
   used to be on this list; a table its caller rewrote after Init reaches all
   three, and the suite now does that.
@@ -382,7 +407,7 @@ and four rules are recorded as deviations:
 
 | rule | hits | modules | decision |
 |---|---|---|---|
-| 10.4 | 359 (636 at baseline) | all | **deviation, narrowed on 07/11/2026.** A status, state or flag is a `uint8_t` compared with the module's enum members and with `TRUE`/`FALSE`; that is all the deviation covers. The 277 hits that compared or combined an unsigned value with an unsuffixed constant were fixed with a `u` suffix, and `tools/misra_occurrences.py` now refuses any 10.4 hit on a line holding neither `TRUE`, `FALSE` nor an enum member |
+| 10.4 | 359 (636 at baseline) | all | **deviation, narrowed on 07/11/2026.** A status, state or flag is a `uint8_t` compared with the module's enum members and with `TRUE`/`FALSE`; that is all the deviation covers. The 277 hits that compared or combined an unsigned value with an unsuffixed constant were fixed with a `u` suffix. `tools/misra_occurrences.py` checks every remaining hit by expression: the operator the addon reports must be `==` or `!=` with `TRUE`, `FALSE` or one of the module's own enum members as an operand, or the run fails. All 359 are |
 | 11.5 | 25 | `smemory`, `sdiag` | **deviation.** `void*` to `unsigned char*`, the one conversion the standard always allows for reading bytes |
 | 11.4 | 10 | `sarray`, `sstring` | **deviation.** Pointer to integer, to test two ranges for overlap and to choose a copy direction |
 | 11.6 | 10 | `sarray`, `smemory`, `sstring` | **deviation.** The same overlap checks, through `void*` |
@@ -487,7 +512,7 @@ prototype names a bare `int`. 357 declarations, no findings. A pointer to a
 module's own driver struct is exempt, and those types are read out of each
 header's typedefs so a new module needs no change to the tool.
 
-`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 669 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
+`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 676 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
 
 **Its most useful rule is one doxygen has no concept of: a `@return` must name every status the body can set, and no status it cannot.** That is what found the only real defect the first full audit turned up. The four `smath` families share one template, so the unsigned ones had inherited the signed text and promised an `SH_UNDERFLOW` that an unsigned addition cannot produce and an `SH_OVERFLOW` that an unsigned subtraction cannot — a caller testing for either was writing a branch that never runs.
 

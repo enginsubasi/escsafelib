@@ -3,7 +3,7 @@
   *
   * @file      SMemory_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
+  * @version   0.1.2
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the smemory module.
@@ -15,6 +15,7 @@
   * 04/08/2026 Created. @n
   * 07/11/2026 Every status a return block promises is asked for at least @n
   *            once, as tools/tracecheck.py requires. @n
+  * 07/11/2026 MC/DC cases: each pointer and each capacity refused on its own. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -788,6 +789,56 @@ static void testStatusContract ( void )
 }
 
 /**
+ * @brief   Takes the condition outcomes MC/DC found no case had taken.
+ * @note    Branch coverage was satisfied by each of these decisions, because
+ *          some outcome of each had been seen. MC/DC asks for each condition
+ *          to be shown to decide on its own, and these had only ever been
+ *          refused alongside another: a guard testing only its first
+ *          pointer, or only one of two capacities, would have passed.
+ */
+static void testConditionCoverage ( void )
+{
+    unsigned char a[ 8 ] = { 1u, 2u, 3u, 4u, 5u, 6u, 7u, 8u };
+    unsigned char b[ 8 ] = { 1u, 2u, 3u, 4u, 5u, 6u, 7u, 8u };
+    const unsigned char snapshot[ 8 ] = { 1u, 2u, 3u, 4u, 5u, 6u, 7u, 8u };
+    uint32_t index = 0xA5A5A5A5u;
+    int32_t order = 99;
+    uint8_t flag = 0x5Au;
+
+    expectStatus ( "mcdc: move NULL destination", smemoryMove ( NULL, 8u, a, 8u, 1u ), SM_NULLPTR );
+    expectStatus ( "mcdc: move zero source capacity", smemoryMove ( b, 8u, a, 0u, 0u ), SM_INVALIDSIZE );
+    expectStatus ( "mcdc: swap zero b capacity", smemorySwap ( a, 8u, b, 0u, 0u ), SM_INVALIDSIZE );
+    expectStatus ( "mcdc: swap count above b capacity", smemorySwap ( a, 8u, b, 4u, 5u ), SM_OUTOFRANGE );
+    expectStatus ( "mcdc: reverse zero source capacity", smemoryReverse ( b, 8u, a, 0u ), SM_INVALIDSIZE );
+    expectBytes ( "mcdc: no refusal wrote a", a, snapshot, 8u );
+    expectBytes ( "mcdc: no refusal wrote b", b, snapshot, 8u );
+
+    expectStatus ( "mcdc: compare NULL a", smemoryCompare ( NULL, 8u, b, 8u, &order ), SM_NULLPTR );
+    expectStatus ( "mcdc: compare NULL b", smemoryCompare ( a, 8u, NULL, 8u, &order ), SM_NULLPTR );
+    expectStatus ( "mcdc: compare zero b capacity", smemoryCompare ( a, 8u, b, 0u, &order ), SM_INVALIDSIZE );
+    expectStatus ( "mcdc: compareN zero b capacity", smemoryCompareN ( a, 8u, b, 0u, 1u, &order ), SM_INVALIDSIZE );
+    expectStatus ( "mcdc: compareN count above b capacity",
+                   smemoryCompareN ( a, 8u, b, 4u, 5u, &order ), SM_OUTOFRANGE );
+    expectI32 ( "mcdc: no refusal wrote the order", order, 99 );
+
+    expectStatus ( "mcdc: equalSecure NULL a", smemoryEqualSecure ( NULL, 8u, b, 8u, 1u, &flag ), SM_NULLPTR );
+    expectStatus ( "mcdc: equalSecure NULL b", smemoryEqualSecure ( a, 8u, NULL, 8u, 1u, &flag ), SM_NULLPTR );
+    expectStatus ( "mcdc: equalSecure zero b capacity",
+                   smemoryEqualSecure ( a, 8u, b, 0u, 0u, &flag ), SM_INVALIDSIZE );
+    expectStatus ( "mcdc: equalSecure count above b capacity",
+                   smemoryEqualSecure ( a, 8u, b, 4u, 5u, &flag ), SM_OUTOFRANGE );
+    expectStatus ( "mcdc: isZero NULL buffer", smemoryIsZero ( NULL, 8u, &flag ), SM_NULLPTR );
+    expectU32 ( "mcdc: no refusal wrote the flag", ( uint32_t ) flag, 0x5Au );
+
+    expectStatus ( "mcdc: find NULL output", smemoryFind ( a, 8u, 3u, NULL ), SM_NULLPTR );
+    expectStatus ( "mcdc: findPattern NULL haystack", smemoryFindPattern ( NULL, 8u, b, 2u, &index ), SM_NULLPTR );
+    expectStatus ( "mcdc: findPattern NULL output", smemoryFindPattern ( a, 8u, b, 2u, NULL ), SM_NULLPTR );
+    expectStatus ( "mcdc: findPattern zero haystack capacity",
+                   smemoryFindPattern ( a, 0u, b, 2u, &index ), SM_INVALIDSIZE );
+    expectU32 ( "mcdc: no refusal wrote the index", index, 0xA5A5A5A5u );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -800,6 +851,7 @@ int main ( void )
     testTypedBuffer ( );
     testUncoveredBranches ( );
     testStatusContract ( );
+    testConditionCoverage ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

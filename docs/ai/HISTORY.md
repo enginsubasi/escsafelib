@@ -151,6 +151,30 @@ not required to resume the project.
 - Process note: shell heredocs in this environment collapse backslash
   escapes (`\n`, `\b`, line continuations). Two edits were damaged that
   way and repaired; write scripts with the file tool instead.
+- Committed as `ea54309`. Its first CI run: every job green, including the
+  MISRA job with the image's cppcheck against the new manifest and the
+  coverage job with gcc-14.
+
+## 2026-11-07 — MC/DC classified everywhere, 10.4 checked by expression (Claude)
+
+- Every MC/DC gap in the ten unclassified modules classified. 128 condition
+  outcomes were missing cases, mostly one pointer or one capacity of a
+  guard never refused on its own; all added. Real holes:
+  `smathInRange` never asked below or on its lower bound in any family;
+  `sarray`'s overlap test only ever saw ranges miss one way round;
+  `sscaleLinear`/`LinearClamped`/`ApplyClamped` never exercised on the far
+  side or inside of a falling map; `sstring` character classes never met
+  the characters past their ends. Nine new mutants die only to the new
+  cases. Final: 4064 cases, 221 mutants (201 killed, 20 equivalent).
+- `misra_occurrences.py` now checks each Rule 10.4 finding by expression:
+  `misra.sh` runs the addon with `--cli` for the column, and the dump's
+  token at that column must be `==`/`!=` with a `TRUE`/`FALSE` expansion or
+  the module's own enum member as an operand. All 359 pass; a control line
+  holding a status comparison beside an unsuffixed unsigned one is refused
+  at the second comparison's column, where the old line test passed it.
+- `coverage.sh` prints its table as one GitHub notice, so CI's numbers can
+  be read without log access. `upload-artifact` moved to v5 after the run
+  warned about Node.js 20.
 
 ## Open work carried forward
 

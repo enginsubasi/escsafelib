@@ -567,7 +567,7 @@ jobs:
         run: bash tools/coverage.sh gcc-14
 
       - name: Upload the annotated listings
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: coverage
@@ -647,7 +647,7 @@ jobs:
           set -o pipefail
           bash tools/misra.sh --annotate 2>&1 | tee misra.log
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: cppcheck-logs
@@ -723,7 +723,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: doxygen

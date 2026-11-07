@@ -3,8 +3,8 @@
   *
   * @file      SRing_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      05/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the sring module.
   *
@@ -13,6 +13,7 @@
   *
   * @par History
   * 05/08/2026 Created. @n
+  * 07/11/2026 MC/DC cases: each pointer refused on its own. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -916,6 +917,42 @@ static void testBarrier ( void )
 }
 
 /**
+ * @brief   Takes the condition outcomes MC/DC found no case had taken.
+ * @note    Branch coverage was satisfied by each of these decisions, because
+ *          some outcome of each had been seen. MC/DC asks for each condition
+ *          to be shown to decide on its own, and these had only ever been
+ *          refused alongside another: a guard testing only its first
+ *          pointer, or only one of two capacities, would have passed.
+ */
+static void testConditionCoverage ( void )
+{
+    sringu8_t ring;
+    uint8_t storage[ 8 ];
+    const uint8_t data[ 4 ] = { 1u, 2u, 3u, 4u };
+    uint8_t out[ 4 ] = { 0u, 0u, 0u, 0u };
+    uint32_t value = 0xA5A5A5A5u;
+    uint8_t flag = 0x5Au;
+
+    expectStatus ( "mcdc: init", sringInitu8 ( &ring, storage, 8u, NULL ), SR_OK );
+    expectStatus ( "mcdc: put one", sringPutu8 ( &ring, 7u ), SR_OK );
+
+    expectStatus ( "mcdc: peek NULL output", sringPeeku8 ( &ring, NULL ), SR_NULLPTR );
+    expectStatus ( "mcdc: putBlock NULL driver", sringPutBlocku8 ( NULL, data, 4u, 1u ), SR_NULLPTR );
+    expectStatus ( "mcdc: getBlock NULL driver", sringGetBlocku8 ( NULL, out, 4u, 1u ), SR_NULLPTR );
+    expectStatus ( "mcdc: count NULL driver", sringCountu8 ( NULL, &value ), SR_NULLPTR );
+    expectStatus ( "mcdc: free NULL driver", sringFreeu8 ( NULL, &value ), SR_NULLPTR );
+    expectStatus ( "mcdc: capacity NULL output", sringCapacityu8 ( &ring, NULL ), SR_NULLPTR );
+    expectStatus ( "mcdc: isEmpty NULL driver", sringIsEmptyu8 ( NULL, &flag ), SR_NULLPTR );
+    expectStatus ( "mcdc: isFull NULL output", sringIsFullu8 ( &ring, NULL ), SR_NULLPTR );
+    expectU32 ( "mcdc: no refusal wrote the value", value, 0xA5A5A5A5u );
+    expectU32 ( "mcdc: no refusal wrote the flag", ( uint32_t ) flag, 0x5Au );
+    expectU32 ( "mcdc: no refusal wrote the output", ( uint32_t ) out[ 0 ], 0u );
+
+    expectStatus ( "mcdc: count after the refusals", sringCountu8 ( &ring, &value ), SR_OK );
+    expectU32 ( "mcdc: the refusals moved nothing", value, 1u );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -927,6 +964,7 @@ int main ( void )
     testIndexOwnership ( );
     testUninitialised ( );
     testBarrier ( );
+    testConditionCoverage ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );
