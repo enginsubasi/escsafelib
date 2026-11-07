@@ -100,7 +100,7 @@ python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/signal \
   test/SSignal_Test/SSignal_Test.c src/signal/ssignal.c -o ssignal_test && ./ssignal_test
 
 python -m ziglang cc -Wall -Wextra -std=c99 -g -Iinc/e2e \
-  test/SE2E_Test/SE2E_Test.c src/e2e/se2e.c -o se2e_test && ./se2e_test
+  test/SE2e_Test/SE2e_Test.c src/e2e/se2e.c -o se2e_test && ./se2e_test
 ```
 
 Run the tests before claiming anything passes. Compiling is not passing.
@@ -562,6 +562,14 @@ the caller rewrote after Init without any case ever having asked them to.
 remain: delegated statuses a wrapper cannot reach, the March test failures
 only the aliasing harness reaches, and `sscaleFindSegment`'s defensive
 refusal.
+
+**The suite directory's name is derived, and its case matters.** Every tool
+finds a module's suite at `test/<S + module[1].upper() + rest>_Test/`, so
+`se2e` lives in `test/SE2e_Test/`, not `SE2E_Test`. This machine's file
+system ignores case and found the wrong name; the Linux runner did not, and
+the first `se2e` commit went red in CI only. `tracecheck.py` now matches
+every path component's case exactly, with a control for it, so the same
+mistake fails here too.
 
 ## Layout and module contract
 

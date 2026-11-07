@@ -114,5 +114,10 @@ Historical milestones and prior findings are recorded in
 ## Remaining work
 
 1. Pieces 5-7 above, in order.
-2. Read the CI run of the `se2e` commit.
+2. Read the CI run of the suite rename commit.
+
+The first `se2e` commit (`ca747f9`) failed CI in tracecheck only: its suite was
+`test/SE2E_Test`, the tools derive `test/SE2e_Test`, and Windows found it
+anyway. Renamed, and `tracecheck.py` now matches path case exactly (control
+included; verified by renaming the directory back on this machine).
 2. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.

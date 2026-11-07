@@ -78,7 +78,7 @@ MODULES=(
   "vote     svote         SVote"
   "watch    swatch        SWatch"
   "signal   ssignal       SSignal"
-  "e2e      se2e          SE2E"
+  "e2e      se2e          SE2e"
 )
 
 fail=0

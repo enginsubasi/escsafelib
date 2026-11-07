@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Mutants for se2e. See tools/mutate.py."""
 
-MODULE = ( 'e2e', 'se2e', 'SE2E' )
+MODULE = ( 'e2e', 'se2e', 'SE2e' )
 
 MUTANTS = [
     {

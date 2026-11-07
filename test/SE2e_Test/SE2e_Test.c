@@ -1,7 +1,7 @@
 /**
   ******************************************************************************
   *
-  * @file      SE2E_Test.c
+  * @file      SE2e_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
   * @version   0.1.0
   * @date      07/11/2026

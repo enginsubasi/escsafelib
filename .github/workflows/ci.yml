@@ -192,7 +192,7 @@ jobs:
         run: |
           ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
             -Iinc/e2e \
-            test/SE2E_Test/SE2E_Test.c src/e2e/se2e.c \
+            test/SE2e_Test/SE2e_Test.c src/e2e/se2e.c \
             -o se2e_test
 
       - name: Run the se2e test program
@@ -406,7 +406,7 @@ jobs:
             -fsanitize=address,undefined -fno-sanitize-recover=all \
             -fno-omit-frame-pointer \
             -Iinc/e2e \
-            test/SE2E_Test/SE2E_Test.c src/e2e/se2e.c \
+            test/SE2e_Test/SE2e_Test.c src/e2e/se2e.c \
             -o se2e_san
 
       - name: Run se2e under sanitizers

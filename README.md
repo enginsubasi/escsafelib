@@ -198,7 +198,7 @@ gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/signal \
   test/SSignal_Test/SSignal_Test.c src/signal/ssignal.c -o ssignal_test && ./ssignal_test
 
 gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/e2e \
-  test/SE2E_Test/SE2E_Test.c src/e2e/se2e.c -o se2e_test && ./se2e_test
+  test/SE2e_Test/SE2e_Test.c src/e2e/se2e.c -o se2e_test && ./se2e_test
 ```
 
 ## The modules together

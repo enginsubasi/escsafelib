@@ -158,6 +158,23 @@ def check_module(header, source, suite):
     return gaps, rows
 
 
+def exists_exactly(path):
+    """os.path.exists, but with every component's case matched.
+
+    Windows and macOS find test/SE2E_Test when asked for test/SE2e_Test;
+    the Linux runner does not. A name that only resolves case-insensitively
+    passes here and fails in CI, so it is refused here as well.
+    """
+    if not os.path.exists(path):
+        return False
+    head, tail = os.path.split(os.path.abspath(path))
+    while tail:
+        if tail not in os.listdir(head):
+            return False
+        head, tail = os.path.split(head)
+    return True
+
+
 def modules(repo):
     found = []
     for domain in sorted(os.listdir(os.path.join(repo, "inc"))):
@@ -197,7 +214,7 @@ def run(repo, matrix):
     exceptions = load_exceptions(os.path.join(repo, "tools", "trace_exceptions.tsv"))
     used = set()
     for module, header, source, suite in modules(repo):
-        if not os.path.exists(suite):
+        if not exists_exactly(suite):
             print("%s: no suite at %s" % (module, os.path.relpath(suite, repo)))
             total_gaps += 1
             continue
@@ -276,6 +293,13 @@ def self_test():
     assert "sdemoB: no case expects SZ_NULLPTR" not in text
     assert "stale    sdemoA" in text
     assert "1 recorded exceptions, 4 gaps" in text, text
+
+    # A suite directory whose name matches only when case is ignored must
+    # not count as found, on any file system.
+    suite = os.path.join(root, "test", "SDemo_Test", "SDemo_Test.c")
+    assert exists_exactly(suite)
+    assert not exists_exactly(os.path.join(root, "test", "SDEMO_Test", "SDemo_Test.c"))
+    assert not exists_exactly(os.path.join(root, "test", "SDemo_Test", "SDEMO_Test.c"))
     print("tracecheck controls: pass")
     return 0
 
