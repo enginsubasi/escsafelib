@@ -13,10 +13,12 @@ on:
 # before this workflow was written, so a red result means a real
 # regression rather than a surprise from a tool nobody had run yet.
 #
-# Reporting jobs are measurements rather than gates: mutation, size and
-# coverage. They are marked continue-on-error, and a red one still means
-# something, which is why each fails on a finding instead of printing it.
-# Flip one to blocking only once a run of it comes back clean.
+# Reporting jobs are measurements rather than gates. Only size is left:
+# what counts as too big is the integrator's budget. It is marked
+# continue-on-error, and a red one still means something, which is why it
+# fails on a finding instead of printing it. Mutation and coverage were
+# reporting too and became blocking on 07/11/2026, each after CI runs of it
+# came back clean: flip a job only then.
 #
 # Every job names its runner image rather than ubuntu-latest. The MISRA
 # check pins Rule 10.4 findings by source line, and the cppcheck that
@@ -131,9 +133,8 @@ jobs:
 
       # Stack use on two cores, from -fstack-usage and the call graph. Fails
       # on a dynamic frame or on recursion, after a control holding both.
-      # Reporting until a CI run of it comes back clean.
+      # Blocking since its first CI run came back clean.
       - name: Stack use and recursion
-        continue-on-error: true
         run: python3 tools/stack.py --annotate
 
       # Every header must be independently includable and must coexist with
@@ -238,20 +239,18 @@ jobs:
           python3 tools/tracecheck.py
 
   mutation:
-    name: Mutation tests (reporting)
+    name: Mutation tests
     runs-on: ubuntu-24.04
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v5
 
-      # Reporting rather than blocking only because it takes a while:
-      # 205 mutants, each a full build and run of one suite. It runs
-      # clean on the development machine, so a survivor here is a real
-      # hole in a suite rather than a discovery about a tool nobody had
-      # used. Twenty mutants are expected to survive and are marked
-      # equivalent with the argument for each; the runner requires them
-      # to survive, so a wrong argument shows up as RESURRECTED.
+      # Blocking since 07/11/2026, after CI runs of it came back clean.
+      # Every mutant must be accounted for: killed, or marked equivalent
+      # with its argument, and the runner requires an equivalent one to
+      # survive, so a wrong argument shows up as RESURRECTED. A survivor
+      # is a hole in a suite, and a new module needs its mutants before
+      # it can land.
       - name: Break every module on purpose
         run: |
           CC=gcc UBSANCC=clang python3 tools/mutate.py
@@ -278,20 +277,19 @@ jobs:
         run: bash tools/size.sh
 
   coverage:
-    name: Statement and branch coverage (reporting)
+    name: Statement, branch and MC/DC coverage
     runs-on: ubuntu-24.04
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v5
 
-      # Reporting rather than blocking, and deliberately without a
-      # threshold. What is left uncovered is defensive code the API
-      # cannot reach -- an address wrap guard, a March test failure no
-      # portable code can provoke -- so any number chosen as a gate would
-      # be arbitrary. The table is here to be read when it moves. CLAUDE.md
-      # lists what the residue is and why each piece of it cannot be
-      # reached.
+      # Blocking since 07/11/2026, and still without a threshold. What is
+      # left uncovered is defensive code the API cannot reach -- an address
+      # wrap guard, a March test failure no portable code can provoke -- so
+      # any percentage chosen as a gate would be arbitrary. The gate is
+      # tools/mcdccheck.py instead: every MC/DC gap must be a record in
+      # tools/mcdc_exceptions.tsv with its reason, and every record must
+      # still be needed.
       #
       # gcc 14 because it is the first with -fcondition-coverage, which
       # adds the MC/DC column. The image's default gcc is 13.

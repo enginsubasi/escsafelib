@@ -204,8 +204,10 @@ Historical milestones and prior findings are recorded in
    with a count for repeated identical lines in the March test), run by
    `coverage.sh` after its controls; negative control: one record removed
    and one bogus added, both reported. Coverage job still reporting until
-   a CI run of the check comes back clean.
-5. Mutation job blocking.
+   a CI run of the check came back clean; flipped in item 5.
+5. Mutation job blocking. **Done**, with coverage (gated by mcdccheck)
+   and the stack step, after clean CI runs (`42369536307`, `42370036750`).
+   Only `size` stays reporting.
 6. Release tag: the owner's decision, not started.
 
 ## Remaining work
