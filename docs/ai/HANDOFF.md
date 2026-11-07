@@ -166,7 +166,9 @@ Historical milestones and prior findings are recorded in
 
 ## Remaining work
 
-1. Read the CI run of the `spid` commit.
-2. Optional, only if the owner asks: `sscale` 2D map, `sstate` time in
+CI run `42352223713` of `8093f17` (`spid`): every job success; so were the
+runs of every earlier piece except `ca747f9`, fixed by `647b066`.
+
+1. Optional, only if the owner asks: `sscale` 2D map, `sstate` time in
    state.
-3. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.
+2. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.
