@@ -14,8 +14,8 @@ Historical milestones and prior findings are recorded in
   ARM is cross-compile, `-fanalyzer` and `size.sh` only, as before.
 - Agreed order, one commit per piece:
   1. `sdiag` CRC-8 (SAE J1850 and polynomial 0x2F). **Done.**
-  2. `sbits` byte order: u16/u32 read and write with explicit `LE`/`BE`
-     names (owner approved; bit ordering stays Intel only).
+  2. `sbits` byte order (owner approved; bit ordering stays Intel only).
+     **Done.**
   3. `ssignal` (prefix `SG_`): range, gradient, stuck-at and two-sensor
      plausibility. Observation only; qualification stays in `sfault`.
   4. `se2e` (prefix `SE_`): counter, data ID and injected CRC on send; a
@@ -47,7 +47,24 @@ Historical milestones and prior findings are recorded in
   the deviation, 26 in total); ARM M0+ `-fanalyzer` clean; `size.sh`
   `.data`/`.bss` 0.
 
+## Piece 2: `sbits` byte order
+
+- `sbitsReadLE`, `sbitsReadBE`, `sbitsWriteLE`, `sbitsWriteBE`: unsigned
+  integers of one to four bytes (`SBITS_MAXBYTES`) at a byte offset, one
+  byte at a time, with static `orderFits` checking the count and the end in
+  64 bits. Writers refuse a value too big for its slot (`SB_OVERFLOW`). A
+  signed reading is documented as the unsigned read plus `sbitsGeti32`;
+  no separate signed API, by decision.
+- Suite: known frames, every count at every offset against `sbitsGetBytes`
+  and the reversed frame, range edges round trip, sign extension of a BE
+  reading, every refusal with frame and output untouched. `sbits` M18-M24
+  all killed.
+- Verified: zig with UBSan and gcc 14 strict, 192 cases 0 failed;
+  `run_all.sh` ALL GREEN; coverage `sbits` still 100% lines, branches and
+  MC/DC; ARM M0+ `-fanalyzer` clean; MISRA full tree 0 differences after
+  four reviewed `retVal == SB_OK`-style records were added (363 in all).
+
 ## Remaining work
 
-1. Pieces 2-7 above, in order.
+1. Pieces 3-7 above, in order.
 2. Target (ARM) execution remains a permanent limit per `CLAUDE.md`.

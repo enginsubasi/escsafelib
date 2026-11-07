@@ -106,4 +106,46 @@ MUTANTS = [
         "old": '        for ( i = 0; i < SBITS_WORDBITS; ++i )',
         "new": '        for ( i = 0; i < ( SBITS_WORDBITS - 1u ); ++i )',
     },
+    {
+        "id": 'M18',
+        "what": 'the little endian reader assembles big endian',
+        "old": '                raw = raw | ( ( uint32_t ) data[ offset + i ] << ( 8u * i ) );',
+        "new": '                raw = raw | ( ( uint32_t ) data[ offset + i ] << ( 8u * ( ( uint32_t ) count - 1u - i ) ) );',
+    },
+    {
+        "id": 'M19',
+        "what": 'the big endian reader shifts by seven',
+        "old": '                raw = ( raw << 8 ) | ( uint32_t ) data[ offset + i ];',
+        "new": '                raw = ( raw << 7 ) | ( uint32_t ) data[ offset + i ];',
+    },
+    {
+        "id": 'M20',
+        "what": 'four byte integers are refused',
+        "old": '    if ( ( count == 0u ) || ( count > SBITS_MAXBYTES ) )',
+        "new": '    if ( ( count == 0u ) || ( count >= SBITS_MAXBYTES ) )',
+    },
+    {
+        "id": 'M21',
+        "what": 'the end of a byte order access is formed in 32 bits and can wrap',
+        "old": '    else if ( ( ( uint64_t ) offset + ( uint64_t ) count ) > ( uint64_t ) size )',
+        "new": '    else if ( ( offset + ( uint32_t ) count ) > size )',
+    },
+    {
+        "id": 'M22',
+        "what": 'an access ending exactly at the frame is refused',
+        "old": '    else if ( ( ( uint64_t ) offset + ( uint64_t ) count ) > ( uint64_t ) size )',
+        "new": '    else if ( ( ( uint64_t ) offset + ( uint64_t ) count ) >= ( uint64_t ) size )',
+    },
+    {
+        "id": 'M23',
+        "what": 'the big endian writer writes little endian',
+        "old": '                data[ ( offset + ( uint32_t ) count ) - 1u - i ] = ( uint8_t ) ( ( value >> ( 8u * i ) ) & 0xFFu );',
+        "new": '                data[ offset + i ] = ( uint8_t ) ( ( value >> ( 8u * i ) ) & 0xFFu );',
+    },
+    {
+        "id": 'M24',
+        "what": 'the little endian writer truncates a value too big for its slot',
+        "old": 'uint8_t sbitsWriteLE ( uint8_t* data, uint32_t size, uint32_t offset, uint8_t count, uint32_t value )\n{\n    uint8_t retVal = SB_OK;\n    uint32_t i = 0;\n\n    if ( data == NULL )\n    {\n        retVal = SB_NULLPTR;\n    }\n    else\n    {\n        retVal = orderFits ( size, offset, count );\n\n        if ( retVal != SB_OK )\n        {\n            // Intentionally blank.\n        }\n        else if ( value > lowMask ( ( uint8_t ) ( 8u * ( uint32_t ) count ) ) )',
+        "new": 'uint8_t sbitsWriteLE ( uint8_t* data, uint32_t size, uint32_t offset, uint8_t count, uint32_t value )\n{\n    uint8_t retVal = SB_OK;\n    uint32_t i = 0;\n\n    if ( data == NULL )\n    {\n        retVal = SB_NULLPTR;\n    }\n    else\n    {\n        retVal = orderFits ( size, offset, count );\n\n        if ( retVal != SB_OK )\n        {\n            // Intentionally blank.\n        }\n        else if ( FALSE )',
+    },
 ]

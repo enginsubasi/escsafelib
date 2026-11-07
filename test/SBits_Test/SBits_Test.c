@@ -3,7 +3,7 @@
   *
   * @file      SBits_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.1
+  * @version   0.2.0
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the sbits module.
@@ -14,6 +14,7 @@
   * @par History
   * 06/08/2026 Created. @n
   * 07/11/2026 MC/DC cases for the width check of sbitsSetBytes. @n
+  * 07/11/2026 Cases for the byte order readers and writers. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -666,6 +667,183 @@ static void testConditionCoverage ( void )
 }
 
 /**
+ * @brief   Checks the byte order readers and writers.
+ * @note    Known frames in both orders, a read of every count at every
+ *          offset of a frame against sbitsGetBytes, which reads the same
+ *          bits a different way, the big endian read against the little
+ *          endian one of the reversed bytes, round trips at the edge of
+ *          each count's range, a signed reading through sbitsGeti32, and
+ *          every refusal with the frame and the output left alone.
+ */
+static void testByteOrder ( void )
+{
+    const uint8_t frame[ 6 ] = { 0x12u, 0x34u, 0x56u, 0x78u, 0x9Au, 0xBCu };
+    uint8_t reversed[ 6 ] = { 0u, 0u, 0u, 0u, 0u, 0u };
+    uint8_t out[ 6 ] = { 0xEEu, 0xEEu, 0xEEu, 0xEEu, 0xEEu, 0xEEu };
+    const uint8_t untouched[ 6 ] = { 0xEEu, 0xEEu, 0xEEu, 0xEEu, 0xEEu, 0xEEu };
+    uint32_t value = 0;
+    uint32_t other = 0;
+    uint32_t offset = 0;
+    uint32_t count = 0;
+    uint32_t i = 0;
+    uint32_t limit = 0;
+    uint32_t bad = 0;
+    int32_t reading = 0;
+    uint8_t same = TRUE;
+
+    expectStatus ( "order: readLE two bytes", sbitsReadLE ( frame, 6u, 1u, 2u, &value ), SB_OK );
+    expectU32 ( "order: readLE two bytes value", value, 0x5634u );
+    expectStatus ( "order: readBE two bytes", sbitsReadBE ( frame, 6u, 1u, 2u, &value ), SB_OK );
+    expectU32 ( "order: readBE two bytes value", value, 0x3456u );
+    expectStatus ( "order: readLE four bytes", sbitsReadLE ( frame, 6u, 2u, 4u, &value ), SB_OK );
+    expectU32 ( "order: readLE four bytes value", value, 0xBC9A7856u );
+    expectStatus ( "order: readBE four bytes", sbitsReadBE ( frame, 6u, 2u, 4u, &value ), SB_OK );
+    expectU32 ( "order: readBE four bytes value", value, 0x56789ABCu );
+    expectStatus ( "order: readBE three bytes", sbitsReadBE ( frame, 6u, 0u, 3u, &value ), SB_OK );
+    expectU32 ( "order: readBE three bytes value", value, 0x123456u );
+    expectStatus ( "order: readLE one byte", sbitsReadLE ( frame, 6u, 5u, 1u, &value ), SB_OK );
+    expectU32 ( "order: readLE one byte value", value, 0xBCu );
+
+    for ( i = 0; i < 6u; ++i )
+    {
+        reversed[ i ] = frame[ 5u - i ];
+    }
+
+    /* Every count at every offset it fits. */
+    for ( count = 1u; count <= 4u; ++count )
+    {
+        for ( offset = 0u; ( offset + count ) <= 6u; ++offset )
+        {
+            if ( ( sbitsReadLE ( frame, 6u, offset, ( uint8_t ) count, &value ) != SB_OK ) ||
+                 ( sbitsGetBytes ( frame, 6u, offset * 8u, ( uint8_t ) ( count * 8u ), &other ) != SB_OK ) ||
+                 ( value != other ) )
+            {
+                ++bad;
+            }
+            else
+            {
+                // Intentionally blank.
+            }
+
+            if ( ( sbitsReadBE ( frame, 6u, offset, ( uint8_t ) count, &value ) != SB_OK ) ||
+                 ( sbitsReadLE ( reversed, 6u, 6u - offset - count, ( uint8_t ) count, &other ) != SB_OK ) ||
+                 ( value != other ) )
+            {
+                ++bad;
+            }
+            else
+            {
+                // Intentionally blank.
+            }
+        }
+    }
+
+    expectU32 ( "order: every count at every offset agrees with the bit reader", bad, 0u );
+
+    /* Known frames written. */
+    expectStatus ( "order: writeLE two bytes", sbitsWriteLE ( out, 6u, 1u, 2u, 0xA1B2u ), SB_OK );
+    expectStatus ( "order: writeBE three bytes", sbitsWriteBE ( out, 6u, 3u, 3u, 0xC3D4E5u ), SB_OK );
+    expectU32 ( "order: write byte 0 untouched", ( uint32_t ) out[ 0 ], 0xEEu );
+    expectU32 ( "order: writeLE low byte first", ( uint32_t ) out[ 1 ], 0xB2u );
+    expectU32 ( "order: writeLE high byte second", ( uint32_t ) out[ 2 ], 0xA1u );
+    expectU32 ( "order: writeBE high byte first", ( uint32_t ) out[ 3 ], 0xC3u );
+    expectU32 ( "order: writeBE middle byte", ( uint32_t ) out[ 4 ], 0xD4u );
+    expectU32 ( "order: writeBE low byte last", ( uint32_t ) out[ 5 ], 0xE5u );
+
+    /* The top of each count's range goes through; one more is refused and
+       writes nothing. */
+    bad = 0u;
+
+    for ( count = 1u; count <= 4u; ++count )
+    {
+        if ( count == 4u )
+        {
+            limit = 0xFFFFFFFFu;
+        }
+        else
+        {
+            limit = ( ( uint32_t ) 1u << ( count * 8u ) ) - 1u;
+        }
+
+        if ( ( sbitsWriteLE ( out, 6u, 1u, ( uint8_t ) count, limit ) != SB_OK ) ||
+             ( sbitsReadLE ( out, 6u, 1u, ( uint8_t ) count, &value ) != SB_OK ) ||
+             ( value != limit ) ||
+             ( sbitsWriteBE ( out, 6u, 1u, ( uint8_t ) count, limit - 1u ) != SB_OK ) ||
+             ( sbitsReadBE ( out, 6u, 1u, ( uint8_t ) count, &value ) != SB_OK ) ||
+             ( value != ( limit - 1u ) ) )
+        {
+            ++bad;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+    }
+
+    expectU32 ( "order: the top of every count's range round trips", bad, 0u );
+
+    for ( i = 0; i < 6u; ++i )
+    {
+        out[ i ] = 0xEEu;
+    }
+
+    expectStatus ( "order: writeLE one byte too big", sbitsWriteLE ( out, 6u, 0u, 1u, 0x100u ), SB_OVERFLOW );
+    expectStatus ( "order: writeLE three bytes too big", sbitsWriteLE ( out, 6u, 0u, 3u, 0x1000000u ), SB_OVERFLOW );
+    expectStatus ( "order: writeBE two bytes too big", sbitsWriteBE ( out, 6u, 0u, 2u, 0x10000u ), SB_OVERFLOW );
+    expectStatus ( "order: writeBE three bytes too big", sbitsWriteBE ( out, 6u, 0u, 3u, 0x1000000u ), SB_OVERFLOW );
+
+    /* A signed reading: big endian 0xFF38 is -200. */
+    out[ 0 ] = 0xFFu;
+    out[ 1 ] = 0x38u;
+    expectStatus ( "order: readBE a negative reading", sbitsReadBE ( out, 6u, 0u, 2u, &value ), SB_OK );
+    expectStatus ( "order: sign extend it", sbitsGeti32 ( value, 0u, 16u, &reading ), SB_OK );
+    expectI32 ( "order: the reading is -200", reading, -200 );
+
+    for ( i = 0; i < 6u; ++i )
+    {
+        out[ i ] = 0xEEu;
+    }
+
+    /* Refusals. */
+    value = 0xA5A5A5A5u;
+    expectStatus ( "order: readLE NULL frame", sbitsReadLE ( NULL, 6u, 0u, 2u, &value ), SB_NULLPTR );
+    expectStatus ( "order: readLE NULL output", sbitsReadLE ( frame, 6u, 0u, 2u, NULL ), SB_NULLPTR );
+    expectStatus ( "order: readBE NULL frame", sbitsReadBE ( NULL, 6u, 0u, 2u, &value ), SB_NULLPTR );
+    expectStatus ( "order: readBE NULL output", sbitsReadBE ( frame, 6u, 0u, 2u, NULL ), SB_NULLPTR );
+    expectStatus ( "order: readLE zero count", sbitsReadLE ( frame, 6u, 0u, 0u, &value ), SB_INVALIDPARAM );
+    expectStatus ( "order: readBE five bytes", sbitsReadBE ( frame, 6u, 0u, 5u, &value ), SB_INVALIDPARAM );
+    expectStatus ( "order: readLE ends at the frame", sbitsReadLE ( frame, 6u, 4u, 2u, &value ), SB_OK );
+    expectStatus ( "order: readLE one byte past the frame", sbitsReadLE ( frame, 6u, 5u, 2u, &value ), SB_INVALIDSIZE );
+    expectStatus ( "order: readBE one byte past the frame", sbitsReadBE ( frame, 6u, 3u, 4u, &value ), SB_INVALIDSIZE );
+    expectStatus ( "order: readLE offset that would wrap",
+                   sbitsReadLE ( frame, 6u, 0xFFFFFFFFu, 2u, &value ), SB_INVALIDSIZE );
+    expectU32 ( "order: the last good read is what the output holds", value, 0xBC9Au );
+
+    expectStatus ( "order: writeLE NULL frame", sbitsWriteLE ( NULL, 6u, 0u, 2u, 1u ), SB_NULLPTR );
+    expectStatus ( "order: writeBE NULL frame", sbitsWriteBE ( NULL, 6u, 0u, 2u, 1u ), SB_NULLPTR );
+    expectStatus ( "order: writeLE zero count", sbitsWriteLE ( out, 6u, 0u, 0u, 1u ), SB_INVALIDPARAM );
+    expectStatus ( "order: writeBE five bytes", sbitsWriteBE ( out, 6u, 0u, 5u, 1u ), SB_INVALIDPARAM );
+    expectStatus ( "order: writeLE past the frame", sbitsWriteLE ( out, 6u, 5u, 2u, 1u ), SB_INVALIDSIZE );
+    expectStatus ( "order: writeBE past the frame", sbitsWriteBE ( out, 6u, 3u, 4u, 1u ), SB_INVALIDSIZE );
+    expectStatus ( "order: writeBE offset that would wrap",
+                   sbitsWriteBE ( out, 6u, 0xFFFFFFFFu, 2u, 1u ), SB_INVALIDSIZE );
+
+    for ( i = 0; i < 6u; ++i )
+    {
+        if ( out[ i ] != untouched[ i ] )
+        {
+            same = FALSE;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+    }
+
+    report ( "order: no refused write touched the frame", same );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -678,6 +856,7 @@ int main ( void )
     testBits ( );
     testBytes ( );
     testConditionCoverage ( );
+    testByteOrder ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

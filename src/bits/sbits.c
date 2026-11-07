@@ -3,7 +3,7 @@
   *
   * @file      sbits.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.2
+  * @version   0.2.0
   * @date      07/11/2026
   *
   * @brief     Safe bit field packing function library file.
@@ -23,6 +23,8 @@
   * 07/11/2026 Unsigned operands are compared and combined with unsigned @n
   *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
   *            is narrowed to enum and Boolean comparisons. @n
+  * 07/11/2026 Unsigned integers of one to four bytes read and written in an @n
+  *            explicitly named byte order. @n
   *
   * @note
   * A protocol frame is a row of bit fields, and unpacking one by hand is
@@ -54,6 +56,14 @@
   * inferred, and the module offers no other**, because a bit ordering that
   * is guessed differently at the two ends of a link is a fault that looks
   * like corrupted data.
+  *
+  * @note
+  * Byte order is a separate question from bit order and is answered
+  * separately. sbitsReadLE, sbitsReadBE, sbitsWriteLE and sbitsWriteBE move
+  * whole unsigned integers of one to four bytes, and the order is in the
+  * name of each, so both ends of a link state it at the call. They read and
+  * write bytes one at a time, so the processor's own byte order and
+  * alignment never enter.
   *
   * @note
   * The byte array form moves one bit at a time. A version assembling whole
@@ -750,6 +760,224 @@ uint8_t sbitsSetBytes ( uint8_t* data, uint32_t size, uint32_t position, uint8_t
         }
 
         retVal = SB_OK;
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Checks a byte order access before it touches the frame.
+ * @param[in] size    Number of bytes the frame holds.
+ * @param[in] offset  First byte of the integer.
+ * @param[in] count   Number of bytes in the integer, one to four.
+ * @return  SB_OK when the access fits, SB_INVALIDPARAM when the count is
+ *          zero or above four, SB_INVALIDSIZE when the integer runs off the
+ *          end of the frame.
+ * @note    The end is computed in 64 bits, so an offset near the top of a
+ *          uint32_t cannot wrap and read as an access that fits.
+ */
+static uint8_t orderFits ( uint32_t size, uint32_t offset, uint8_t count )
+{
+    uint8_t retVal = SB_OK;
+
+    if ( ( count == 0u ) || ( count > SBITS_MAXBYTES ) )
+    {
+        retVal = SB_INVALIDPARAM;
+    }
+    else if ( ( ( uint64_t ) offset + ( uint64_t ) count ) > ( uint64_t ) size )
+    {
+        retVal = SB_INVALIDSIZE;
+    }
+    else
+    {
+        retVal = SB_OK;
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Reads an unsigned integer stored least significant byte first.
+ * @param[in] data      Frame to read.
+ * @param[in] size      Number of bytes the frame holds.
+ * @param[in] offset    Byte the integer starts at.
+ * @param[in] count     Number of bytes in the integer, one to four.
+ * @param[out] value    The integer, written only on SB_OK.
+ * @return  SB_OK on success, SB_NULLPTR when a pointer is NULL, otherwise
+ *          the status orderFits reports.
+ * @note    data[offset] is the least significant byte. The name carries the
+ *          order so that it is stated at the call, not inferred from the
+ *          part the code happens to run on; nothing here depends on the
+ *          byte order of the processor.
+ * @note    A signed reading is this followed by sbitsGeti32 on the result
+ *          with a width of eight times count, which sign extends without
+ *          an implementation defined conversion.
+ */
+uint8_t sbitsReadLE ( const uint8_t* data, uint32_t size, uint32_t offset, uint8_t count, uint32_t* value )
+{
+    uint8_t retVal = SB_OK;
+    uint32_t raw = 0;
+    uint32_t i = 0;
+
+    if ( ( data == NULL ) || ( value == NULL ) )
+    {
+        retVal = SB_NULLPTR;
+    }
+    else
+    {
+        retVal = orderFits ( size, offset, count );
+
+        if ( retVal == SB_OK )
+        {
+            for ( i = 0; i < ( uint32_t ) count; ++i )
+            {
+                raw = raw | ( ( uint32_t ) data[ offset + i ] << ( 8u * i ) );
+            }
+
+            *value = raw;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Reads an unsigned integer stored most significant byte first.
+ * @param[in] data      Frame to read.
+ * @param[in] size      Number of bytes the frame holds.
+ * @param[in] offset    Byte the integer starts at.
+ * @param[in] count     Number of bytes in the integer, one to four.
+ * @param[out] value    The integer, written only on SB_OK.
+ * @return  SB_OK on success, SB_NULLPTR when a pointer is NULL, otherwise
+ *          the status orderFits reports.
+ * @note    data[offset] is the most significant byte, network order.
+ */
+uint8_t sbitsReadBE ( const uint8_t* data, uint32_t size, uint32_t offset, uint8_t count, uint32_t* value )
+{
+    uint8_t retVal = SB_OK;
+    uint32_t raw = 0;
+    uint32_t i = 0;
+
+    if ( ( data == NULL ) || ( value == NULL ) )
+    {
+        retVal = SB_NULLPTR;
+    }
+    else
+    {
+        retVal = orderFits ( size, offset, count );
+
+        if ( retVal == SB_OK )
+        {
+            for ( i = 0; i < ( uint32_t ) count; ++i )
+            {
+                raw = ( raw << 8 ) | ( uint32_t ) data[ offset + i ];
+            }
+
+            *value = raw;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Writes an unsigned integer least significant byte first.
+ * @param[in,out] data  Frame to change, changed only on SB_OK.
+ * @param[in] size      Number of bytes the frame holds.
+ * @param[in] offset    Byte the integer starts at.
+ * @param[in] count     Number of bytes in the integer, one to four.
+ * @param[in] value     Integer to write.
+ * @return  SB_OK on success, SB_NULLPTR when data is NULL,
+ *          SB_OVERFLOW when the value does not fit in count bytes,
+ *          otherwise the status orderFits reports.
+ * @note    The value is refused rather than truncated. A writer that kept
+ *          the low bytes of a value too big for its slot would put a
+ *          different, plausible number on the bus.
+ * @note    Everything is checked before the first byte is written, and
+ *          bytes outside the integer are untouched.
+ */
+uint8_t sbitsWriteLE ( uint8_t* data, uint32_t size, uint32_t offset, uint8_t count, uint32_t value )
+{
+    uint8_t retVal = SB_OK;
+    uint32_t i = 0;
+
+    if ( data == NULL )
+    {
+        retVal = SB_NULLPTR;
+    }
+    else
+    {
+        retVal = orderFits ( size, offset, count );
+
+        if ( retVal != SB_OK )
+        {
+            // Intentionally blank.
+        }
+        else if ( value > lowMask ( ( uint8_t ) ( 8u * ( uint32_t ) count ) ) )
+        {
+            retVal = SB_OVERFLOW;
+        }
+        else
+        {
+            for ( i = 0; i < ( uint32_t ) count; ++i )
+            {
+                data[ offset + i ] = ( uint8_t ) ( ( value >> ( 8u * i ) ) & 0xFFu );
+            }
+        }
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Writes an unsigned integer most significant byte first.
+ * @param[in,out] data  Frame to change, changed only on SB_OK.
+ * @param[in] size      Number of bytes the frame holds.
+ * @param[in] offset    Byte the integer starts at.
+ * @param[in] count     Number of bytes in the integer, one to four.
+ * @param[in] value     Integer to write.
+ * @return  SB_OK on success, SB_NULLPTR when data is NULL,
+ *          SB_OVERFLOW when the value does not fit in count bytes,
+ *          otherwise the status orderFits reports.
+ * @note    The same refusal of a value too big for its slot as
+ *          sbitsWriteLE, and the same check before the first write.
+ */
+uint8_t sbitsWriteBE ( uint8_t* data, uint32_t size, uint32_t offset, uint8_t count, uint32_t value )
+{
+    uint8_t retVal = SB_OK;
+    uint32_t i = 0;
+
+    if ( data == NULL )
+    {
+        retVal = SB_NULLPTR;
+    }
+    else
+    {
+        retVal = orderFits ( size, offset, count );
+
+        if ( retVal != SB_OK )
+        {
+            // Intentionally blank.
+        }
+        else if ( value > lowMask ( ( uint8_t ) ( 8u * ( uint32_t ) count ) ) )
+        {
+            retVal = SB_OVERFLOW;
+        }
+        else
+        {
+            for ( i = 0; i < ( uint32_t ) count; ++i )
+            {
+                data[ ( offset + ( uint32_t ) count ) - 1u - i ] = ( uint8_t ) ( ( value >> ( 8u * i ) ) & 0xFFu );
+            }
+        }
     }
 
     return ( retVal );

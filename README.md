@@ -23,7 +23,7 @@ fails leaves its destination untouched.
 | `inc/filter/sfilter.h` | 19 functions. Moving average, exponential average, debounce, slew limit, hysteresis and median. |
 | `inc/fixed/sfixed.h` | 19 functions. Q16.16 fixed point: conversion, checked arithmetic, rounding, interpolation and square root. No floating point. |
 | `inc/scale/sscale.h` | 12 functions. Piecewise linear scaling: a validated breakpoint table in either direction, its inverse, and the two point map that needs no table. |
-| `inc/bits/sbits.h` | 14 functions. Bit field packing in a word and across a byte array, with the position, the width and the value all checked. No shift by the width of the type, and no right shift of a signed value. |
+| `inc/bits/sbits.h` | 18 functions. Bit field packing in a word and across a byte array, and integers of one to four bytes in an explicitly named byte order, with the position, the width and the value all checked. No shift by the width of the type, and no right shift of a signed value. |
 | `inc/watch/swatch.h` | 12 functions. Deadline and liveness supervision driven by a caller supplied tick: too late and too soon are both faults, and the arithmetic survives the tick counter wrapping. |
 | `inc/state/sstate.h` | 12 functions. Guarded state machine: a transition table validated at Init, illegal transitions refused and counted, and reachability queries over the whole table. |
 | `inc/fault/sfault.h` | 12 functions. Fault qualification: a condition must be present for a number of cycles to confirm and absent for a number to heal, with latching and occurrence counting. |

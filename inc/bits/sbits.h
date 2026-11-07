@@ -21,6 +21,7 @@
 #endif
 
 #define SBITS_WORDBITS 32u
+#define SBITS_MAXBYTES 4u
 
 /* TYPEDEFS */
 
@@ -58,6 +59,11 @@ uint8_t sbitsCount ( uint32_t word, uint8_t* count );
 
 uint8_t sbitsGetBytes ( const uint8_t* data, uint32_t size, uint32_t position, uint8_t width, uint32_t* value );
 uint8_t sbitsSetBytes ( uint8_t* data, uint32_t size, uint32_t position, uint8_t width, uint32_t value );
+
+uint8_t sbitsReadLE ( const uint8_t* data, uint32_t size, uint32_t offset, uint8_t count, uint32_t* value );
+uint8_t sbitsReadBE ( const uint8_t* data, uint32_t size, uint32_t offset, uint8_t count, uint32_t* value );
+uint8_t sbitsWriteLE ( uint8_t* data, uint32_t size, uint32_t offset, uint8_t count, uint32_t value );
+uint8_t sbitsWriteBE ( uint8_t* data, uint32_t size, uint32_t offset, uint8_t count, uint32_t value );
 
 #ifdef __cplusplus
 }

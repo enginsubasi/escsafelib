@@ -27,7 +27,7 @@ not turn these notes or historical test results into a compliance claim.
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All fourteen modules are implemented — 362 functions and 4088 self-checking test cases across fifteen suites: 4050 in the fourteen module suites and 38 in the integration suite. Every status a function's `@return` promises is expected by at least one case in its own suite, or recorded with its reason in `tools/trace_exceptions.tsv`; `tools/tracecheck.py` checks it.
+All fourteen modules are implemented — 366 functions and 4136 self-checking test cases across fifteen suites: 4098 in the fourteen module suites and 38 in the integration suite. Every status a function's `@return` promises is expected by at least one case in its own suite, or recorded with its reason in `tools/trace_exceptions.tsv`; `tools/tracecheck.py` checks it.
 
 ## Working language
 
@@ -149,7 +149,7 @@ python tools/mutate.py svote        # one of them
 python tools/mutate.py --list
 ```
 
-**225 mutants across the fourteen modules: 205 killed, 20 equivalent, all
+**232 mutants across the fourteen modules: 212 killed, 20 equivalent, all
 accounted for.** The defects live in `tools/mutants/<module>.py`, one file
 per module, and the runner is `tools/mutate.py`. Before that they were
 throwaway scripts in a scratch directory and the numbers in this file were
@@ -159,7 +159,7 @@ can repeat.
 | module | killed | equivalent | module | killed | equivalent |
 |---|---|---|---|---|---|
 | `sarray` | 19 | 6 | `sring` | 13 | 1 |
-| `sbits` | 17 | 0 | `sscale` | 18 | 1 |
+| `sbits` | 24 | 0 | `sscale` | 18 | 1 |
 | `sdiag` | 11 | 1 | `sstate` | 16 | 2 |
 | `sfault` | 16 | 1 | `sstring` | 17 | 4 |
 | `sfilter` | 14 | 1 | `svote` | 16 | 0 |
@@ -255,7 +255,7 @@ What that first run found, and what closing it cost:
 |---|---|---|---|
 | `sarray` | 79.4% | 98.9% | 99.3% |
 | `smemory` | 81.7% | 98.7% | 99.4% |
-| `sdiag` | 82.2% | 86.8% | 91.0% |
+| `sdiag` | 82.2% | 87.8% | 92.2% |
 | `sstring` | 83.0% | 99.4% | 99.8% |
 | `sfixed` | 86.0% | 97.4% | 100% |
 | `sscale` | 89.9% | 96.8% | 98.7% |
@@ -270,7 +270,7 @@ What that first run found, and what closing it cost:
 
 The "now" column is from 07/11/2026, after the cases `tools/tracecheck.py`
 and the MC/DC classification asked for. MC/DC on the same run equals branch
-coverage in every module but `sdiag` (86.2%); its gaps are written to
+coverage in every module but `sdiag` (87.2%); its gaps are written to
 `<module>.conditions.txt`, and **every one of them, in all fourteen modules,
 has been classified.** 128 condition outcomes were cases nobody had written, and they
 are in the suites now. Most were one argument of a guard that had only been
@@ -407,7 +407,7 @@ and four rules are recorded as deviations:
 
 | rule | hits | modules | decision |
 |---|---|---|---|
-| 10.4 | 359 (636 at baseline) | all | **deviation, narrowed on 07/11/2026.** A status, state or flag is a `uint8_t` compared with the module's enum members and with `TRUE`/`FALSE`; that is all the deviation covers. The 277 hits that compared or combined an unsigned value with an unsuffixed constant were fixed with a `u` suffix. `tools/misra_occurrences.py` checks every remaining hit by expression: the operator the addon reports must be `==` or `!=` with `TRUE`, `FALSE` or one of the module's own enum members as an operand, or the run fails. All 359 are |
+| 10.4 | 363 (636 at baseline) | all | **deviation, narrowed on 07/11/2026.** A status, state or flag is a `uint8_t` compared with the module's enum members and with `TRUE`/`FALSE`; that is all the deviation covers. The 277 hits that compared or combined an unsigned value with an unsuffixed constant were fixed with a `u` suffix. `tools/misra_occurrences.py` checks every remaining hit by expression: the operator the addon reports must be `==` or `!=` with `TRUE`, `FALSE` or one of the module's own enum members as an operand, or the run fails. All 363 are |
 | 11.5 | 26 | `smemory`, `sdiag` | **deviation.** `void*` to `unsigned char*`, the one conversion the standard always allows for reading bytes |
 | 11.4 | 10 | `sarray`, `sstring` | **deviation.** Pointer to integer, to test two ranges for overlap and to choose a copy direction |
 | 11.6 | 10 | `sarray`, `smemory`, `sstring` | **deviation.** The same overlap checks, through `void*` |
@@ -508,11 +508,11 @@ was about, and until this existed nothing checked that the fix stayed
 applied. It also checks that a size named `<x>Size` sits next to `<x>`, that
 every public function returns `uint8_t`, that names carry their module's
 prefix, that enum members carry their module's status prefix, and that no
-prototype names a bare `int`. 361 declarations, no findings. A pointer to a
+prototype names a bare `int`. 365 declarations, no findings. A pointer to a
 module's own driver struct is exempt, and those types are read out of each
 header's typedefs so a new module needs no change to the tool.
 
-`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 684 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
+`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 690 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
 
 **Its most useful rule is one doxygen has no concept of: a `@return` must name every status the body can set, and no status it cannot.** That is what found the only real defect the first full audit turned up. The four `smath` families share one template, so the unsigned ones had inherited the signed text and promised an `SH_UNDERFLOW` that an unsigned addition cannot produce and an `SH_OVERFLOW` that an unsigned subtraction cannot — a caller testing for either was writing a branch that never runs.
 
@@ -697,7 +697,7 @@ Three more things:
 
 `swatchRemaining` reports zero past the deadline rather than a wrapped negative, and deliberately does not expire the watch: a query that changed the state would make the diagnosis depend on who looked.
 
-`sbits` is 14 functions of bit field packing, in a word and across a byte array. A protocol frame is a row of bit fields, and unpacking one by hand is three lines of shifting and masking that nobody reviews and everybody copies.
+`sbits` is 18 functions of bit field packing, in a word and across a byte array, and of whole integers in a named byte order. A protocol frame is a row of bit fields, and unpacking one by hand is three lines of shifting and masking that nobody reviews and everybody copies.
 
 Two rules hold it together, and both are about undefined or implementation-defined behaviour rather than about arithmetic:
 
@@ -707,6 +707,8 @@ Two rules hold it together, and both are about undefined or implementation-defin
 The byte array form numbers bits from the least significant bit of the first byte, which is what CAN calls Intel format. **The module offers no other ordering on purpose:** a bit ordering guessed differently at the two ends of a link is a fault that looks like corrupted data. It moves one bit at a time rather than assembling whole bytes and shifting the ends into place, because at 32 bits the difference is a handful of instructions and the straddling errors all live in the faster version.
 
 The writer checks the size, the position, the width *and* the value before it writes a single bit. A frame carrying half of a new signal and half of an old one is worse than one carrying neither.
+
+**Byte order is a separate question from bit order, and the owner chose on 07/11/2026 to answer it.** `sbitsReadLE`, `sbitsReadBE`, `sbitsWriteLE` and `sbitsWriteBE` move unsigned integers of one to four bytes, with the order in the name so both ends of a link state it at the call. That does not reopen the bit ordering decision above: the bit fields stay Intel only. They move one byte at a time, so neither the processor's byte order nor its alignment enters, which is what makes them verifiable on a host for an ARM target. A writer refuses a value too big for its slot rather than keeping its low bytes, because the low bytes of a wrong number are a plausible number. A signed reading is the unsigned one followed by `sbitsGeti32` at eight times the byte count; there is no signed reader, because that would be a second sign extension to keep in step with the first.
 
 `smemory` is 17 functions, the untyped half of the library: bounded replacements for the `mem` family of `<string.h>`. **The line between it and `sarray` is whether the operation has to know what the bytes mean.** Copy, move, set, compare and search do not, so they take a `void*` and live here. A sum, a minimum or an ordering by magnitude does, so it lives in `sarray`. When adding a function, that question decides the module — do not add a typed operation to `smemory` or a byte-blind one to `sarray`.
 
