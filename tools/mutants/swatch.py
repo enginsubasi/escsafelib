@@ -13,38 +13,38 @@ MUTANTS = [
     {
         "id": 'M2',
         "what": 'the deadline is exclusive',
-        "old": '        if ( elapsed > driver->maxPeriod )\n        {\n            driver->late = driver->late + 1u;\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
-        "new": '        if ( elapsed >= driver->maxPeriod )\n        {\n            driver->late = driver->late + 1u;\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
+        "old": '        if ( elapsed > driver->maxPeriod )\n        {\n            driver->late = saturatingIncrement ( driver->late );\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
+        "new": '        if ( elapsed >= driver->maxPeriod )\n        {\n            driver->late = saturatingIncrement ( driver->late );\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
     },
     {
         "id": 'M3',
         "what": 'the minimum period is exclusive',
-        "old": '        if ( elapsed > driver->maxPeriod )\n        {\n            driver->late = driver->late + 1u;\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
-        "new": '        if ( elapsed > driver->maxPeriod )\n        {\n            driver->late = driver->late + 1u;\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed <= driver->minPeriod )',
+        "old": '        if ( elapsed > driver->maxPeriod )\n        {\n            driver->late = saturatingIncrement ( driver->late );\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
+        "new": '        if ( elapsed > driver->maxPeriod )\n        {\n            driver->late = saturatingIncrement ( driver->late );\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed <= driver->minPeriod )',
     },
     {
         "id": 'M4',
         "what": 'an early check in does not move the window on',
-        "old": '            driver->early = driver->early + 1u;\n            driver->lastTick = tick;',
-        "new": '            driver->early = driver->early + 1u;',
+        "old": '            driver->early = saturatingIncrement ( driver->early );\n            driver->lastTick = tick;',
+        "new": '            driver->early = saturatingIncrement ( driver->early );',
     },
     {
         "id": 'M5',
         "what": 'a late check in does not expire the watch',
-        "old": '            driver->late = driver->late + 1u;\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
-        "new": '            driver->late = driver->late + 1u;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
+        "old": '            driver->late = saturatingIncrement ( driver->late );\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
+        "new": '            driver->late = saturatingIncrement ( driver->late );\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
     },
     {
         "id": 'M6',
         "what": 'an expired watch keeps counting late check ins',
-        "old": '    else if ( driver->state == SW_STATE_EXPIRED )\n    {\n        retVal = SW_EXPIRED;\n    }\n    else\n    {\n        elapsed = sinceTick ( tick, driver->lastTick );\n\n        if ( elapsed > driver->maxPeriod )\n        {\n            driver->late = driver->late + 1u;\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
-        "new": '    else if ( FALSE )\n    {\n        retVal = SW_EXPIRED;\n    }\n    else\n    {\n        elapsed = sinceTick ( tick, driver->lastTick );\n\n        if ( elapsed > driver->maxPeriod )\n        {\n            driver->late = driver->late + 1u;\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
+        "old": '    else if ( driver->state == SW_STATE_EXPIRED )\n    {\n        retVal = SW_EXPIRED;\n    }\n    else\n    {\n        elapsed = sinceTick ( tick, driver->lastTick );\n\n        if ( elapsed > driver->maxPeriod )\n        {\n            driver->late = saturatingIncrement ( driver->late );\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
+        "new": '    else if ( FALSE )\n    {\n        retVal = SW_EXPIRED;\n    }\n    else\n    {\n        elapsed = sinceTick ( tick, driver->lastTick );\n\n        if ( elapsed > driver->maxPeriod )\n        {\n            driver->late = saturatingIncrement ( driver->late );\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else if ( elapsed < driver->minPeriod )',
     },
     {
         "id": 'M7',
         "what": 'polling never notices a missed deadline',
-        "old": '        elapsed = sinceTick ( tick, driver->lastTick );\n\n        if ( elapsed > driver->maxPeriod )\n        {\n            driver->late = driver->late + 1u;\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else\n        {\n            retVal = SW_OK;\n        }',
-        "new": '        elapsed = sinceTick ( tick, driver->lastTick );\n\n        if ( FALSE )\n        {\n            driver->late = driver->late + 1u;\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else\n        {\n            retVal = SW_OK;\n        }',
+        "old": '        elapsed = sinceTick ( tick, driver->lastTick );\n\n        if ( elapsed > driver->maxPeriod )\n        {\n            driver->late = saturatingIncrement ( driver->late );\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else\n        {\n            retVal = SW_OK;\n        }',
+        "new": '        elapsed = sinceTick ( tick, driver->lastTick );\n\n        if ( FALSE )\n        {\n            driver->late = saturatingIncrement ( driver->late );\n            driver->state = SW_STATE_EXPIRED;\n            retVal = SW_LATE;\n        }\n        else\n        {\n            retVal = SW_OK;\n        }',
     },
     {
         "id": 'M8',
@@ -85,8 +85,8 @@ MUTANTS = [
     {
         "id": 'M14',
         "what": 'an early check in counts as a good one',
-        "old": '            driver->early = driver->early + 1u;\n            driver->lastTick = tick;\n            retVal = SW_EARLY;',
-        "new": '            driver->early = driver->early + 1u;\n            driver->checkIns = driver->checkIns + 1u;\n            driver->lastTick = tick;\n            retVal = SW_EARLY;',
+        "old": '            driver->early = saturatingIncrement ( driver->early );\n            driver->lastTick = tick;\n            retVal = SW_EARLY;',
+        "new": '            driver->early = saturatingIncrement ( driver->early );\n            driver->checkIns = saturatingIncrement ( driver->checkIns );\n            driver->lastTick = tick;\n            retVal = SW_EARLY;',
     },
     {
         "id": 'M15',
@@ -97,7 +97,13 @@ MUTANTS = [
     {
         "id": 'M16',
         "what": 'a good check in does not move the window on',
-        "old": '            driver->checkIns = driver->checkIns + 1u;\n            driver->lastTick = tick;',
-        "new": '            driver->checkIns = driver->checkIns + 1u;',
+        "old": '            driver->checkIns = saturatingIncrement ( driver->checkIns );\n            driver->lastTick = tick;',
+        "new": '            driver->checkIns = saturatingIncrement ( driver->checkIns );',
+    },
+    {
+        "id": 'M17',
+        "what": 'a count wraps instead of saturating',
+        "old": '    if ( value < 0xFFFFFFFFu )',
+        "new": '    if ( TRUE )',
     },
 ]

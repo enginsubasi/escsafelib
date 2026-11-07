@@ -3,7 +3,7 @@
   *
   * @file      sstate.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.2.0
+  * @version   0.2.1
   * @date      07/11/2026
   *
   * @brief     Safe guarded state machine function library file.
@@ -24,6 +24,7 @@
   *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
   *            is narrowed to enum and Boolean comparisons. @n
   * 07/11/2026 Time in state: sstateTick and sstateGetDwell. @n
+  * 07/11/2026 The transition and refusal counts saturate instead of wrapping. @n
   *
   * @note
   * A state machine written as a switch works until somebody adds a case. The
@@ -124,9 +125,9 @@
  * @var     sstate_t::stateCount
  *          Number of states, at most SSTATE_MAXSTATES.
  * @var     sstate_t::transitions
- *          Transitions taken since Init or Reset.
+ *          Transitions taken since Init or Reset, saturating.
  * @var     sstate_t::refusals
- *          Transitions refused since Init or Reset.
+ *          Transitions refused since Init or Reset, saturating.
  * @var     sstate_t::dwell
  *          Ticks since the current state was entered, saturating.
  * @var     sstate_t::state
@@ -134,6 +135,30 @@
  * @var     sstate_t::initial
  *          The state Init started in, and the one Reset returns to.
  */
+
+/**
+ * @brief   Adds one to a count, stopping at the top of the type.
+ * @param[in] value  Count before.
+ * @return  value + 1, or 2^32 - 1 when value is already there.
+ * @note    A count that wrapped would read as small again just when it
+ *          had grown largest, which for a record of failures is the one
+ *          moment it matters.
+ */
+static uint32_t saturatingIncrement ( uint32_t value )
+{
+    uint32_t retVal = value;
+
+    if ( value < 0xFFFFFFFFu )
+    {
+        retVal = value + 1u;
+    }
+    else
+    {
+        // Intentionally blank.
+    }
+
+    return ( retVal );
+}
 
 /**
  * @brief   Reports whether a driver has been through a successful Init.
@@ -353,13 +378,13 @@ uint8_t sstateTo ( sstate_t* driver, uint8_t next )
     }
     else if ( permitted ( driver, driver->state, next ) == FALSE )
     {
-        driver->refusals = driver->refusals + 1u;
+        driver->refusals = saturatingIncrement ( driver->refusals );
         retVal = ST_REFUSED;
     }
     else
     {
         driver->state = next;
-        driver->transitions = driver->transitions + 1u;
+        driver->transitions = saturatingIncrement ( driver->transitions );
         driver->dwell = 0u;
         retVal = ST_OK;
     }
@@ -405,7 +430,7 @@ uint8_t sstateForceTo ( sstate_t* driver, uint8_t next )
     else
     {
         driver->state = next;
-        driver->transitions = driver->transitions + 1u;
+        driver->transitions = saturatingIncrement ( driver->transitions );
         driver->dwell = 0u;
         retVal = ST_OK;
     }

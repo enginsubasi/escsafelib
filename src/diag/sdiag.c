@@ -3,7 +3,7 @@
   *
   * @file      sdiag.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.2.0
+  * @version   0.2.1
   * @date      07/11/2026
   *
   * @brief     Self diagnostic function library file without hardware dependencies.
@@ -33,6 +33,7 @@
   *            is narrowed to enum and Boolean comparisons. @n
   * 07/11/2026 Two eight bit CRCs for short bus frames, SAE J1850 and @n
   *            polynomial 0x2F, each with a chaining Update form. @n
+  * 07/11/2026 The flow checkpoint count saturates instead of wrapping. @n
   *
   * @note
   * Everything here is portable C99 with no hardware dependency, which is
@@ -106,7 +107,9 @@
  * @var     sdiagflow_t::signature
  *          Every checkpoint identifier folded in so far, in order.
  * @var     sdiagflow_t::count
- *          How many checkpoints have been folded in since the last reset.
+ *          How many checkpoints have been folded in since the last reset,
+ *          saturating, so a runaway loop cannot wrap it back to the expected
+ *          count.
  */
 
 /**
@@ -117,6 +120,30 @@
  * @var     sdiagshadow_t::inverse
  *          The bitwise complement of value; any disagreement is corruption.
  */
+
+/**
+ * @brief   Adds one to a count, stopping at the top of the type.
+ * @param[in] value  Count before.
+ * @return  value + 1, or 2^32 - 1 when value is already there.
+ * @note    A count that wrapped would read as small again just when it
+ *          had grown largest, which for a record of failures is the one
+ *          moment it matters.
+ */
+static uint32_t saturatingIncrement ( uint32_t value )
+{
+    uint32_t retVal = value;
+
+    if ( value < 0xFFFFFFFFu )
+    {
+        retVal = value + 1u;
+    }
+    else
+    {
+        // Intentionally blank.
+    }
+
+    return ( retVal );
+}
 
 /**
  * @brief   Folds one byte into a running CRC-32 register.
@@ -965,7 +992,7 @@ uint8_t sdiagFlowCheckpoint ( sdiagflow_t* driver, uint32_t id )
     else
     {
         driver->signature = flowFold ( driver->signature, id );
-        driver->count = driver->count + 1u;
+        driver->count = saturatingIncrement ( driver->count );
         retVal = SD_OK;
     }
 

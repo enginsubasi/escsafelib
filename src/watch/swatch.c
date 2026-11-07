@@ -3,7 +3,7 @@
   *
   * @file      swatch.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.3
+  * @version   0.1.4
   * @date      07/11/2026
   *
   * @brief     Safe deadline and liveness supervision function library file.
@@ -23,6 +23,7 @@
   * 07/11/2026 Unsigned operands are compared and combined with unsigned @n
   *            constants, for MISRA C:2012 Rule 10.4, and the deviation @n
   *            is narrowed to enum and Boolean comparisons. @n
+  * 07/11/2026 The late, early and check in counts saturate instead of wrapping. @n
   *
   * @note
   * IEC 61508-3 asks for temporal program flow monitoring, and sdiag does not
@@ -121,14 +122,38 @@
  * @var     swatch_t::lastTick
  *          Tick of the last accepted check-in, or of Start.
  * @var     swatch_t::checkIns
- *          Check-ins that arrived on time.
+ *          Check-ins that arrived on time, saturating.
  * @var     swatch_t::early
- *          Check-ins that arrived too soon.
+ *          Check-ins that arrived too soon, saturating.
  * @var     swatch_t::late
- *          Deadlines missed.
+ *          Deadlines missed, saturating.
  * @var     swatch_t::state
  *          One of the SW_STATE_ values.
  */
+
+/**
+ * @brief   Adds one to a count, stopping at the top of the type.
+ * @param[in] value  Count before.
+ * @return  value + 1, or 2^32 - 1 when value is already there.
+ * @note    A count that wrapped would read as small again just when it
+ *          had grown largest, which for a record of failures is the one
+ *          moment it matters.
+ */
+static uint32_t saturatingIncrement ( uint32_t value )
+{
+    uint32_t retVal = value;
+
+    if ( value < 0xFFFFFFFFu )
+    {
+        retVal = value + 1u;
+    }
+    else
+    {
+        // Intentionally blank.
+    }
+
+    return ( retVal );
+}
 
 /**
  * @brief   Reports whether a driver has been through a successful Init.
@@ -346,19 +371,19 @@ uint8_t swatchCheckIn ( swatch_t* driver, uint32_t tick )
 
         if ( elapsed > driver->maxPeriod )
         {
-            driver->late = driver->late + 1u;
+            driver->late = saturatingIncrement ( driver->late );
             driver->state = SW_STATE_EXPIRED;
             retVal = SW_LATE;
         }
         else if ( elapsed < driver->minPeriod )
         {
-            driver->early = driver->early + 1u;
+            driver->early = saturatingIncrement ( driver->early );
             driver->lastTick = tick;
             retVal = SW_EARLY;
         }
         else
         {
-            driver->checkIns = driver->checkIns + 1u;
+            driver->checkIns = saturatingIncrement ( driver->checkIns );
             driver->lastTick = tick;
             retVal = SW_OK;
         }
@@ -413,7 +438,7 @@ uint8_t swatchPoll ( swatch_t* driver, uint32_t tick )
 
         if ( elapsed > driver->maxPeriod )
         {
-            driver->late = driver->late + 1u;
+            driver->late = saturatingIncrement ( driver->late );
             driver->state = SW_STATE_EXPIRED;
             retVal = SW_LATE;
         }

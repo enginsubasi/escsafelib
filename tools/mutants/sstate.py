@@ -27,13 +27,13 @@ MUTANTS = [
     {
         "id": 'M4',
         "what": 'a refused transition moves the machine anyway',
-        "old": '        driver->refusals = driver->refusals + 1u;\n        retVal = ST_REFUSED;',
-        "new": '        driver->state = next;\n        driver->refusals = driver->refusals + 1u;\n        retVal = ST_REFUSED;',
+        "old": '        driver->refusals = saturatingIncrement ( driver->refusals );\n        retVal = ST_REFUSED;',
+        "new": '        driver->state = next;\n        driver->refusals = saturatingIncrement ( driver->refusals );\n        retVal = ST_REFUSED;',
     },
     {
         "id": 'M5',
         "what": 'a refusal is not counted',
-        "old": '        driver->refusals = driver->refusals + 1u;\n        retVal = ST_REFUSED;\n    }\n    else\n    {\n        driver->state = next;',
+        "old": '        driver->refusals = saturatingIncrement ( driver->refusals );\n        retVal = ST_REFUSED;\n    }\n    else\n    {\n        driver->state = next;',
         "new": '        retVal = ST_REFUSED;\n    }\n    else\n    {\n        driver->state = next;',
     },
     {
@@ -51,8 +51,8 @@ MUTANTS = [
     {
         "id": 'M8',
         "what": 'forcing does not check that the state exists',
-        "old": '    else if ( ( uint32_t ) next >= driver->stateCount )\n    {\n        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n        driver->dwell = 0u;\n        retVal = ST_OK;\n    }\n\n    return ( retVal );\n}\n\n/**\n * @brief   Asks whether a transition would be permitted',
-        "new": '    else if ( FALSE )\n    {\n        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n        driver->dwell = 0u;\n        retVal = ST_OK;\n    }\n\n    return ( retVal );\n}\n\n/**\n * @brief   Asks whether a transition would be permitted',
+        "old": '    else if ( ( uint32_t ) next >= driver->stateCount )\n    {\n        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = saturatingIncrement ( driver->transitions );\n        driver->dwell = 0u;\n        retVal = ST_OK;\n    }\n\n    return ( retVal );\n}\n\n/**\n * @brief   Asks whether a transition would be permitted',
+        "new": '    else if ( FALSE )\n    {\n        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = saturatingIncrement ( driver->transitions );\n        driver->dwell = 0u;\n        retVal = ST_OK;\n    }\n\n    return ( retVal );\n}\n\n/**\n * @brief   Asks whether a transition would be permitted',
     },
     {
         "id": 'M9',
@@ -119,14 +119,14 @@ MUTANTS = [
     {
         "id": 'M19',
         "what": 'a permitted transition keeps the old time in state',
-        "old": '        driver->refusals = driver->refusals + 1u;\n        retVal = ST_REFUSED;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n        driver->dwell = 0u;\n',
-        "new": '        driver->refusals = driver->refusals + 1u;\n        retVal = ST_REFUSED;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n',
+        "old": '        driver->refusals = saturatingIncrement ( driver->refusals );\n        retVal = ST_REFUSED;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = saturatingIncrement ( driver->transitions );\n        driver->dwell = 0u;\n',
+        "new": '        driver->refusals = saturatingIncrement ( driver->refusals );\n        retVal = ST_REFUSED;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = saturatingIncrement ( driver->transitions );\n',
     },
     {
         "id": 'M20',
         "what": 'a forced transition keeps the old time in state',
-        "old": '        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n        driver->dwell = 0u;\n',
-        "new": '        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = driver->transitions + 1u;\n',
+        "old": '        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = saturatingIncrement ( driver->transitions );\n        driver->dwell = 0u;\n',
+        "new": '        retVal = ST_INVALIDPARAM;\n    }\n    else\n    {\n        driver->state = next;\n        driver->transitions = saturatingIncrement ( driver->transitions );\n',
     },
     {
         "id": 'M21',
@@ -145,5 +145,11 @@ MUTANTS = [
         "what": 'the time in state wraps instead of saturating',
         "old": '        if ( driver->dwell < 0xFFFFFFFFu )',
         "new": '        if ( TRUE )',
+    },
+    {
+        "id": 'M24',
+        "what": 'a count wraps instead of saturating',
+        "old": '    if ( value < 0xFFFFFFFFu )',
+        "new": '    if ( TRUE )',
     },
 ]

@@ -78,4 +78,10 @@ MUTANTS = [
         "old": '        if ( ( retVal & 0x80u ) != 0u )',
         "new": '        if ( ( retVal & 0x40u ) != 0u )',
     },
+    {
+        "id": 'M13',
+        "what": 'a count wraps instead of saturating',
+        "old": '    if ( value < 0xFFFFFFFFu )',
+        "new": '    if ( TRUE )',
+    },
 ]

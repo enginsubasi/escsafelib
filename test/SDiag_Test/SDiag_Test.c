@@ -3,7 +3,7 @@
   *
   * @file      SDiag_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.2.0
+  * @version   0.2.1
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the sdiag module.
@@ -17,6 +17,7 @@
   *            once, as tools/tracecheck.py requires. @n
   * 07/11/2026 MC/DC cases: each pointer refused on its own. @n
   * 07/11/2026 Cases for the two eight bit CRCs, against a bit serial oracle. @n
+  * 07/11/2026 Counters that used to wrap are checked to saturate. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -880,6 +881,25 @@ static void testCrc8 ( void )
 }
 
 /**
+ * @brief   Checks that the flow checkpoint count saturates.
+ * @note    It used to wrap: a loop running 2^32 checkpoints too many would
+ *          have read as the expected count again.
+ */
+static void testFlowSaturation ( void )
+{
+    sdiagflow_t monitor;
+
+    expectStatus ( "flow saturation: init", sdiagFlowInit ( &monitor ), SD_OK );
+    monitor.count = 0xFFFFFFFEu;
+    expectStatus ( "flow saturation: one below the top", sdiagFlowCheckpoint ( &monitor, 1u ), SD_OK );
+    expectU32 ( "flow saturation: reaches the top", monitor.count, 0xFFFFFFFFu );
+    expectStatus ( "flow saturation: at the top", sdiagFlowCheckpoint ( &monitor, 2u ), SD_OK );
+    expectU32 ( "flow saturation: stays there", monitor.count, 0xFFFFFFFFu );
+    expectStatus ( "flow saturation: it cannot match a small count",
+                   sdiagFlowVerify ( &monitor, monitor.signature, 1u ), SD_MISMATCH );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -894,6 +914,7 @@ int main ( void )
     testStatusContract ( );
     testConditionCoverage ( );
     testCrc8 ( );
+    testFlowSaturation ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

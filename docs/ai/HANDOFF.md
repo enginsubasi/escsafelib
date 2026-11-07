@@ -184,6 +184,18 @@ Historical milestones and prior findings are recorded in
   rest of sscale and sstate the classified residue; MISRA 0 differences
   (420); cppcheck, analyzers, ARM, headers clean; `run_all.sh` ALL GREEN.
 
+## Follow-up list agreed 2026-11-07 (after pieces 1-9)
+
+1. Saturating counters. **Done.** Six counters wrapped (`sstate` transitions
+   and refusals, `swatch` checkIns/early/late, `sdiag` flow count); each now
+   uses a static `saturatingIncrement`, with a test at the top of the type
+   and a mutant per module. Old mutant anchors updated to the new text.
+2. ARM stack usage and no recursion, from the cross compiler.
+3. Module lists discovered instead of hand kept (run_all, coverage, CI).
+4. MC/DC classification as a checked manifest; coverage job blocking.
+5. Mutation job blocking.
+6. Release tag: the owner's decision, not started.
+
 ## Remaining work
 
 CI run `42365008390` of `0b73ec6`: every job success.

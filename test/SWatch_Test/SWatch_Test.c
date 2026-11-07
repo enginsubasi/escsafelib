@@ -3,8 +3,8 @@
   *
   * @file      SWatch_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
-  * @date      06/08/2026
+  * @version   0.1.1
+  * @date      07/11/2026
   *
   * @brief     Self checking test program for the swatch module.
   *
@@ -13,6 +13,7 @@
   *
   * @par History
   * 06/08/2026 Created. @n
+  * 07/11/2026 Counters that used to wrap are checked to saturate. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -528,6 +529,40 @@ static void testNoWriteOnFailure ( void )
 }
 
 /**
+ * @brief   Checks that the check in, early and late counts saturate.
+ * @note    All three used to wrap. A runaway task checking in too soon
+ *          2^32 times would have brought its early count back to zero.
+ */
+static void testCountSaturation ( void )
+{
+    swatch_t watch;
+    uint32_t value = 0;
+
+    expectStatus ( "saturation: init", swatchInit ( &watch, 5u, 10u ), SW_OK );
+    expectStatus ( "saturation: start", swatchStart ( &watch, 0u ), SW_OK );
+
+    watch.checkIns = 0xFFFFFFFFu;
+    expectStatus ( "saturation: on time at the top", swatchCheckIn ( &watch, 7u ), SW_OK );
+    expectStatus ( "saturation: read check ins", swatchGetCheckIns ( &watch, &value ), SW_OK );
+    expectU32 ( "saturation: the check in count stays at the top", value, 0xFFFFFFFFu );
+
+    watch.early = 0xFFFFFFFFu;
+    expectStatus ( "saturation: early at the top", swatchCheckIn ( &watch, 8u ), SW_EARLY );
+    expectStatus ( "saturation: read early", swatchGetEarly ( &watch, &value ), SW_OK );
+    expectU32 ( "saturation: the early count stays at the top", value, 0xFFFFFFFFu );
+
+    watch.late = 0xFFFFFFFFu;
+    expectStatus ( "saturation: late at the top", swatchCheckIn ( &watch, 100u ), SW_LATE );
+    expectStatus ( "saturation: read late", swatchGetLate ( &watch, &value ), SW_OK );
+    expectU32 ( "saturation: the late count stays at the top", value, 0xFFFFFFFFu );
+
+    expectStatus ( "saturation: start again", swatchStart ( &watch, 200u ), SW_OK );
+    expectStatus ( "saturation: a poll past the deadline at the top", swatchPoll ( &watch, 300u ), SW_LATE );
+    expectStatus ( "saturation: read late after the poll", swatchGetLate ( &watch, &value ), SW_OK );
+    expectU32 ( "saturation: the poll does not wrap it either", value, 0xFFFFFFFFu );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -540,6 +575,7 @@ int main ( void )
     testQueries ( );
     testWrap ( );
     testNoWriteOnFailure ( );
+    testCountSaturation ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

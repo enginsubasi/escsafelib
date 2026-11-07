@@ -27,7 +27,7 @@ not turn these notes or historical test results into a compliance claim.
 
 `escsafelib` is a freestanding C library for safety related applications (GPLv3): bounded string handling, bounded arrays and raw memory, checked arithmetic, a lock-free byte ring, and self diagnostics. No heap, no OS dependency, `<stdint.h>` types throughout. It is the safety oriented sibling of `esclib` and follows the exact same conventions.
 
-All nineteen modules are implemented — 399 functions and 4800 self-checking test cases across twenty suites: 4724 in the nineteen module suites and 76 in the integration suite. Every status a function's `@return` promises is expected by at least one case in its own suite, or recorded with its reason in `tools/trace_exceptions.tsv`; `tools/tracecheck.py` checks it.
+All nineteen modules are implemented — 399 functions and 4832 self-checking test cases across twenty suites: 4756 in the nineteen module suites and 76 in the integration suite. Every status a function's `@return` promises is expected by at least one case in its own suite, or recorded with its reason in `tools/trace_exceptions.tsv`; `tools/tracecheck.py` checks it.
 
 ## Working language
 
@@ -164,7 +164,7 @@ python tools/mutate.py svote        # one of them
 python tools/mutate.py --list
 ```
 
-**318 mutants across the nineteen modules: 297 killed, 21 equivalent, all
+**321 mutants across the nineteen modules: 300 killed, 21 equivalent, all
 accounted for.** The defects live in `tools/mutants/<module>.py`, one file
 per module, and the runner is `tools/mutate.py`. Before that they were
 throwaway scripts in a scratch directory and the numbers in this file were
@@ -175,10 +175,10 @@ can repeat.
 |---|---|---|---|---|---|
 | `sarray` | 19 | 6 | `sring` | 13 | 1 |
 | `sbits` | 24 | 0 | `sscale` | 28 | 2 |
-| `sdiag` | 11 | 1 | `sstate` | 21 | 2 |
+| `sdiag` | 12 | 1 | `sstate` | 22 | 2 |
 | `sfault` | 16 | 1 | `sstring` | 17 | 4 |
 | `sfilter` | 14 | 1 | `svote` | 16 | 0 |
-| `sfixed` | 10 | 0 | `swatch` | 16 | 0 |
+| `sfixed` | 10 | 0 | `swatch` | 17 | 0 |
 | `smath` | 16 | 0 | `smemory` | 6 | 3 |
 | `ssignal` | 13 | 0 | `se2e` | 12 | 0 |
 | `slog` | 18 | 0 | `sstore` | 12 | 0 |
@@ -542,7 +542,7 @@ fires. A pointer to a
 module's own driver struct is exempt, and those types are read out of each
 header's typedefs so a new module needs no change to the tool.
 
-`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 822 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
+`tools/doxcheck.py` covers more than doxygen does. It checks every `.c` in the tree — 828 functions, statics and test helpers included — for banner completeness, a `/**` block on every function, `@param` lists that match the signature *in both directions*, `[in]` on every read-only parameter, `@return` present exactly when the return type is not void, unknown tags, and a `@struct` block with exactly one `@var` per member for every struct a header declares. It is a blocking CI job because it runs clean here.
 
 **Its most useful rule is one doxygen has no concept of: a `@return` must name every status the body can set, and no status it cannot.** That is what found the only real defect the first full audit turned up. The four `smath` families share one template, so the unsigned ones had inherited the signed text and promised an `SH_UNDERFLOW` that an unsigned addition cannot produce and an `SH_OVERFLOW` that an unsigned subtraction cannot — a caller testing for either was writing a branch that never runs.
 
@@ -870,6 +870,14 @@ Beyond the shared esclib style, this library adds:
   `uint8_t` statuses, states and flags compared with enum members and
   `TRUE`/`FALSE`, and nothing else; `tools/misra.sh` fails on any other hit.
   A signed operand keeps its plain constant (`value < 0`).
+- **Every counter saturates.** A count of failures that wrapped would read as
+  small again exactly when it had grown largest. Until 07/11/2026 six counters
+  did wrap — `sstate`'s transitions and refusals, `swatch`'s check ins, early
+  and late counts, and `sdiag`'s flow checkpoint count, where 2^32 extra
+  checkpoints would have matched the expected count again. Each now goes
+  through a `saturatingIncrement` helper and has a mutant that puts the wrap
+  back. A counter that wraps on purpose, like a ring index, is bounded by a
+  capacity instead and says so.
 - No module state, so every function is reentrant. **`tools/size.sh` measures this rather than trusting it**: every module is required to show `.data` and `.bss` of zero and the script goes red otherwise. All nineteen do. The whole library is about 28 KB of flash on a Cortex-M0+ and 25 KB on a Cortex-M4, measured whole, which is an upper bound because a project linking with `--gc-sections` pays only for the functions it calls.
 
 ## The driver-struct pattern

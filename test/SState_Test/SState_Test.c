@@ -3,7 +3,7 @@
   *
   * @file      SState_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.2.0
+  * @version   0.2.1
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the sstate module.
@@ -14,6 +14,7 @@
   * @par History
   * 05/08/2026 Created. @n
   * 07/11/2026 Cases for the time spent in a state. @n
+  * 07/11/2026 Counters that used to wrap are checked to saturate. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -633,6 +634,32 @@ static void testDwell ( void )
 }
 
 /**
+ * @brief   Checks that the transition and refusal counts saturate.
+ * @note    Both used to wrap. A refusal count that wrapped would read as
+ *          small again exactly when the machine had been refused most.
+ */
+static void testCountSaturation ( void )
+{
+    sstate_t driver;
+    uint32_t value = 0;
+
+    expectStatus ( "saturation: init", sstateInit ( &driver, machine, 16u, 4u, OFF ), ST_OK );
+    driver.refusals = 0xFFFFFFFFu;
+    expectStatus ( "saturation: a refusal at the top", sstateTo ( &driver, RUN ), ST_REFUSED );
+    expectStatus ( "saturation: read the refusals", sstateGetRefusals ( &driver, &value ), ST_OK );
+    expectU32 ( "saturation: the refusal count stays at the top", value, 0xFFFFFFFFu );
+
+    driver.transitions = 0xFFFFFFFEu;
+    expectStatus ( "saturation: a transition one below the top", sstateTo ( &driver, INIT ), ST_OK );
+    expectStatus ( "saturation: a transition at the top", sstateTo ( &driver, RUN ), ST_OK );
+    expectStatus ( "saturation: read the transitions", sstateGetTransitions ( &driver, &value ), ST_OK );
+    expectU32 ( "saturation: the transition count stays at the top", value, 0xFFFFFFFFu );
+    expectStatus ( "saturation: a forced transition at the top", sstateForceTo ( &driver, OFF ), ST_OK );
+    expectStatus ( "saturation: read them again", sstateGetTransitions ( &driver, &value ), ST_OK );
+    expectU32 ( "saturation: forcing does not wrap it either", value, 0xFFFFFFFFu );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -645,6 +672,7 @@ int main ( void )
     testQueries ( );
     testNoWriteOnFailure ( );
     testDwell ( );
+    testCountSaturation ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );
