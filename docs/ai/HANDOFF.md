@@ -190,7 +190,11 @@ Historical milestones and prior findings are recorded in
    and refusals, `swatch` checkIns/early/late, `sdiag` flow count); each now
    uses a static `saturatingIncrement`, with a test at the top of the type
    and a mutant per module. Old mutant anchors updated to the new text.
-2. ARM stack usage and no recursion, from the cross compiler.
+2. ARM stack usage and no recursion. **Done.** `tools/stack.py`, control
+   first (two-way recursion, since -Os turned simple recursion into a loop,
+   and a VLA). No recursion or dynamic frame; deepest M0+ chain 200 B
+   (`sscale` map). Found compiler-emitted memset/memcpy/memmove; documented.
+   CI step added as reporting (`continue-on-error`) until a clean run.
 3. Module lists discovered instead of hand kept (run_all, coverage, CI).
 4. MC/DC classification as a checked manifest; coverage job blocking.
 5. Mutation job blocking.

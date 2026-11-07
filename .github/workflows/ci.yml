@@ -509,6 +509,13 @@ jobs:
               -I"inc/$d" "$f" -o /dev/null
           done
 
+      # Stack use on two cores, from -fstack-usage and the call graph. Fails
+      # on a dynamic frame or on recursion, after a control holding both.
+      # Reporting until a CI run of it comes back clean.
+      - name: Stack use and recursion
+        continue-on-error: true
+        run: python3 tools/stack.py --annotate
+
       # Every header must be independently includable and must coexist with
       # the others. This is what catches a duplicate include guard or a
       # clashing typedef.

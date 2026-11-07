@@ -405,6 +405,14 @@ Three things cannot be verified on this machine, and no claim should be made abo
 
   What that costs is narrow but real, and it should be stated rather than glossed. The suites cannot see: unaligned access faults (`sarray` and `sdiag` take typed pointers partly to make this the compiler's problem, but a caller can still hand over a misaligned buffer); anything that depends on the target's actual word size or padding; the memory-ordering assumption in `sring`, whose whole barrier argument is about a processor this code has never run on; and the real timing of `smemoryEqualSecure`, which is constant in comparison count but was never measured on a core with a cache.
 
+  One thing about the target can be measured without running on it: stack.
+  `tools/stack.py` reads the cross compiler's `-fstack-usage` and call graph
+  for a Cortex-M0+ and a Cortex-M4, fails on a dynamic frame or recursion
+  (there is neither), and reports each module's deepest chain — 200 bytes
+  for `sscale`'s map on an M0+ is the largest. It also showed the compiler
+  emitting `memset`, `memcpy` and `memmove` calls that no source asked for,
+  which a freestanding target must provide and every ARM C library does.
+
   Do not write "verified on ARM" anywhere. An integrator putting this on a target owns that validation, and the honest claim is that the logic is verified on a host and the code builds clean for the target.
 - **The CI logs.** There is no `gh`, and the public API refuses job logs and artifacts without admin rights. A job's *conclusion* is public, which is why every reporting job now fails on a finding instead of printing it: the verdict is then readable without the log.
 

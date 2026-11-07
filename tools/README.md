@@ -236,6 +236,37 @@ wrote, which wants a test, or a defensive branch the API cannot reach, which
 wants a comment saying why. Telling the two apart is the whole exercise, and
 it is what turned the first run into four real holes rather than a number.
 
+## stack.py
+
+Stack use of every module on a Cortex-M0+ and a Cortex-M4, from the cross
+compiler's own `-fstack-usage` and `-fcallgraph-info`, so no target or
+emulator is needed.
+
+```bash
+python tools/stack.py
+python tools/stack.py --annotate    # also one GitHub notice per core, for CI
+```
+
+For each module it prints the deepest call chain inside the module with
+its frames added up, the largest single frame, and every call it cannot
+follow: compiler runtime helpers such as `__aeabi_lmul`, and indirect
+calls through an injected function pointer. It fails on a frame that is
+not static and on any cycle in the call graph, and it proves both checks
+are live first on a control file holding a recursive function and a
+variable length array. Its first run found no recursion and no dynamic
+frame anywhere.
+
+It also showed that **the compiler calls `memset`, `memcpy` and `memmove`
+although no source includes `<string.h>`**: zero initialised local arrays
+and copy loops become calls. That is allowed, and GCC documents that a
+freestanding environment must provide those (and `memcmp`); every ARM
+toolchain's C library does. The rule against `<string.h>` is about what
+the source relies on, not about what the compiler may emit.
+
+The numbers are for `-Os`, the flags `size.sh` uses, inlining included.
+A project with other flags gets other numbers, and its worst case is the
+chain here plus the deepest runtime helper or injected function beside it.
+
 ## size.sh
 
 What each module costs on a target, for two cores.
