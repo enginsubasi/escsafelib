@@ -3,7 +3,7 @@
   *
   * @file      SLog_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
+  * @version   0.2.0
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the slog module.
@@ -13,6 +13,7 @@
   *
   * @par History
   * 07/11/2026 Created. @n
+  * 07/11/2026 Cases for slogAdopt. @n
   *
   * @note
   * The program checks its own results and returns a non zero exit code when
@@ -410,6 +411,83 @@ static void testUnready ( void )
 }
 
 /**
+ * @brief   Checks taking over a table that already holds entries.
+ * @note    The table is copied out, the driver forgotten, and the copy
+ *          adopted, which is what a restore after a reset does. Then every
+ *          table the module would never have produced is refused: an
+ *          identifier twice, adjacent or not, and an entry recorded zero
+ *          times.
+ */
+static void testAdopt ( void )
+{
+    slog_t log;
+    slog_t restored;
+    slogentry_t table[ 3 ];
+    slogentry_t saved[ 3 ];
+    uint32_t i = 0;
+
+    expectStatus ( "adopt: init", slogInit ( &log, table, 3u, SL_POLICY_KEEP ), SL_OK );
+    expectStatus ( "adopt: one", slogRecord ( &log, 10u, 1u ), SL_OK );
+    expectStatus ( "adopt: two", slogRecord ( &log, 20u, 2u ), SL_OK );
+    expectStatus ( "adopt: one again", slogRecord ( &log, 10u, 3u ), SL_OK );
+
+    for ( i = 0; i < 3u; ++i )
+    {
+        saved[ i ] = table[ i ];
+    }
+
+    expectStatus ( "adopt: the saved table", slogAdopt ( &restored, saved, 3u, 2u, 5u, SL_POLICY_KEEP ), SL_OK );
+    expectU32 ( "adopt: two in use", countOf ( &restored ), 2u );
+    expectU32 ( "adopt: the lost count carried over", lostOf ( &restored ), 5u );
+    expectEntry ( "adopt: the first entry back", &restored, 10u, 2u, 1u, 3u );
+    expectEntry ( "adopt: the second entry back", &restored, 20u, 1u, 2u, 2u );
+    expectStatus ( "adopt: recording goes on", slogRecord ( &restored, 10u, 4u ), SL_OK );
+    expectEntry ( "adopt: counted on from where it was", &restored, 10u, 3u, 1u, 4u );
+    expectStatus ( "adopt: a new one takes the free entry", slogRecord ( &restored, 30u, 5u ), SL_OK );
+    expectStatus ( "adopt: and the table is full", slogRecord ( &restored, 40u, 6u ), SL_FULL );
+
+    expectStatus ( "adopt: an empty table", slogAdopt ( &restored, saved, 3u, 0u, 0u, SL_POLICY_REPLACE ), SL_OK );
+    expectU32 ( "adopt: nothing in use", countOf ( &restored ), 0u );
+    saved[ 2 ].id = 30u;
+    saved[ 2 ].occurrences = 1u;
+    saved[ 2 ].firstCycle = 5u;
+    saved[ 2 ].lastCycle = 5u;
+    expectStatus ( "adopt: a full table", slogAdopt ( &restored, saved, 3u, 3u, 0u, SL_POLICY_KEEP ), SL_OK );
+
+    /* Tables the module never produces. */
+    restored.used = 77u;
+    saved[ 0 ].id = 1u;
+    saved[ 0 ].occurrences = 1u;
+    saved[ 1 ].id = 2u;
+    saved[ 1 ].occurrences = 1u;
+    saved[ 2 ].id = 1u;
+    saved[ 2 ].occurrences = 1u;
+    expectStatus ( "adopt: an identifier twice, apart", slogAdopt ( &restored, saved, 3u, 3u, 0u, SL_POLICY_KEEP ), SL_CORRUPT );
+    expectStatus ( "adopt: the repeat outside the entries in use is not looked at",
+                   slogAdopt ( &log, saved, 3u, 2u, 0u, SL_POLICY_KEEP ), SL_OK );
+    saved[ 2 ].id = 2u;
+    expectStatus ( "adopt: an identifier twice, adjacent", slogAdopt ( &restored, saved, 3u, 3u, 0u, SL_POLICY_KEEP ), SL_CORRUPT );
+    saved[ 1 ].id = 1u;
+    expectStatus ( "adopt: a repeat at the front of a longer table",
+                   slogAdopt ( &restored, saved, 3u, 3u, 0u, SL_POLICY_KEEP ), SL_CORRUPT );
+    saved[ 1 ].id = 2u;
+    saved[ 2 ].id = 3u;
+    saved[ 1 ].occurrences = 0u;
+    expectStatus ( "adopt: an entry recorded zero times", slogAdopt ( &restored, saved, 3u, 3u, 0u, SL_POLICY_KEEP ), SL_CORRUPT );
+    saved[ 1 ].occurrences = 1u;
+    saved[ 2 ].occurrences = 0u;
+    expectStatus ( "adopt: the last entry recorded zero times", slogAdopt ( &restored, saved, 3u, 3u, 0u, SL_POLICY_KEEP ), SL_CORRUPT );
+    saved[ 2 ].occurrences = 1u;
+
+    expectStatus ( "adopt: NULL driver", slogAdopt ( NULL, saved, 3u, 1u, 0u, SL_POLICY_KEEP ), SL_NULLPTR );
+    expectStatus ( "adopt: NULL table", slogAdopt ( &restored, NULL, 3u, 1u, 0u, SL_POLICY_KEEP ), SL_NULLPTR );
+    expectStatus ( "adopt: zero capacity", slogAdopt ( &restored, saved, 0u, 0u, 0u, SL_POLICY_KEEP ), SL_INVALIDSIZE );
+    expectStatus ( "adopt: more in use than the table holds", slogAdopt ( &restored, saved, 3u, 4u, 0u, SL_POLICY_KEEP ), SL_INVALIDSIZE );
+    expectStatus ( "adopt: an unknown policy", slogAdopt ( &restored, saved, 3u, 1u, 0u, 2u ), SL_INVALIDPARAM );
+    expectU32 ( "adopt: no refusal wrote the driver", restored.used, 77u );
+}
+
+/**
  * @brief   Runs every case and reports the total.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -423,6 +501,7 @@ int main ( void )
     testSaturation ( );
     testReadRemoveClear ( );
     testUnready ( );
+    testAdopt ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

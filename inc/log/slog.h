@@ -51,6 +51,7 @@ enum SLOGSTATUS
     SL_INVALIDPARAM     = 3,
     SL_FULL             = 4,
     SL_NOTFOUND         = 5,
+    SL_CORRUPT          = 6,
 };
 
 enum SLOGPOLICY
@@ -64,6 +65,8 @@ enum SLOGPOLICY
 /* FUNCTION PROTOTYPES */
 
 uint8_t slogInit ( slog_t* driver, slogentry_t* entries, uint32_t capacity, uint8_t policy );
+uint8_t slogAdopt ( slog_t* driver, slogentry_t* entries, uint32_t capacity, uint32_t used, uint32_t lost,
+                    uint8_t policy );
 uint8_t slogRecord ( slog_t* driver, uint16_t id, uint32_t cycle );
 uint8_t slogFind ( const slog_t* driver, uint16_t id, slogentry_t* entry );
 uint8_t slogGet ( const slog_t* driver, uint32_t index, slogentry_t* entry );

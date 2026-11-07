@@ -3,7 +3,7 @@
   *
   * @file      slog.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.1.0
+  * @version   0.2.0
   * @date      07/11/2026
   *
   * @brief     Fault event memory function library file: one entry per event
@@ -19,6 +19,7 @@
   * @par History
   * 07/11/2026 Created. Record, find, read, count, remove and clear, with a @n
   *            full table policy chosen at Init. @n
+  * 07/11/2026 slogAdopt, to take over a table restored after a reset. @n
   *
   * @note
   * sfault decides that a fault exists. Something then has to remember that
@@ -51,8 +52,8 @@
   * @note
   * Five invariants hold, matching the rest of the library.
   *
-  * 1. Every loop bound is the number of entries in use, which Init bounds
-  *    by the capacity the caller passed.
+  * 1. Every loop bound is the number of entries in use, which Init and
+  *    Adopt bound by the capacity the caller passed.
   * 2. Every pointer parameter is immediately followed by the capacity of
   *    the array it points at.
   * 3. Validate, then commit. A refused call changes neither the table nor
@@ -239,6 +240,93 @@ uint8_t slogInit ( slog_t* driver, slogentry_t* entries, uint32_t capacity, uint
         driver->lost = 0u;
         driver->policy = policy;
         retVal = SL_OK;
+    }
+
+    return ( retVal );
+}
+
+/**
+ * @brief   Prepares an event memory over a table that already holds
+ *          entries, such as one restored after a reset.
+ * @param[out] driver   Driver to prepare.
+ * @param[in] entries   Table holding used entries at its front.
+ * @param[in] capacity  Number of entries the table holds, at least one.
+ * @param[in] used      Number of entries in use, at most capacity.
+ * @param[in] lost      Count of lost events to carry on from.
+ * @param[in] policy    SL_POLICY_KEEP or SL_POLICY_REPLACE.
+ * @return  SL_OK on success, SL_NULLPTR when a pointer is NULL,
+ *          SL_INVALIDSIZE when capacity is zero or used is above it,
+ *          SL_INVALIDPARAM when the policy is neither, SL_CORRUPT when the
+ *          entries in use break the table's rules.
+ * @note    The table is the caller's, so restoring it is copying the
+ *          entries back; what the caller cannot set is how many are in
+ *          use, and that is what this takes. Init would start the table
+ *          empty.
+ * @note    The entries in use are checked before anything is written: an
+ *          identifier appearing twice, or an entry recorded zero times, is
+ *          a table this module never produces, and adopting it would break
+ *          the one entry per identifier rule every other function relies
+ *          on. Checking for a repeat compares every pair, so it costs used
+ *          squared over two comparisons, once, at start up.
+ * @note    A restored table is only as good as the medium it came from.
+ *          Protect the saved copy, with sstore for example, and adopt only
+ *          one that checked out.
+ */
+uint8_t slogAdopt ( slog_t* driver, slogentry_t* entries, uint32_t capacity, uint32_t used, uint32_t lost,
+                    uint8_t policy )
+{
+    uint8_t retVal = SL_OK;
+    uint32_t i = 0;
+    uint32_t j = 0;
+
+    if ( ( driver == NULL ) || ( entries == NULL ) )
+    {
+        retVal = SL_NULLPTR;
+    }
+    else if ( ( capacity == 0u ) || ( used > capacity ) )
+    {
+        retVal = SL_INVALIDSIZE;
+    }
+    else if ( ( policy != SL_POLICY_KEEP ) && ( policy != SL_POLICY_REPLACE ) )
+    {
+        retVal = SL_INVALIDPARAM;
+    }
+    else
+    {
+        for ( i = 0; ( i < used ) && ( retVal == SL_OK ); ++i )
+        {
+            if ( entries[ i ].occurrences == 0u )
+            {
+                retVal = SL_CORRUPT;
+            }
+            else
+            {
+                for ( j = i + 1u; ( j < used ) && ( retVal == SL_OK ); ++j )
+                {
+                    if ( entries[ j ].id == entries[ i ].id )
+                    {
+                        retVal = SL_CORRUPT;
+                    }
+                    else
+                    {
+                        // Intentionally blank.
+                    }
+                }
+            }
+        }
+
+        if ( retVal == SL_OK )
+        {
+            driver->entries = entries;
+            driver->capacity = capacity;
+            driver->used = used;
+            driver->lost = lost;
+            driver->policy = policy;
+        }
+        else
+        {
+            // Intentionally blank.
+        }
     }
 
     return ( retVal );

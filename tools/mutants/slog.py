@@ -85,7 +85,31 @@ MUTANTS = [
     {
         "id": 'M14',
         "what": 'Init accepts any policy',
-        "old": '    else if ( ( policy != SL_POLICY_KEEP ) && ( policy != SL_POLICY_REPLACE ) )',
-        "new": '    else if ( FALSE )',
+        "old": '    else if ( capacity == 0u )\n    {\n        retVal = SL_INVALIDSIZE;\n    }\n    else if ( ( policy != SL_POLICY_KEEP ) && ( policy != SL_POLICY_REPLACE ) )',
+        "new": '    else if ( capacity == 0u )\n    {\n        retVal = SL_INVALIDSIZE;\n    }\n    else if ( FALSE )',
+    },
+    {
+        "id": 'M15',
+        "what": 'Adopt misses an identifier repeated in the next entry',
+        "old": '                for ( j = i + 1u; ( j < used ) && ( retVal == SL_OK ); ++j )',
+        "new": '                for ( j = i + 2u; ( j < used ) && ( retVal == SL_OK ); ++j )',
+    },
+    {
+        "id": 'M16',
+        "what": 'Adopt accepts an entry recorded zero times',
+        "old": '            if ( entries[ i ].occurrences == 0u )',
+        "new": '            if ( FALSE )',
+    },
+    {
+        "id": 'M17',
+        "what": 'Adopt forgets the lost count',
+        "old": '            driver->lost = lost;',
+        "new": '            driver->lost = 0u;',
+    },
+    {
+        "id": 'M18',
+        "what": 'Adopt accepts more entries in use than the table holds',
+        "old": '    else if ( ( capacity == 0u ) || ( used > capacity ) )',
+        "new": '    else if ( capacity == 0u )',
     },
 ]

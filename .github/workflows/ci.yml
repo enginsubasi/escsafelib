@@ -208,6 +208,16 @@ jobs:
       - name: Run the slog test program
         run: ./slog_test
 
+      - name: Build the sstore test program
+        run: |
+          ${{ matrix.cc }} -Wall -Wextra -Wpedantic -std=c99 -g \
+            -Iinc/store \
+            test/SStore_Test/SStore_Test.c src/store/sstore.c \
+            -o sstore_test
+
+      - name: Run the sstore test program
+        run: ./sstore_test
+
       # The generated modules must still be exactly what their generator
       # produces. A non empty diff means somebody edited the output by hand
       # and the next generator run would silently revert it.
@@ -434,6 +444,18 @@ jobs:
       - name: Run slog under sanitizers
         run: ./slog_san
 
+      - name: Build sstore with sanitizers
+        run: |
+          clang -Wall -Wextra -std=c99 -g \
+            -fsanitize=address,undefined -fno-sanitize-recover=all \
+            -fno-omit-frame-pointer \
+            -Iinc/store \
+            test/SStore_Test/SStore_Test.c src/store/sstore.c \
+            -o sstore_san
+
+      - name: Run sstore under sanitizers
+        run: ./sstore_san
+
   cross-compile:
     name: Cross compile for ARM
     runs-on: ubuntu-24.04
@@ -508,15 +530,15 @@ jobs:
       - uses: actions/checkout@v5
 
       # Blocking. Every other suite tests one module; this one runs
-      # eleven of them as a chain. A module can satisfy its own contract
+      # thirteen of them as a chain. A module can satisfy its own contract
       # exactly and still be impossible to use next to its neighbour,
       # and until this existed nothing would have noticed.
       - name: Build the integration test program
         run: |
           gcc -Wall -Wextra -Wpedantic -std=c99 -g \
-            -Iinc/bits -Iinc/diag -Iinc/fault -Iinc/filter -Iinc/ring -Iinc/scale -Iinc/state -Iinc/vote -Iinc/watch -Iinc/math -Iinc/e2e -Iinc/signal \
+            -Iinc/bits -Iinc/diag -Iinc/fault -Iinc/filter -Iinc/ring -Iinc/scale -Iinc/state -Iinc/vote -Iinc/watch -Iinc/math -Iinc/e2e -Iinc/signal -Iinc/log -Iinc/store \
             test/Integration_Test/Integration_Test.c \
-            src/bits/sbits.c src/diag/sdiag.c src/fault/sfault.c src/filter/sfilter.c src/ring/sring.c src/scale/sscale.c src/state/sstate.c src/vote/svote.c src/watch/swatch.c src/math/smath.c src/e2e/se2e.c src/signal/ssignal.c \
+            src/bits/sbits.c src/diag/sdiag.c src/fault/sfault.c src/filter/sfilter.c src/ring/sring.c src/scale/sscale.c src/state/sstate.c src/vote/svote.c src/watch/swatch.c src/math/smath.c src/e2e/se2e.c src/signal/ssignal.c src/log/slog.c src/store/sstore.c \
             -o integration_test
 
       - name: Run it
@@ -527,9 +549,9 @@ jobs:
           clang -Wall -Wextra -std=c99 -g \
             -fsanitize=address,undefined -fno-sanitize-recover=all \
             -fno-omit-frame-pointer \
-            -Iinc/bits -Iinc/diag -Iinc/fault -Iinc/filter -Iinc/ring -Iinc/scale -Iinc/state -Iinc/vote -Iinc/watch -Iinc/math -Iinc/e2e -Iinc/signal \
+            -Iinc/bits -Iinc/diag -Iinc/fault -Iinc/filter -Iinc/ring -Iinc/scale -Iinc/state -Iinc/vote -Iinc/watch -Iinc/math -Iinc/e2e -Iinc/signal -Iinc/log -Iinc/store \
             test/Integration_Test/Integration_Test.c \
-            src/bits/sbits.c src/diag/sdiag.c src/fault/sfault.c src/filter/sfilter.c src/ring/sring.c src/scale/sscale.c src/state/sstate.c src/vote/svote.c src/watch/swatch.c src/math/smath.c src/e2e/se2e.c src/signal/ssignal.c \
+            src/bits/sbits.c src/diag/sdiag.c src/fault/sfault.c src/filter/sfilter.c src/ring/sring.c src/scale/sscale.c src/state/sstate.c src/vote/svote.c src/watch/swatch.c src/math/smath.c src/e2e/se2e.c src/signal/ssignal.c src/log/slog.c src/store/sstore.c \
             -o integration_san
           ./integration_san
 
@@ -699,7 +721,7 @@ jobs:
             -Iinc/string -Iinc/array -Iinc/memory -Iinc/math \
             -Iinc/ring -Iinc/filter -Iinc/fixed -Iinc/diag \
             -Iinc/scale -Iinc/vote -Iinc/fault -Iinc/state -Iinc/watch \
-            -Iinc/bits -Iinc/signal -Iinc/e2e -Iinc/log \
+            -Iinc/bits -Iinc/signal -Iinc/e2e -Iinc/log -Iinc/store \
             src/ 2>&1 | tee cppcheck.log
 
       # tools/misra.sh runs the addon through cppcheck --dump, applies the

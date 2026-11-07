@@ -3,7 +3,7 @@
   *
   * @file      Integration_Test.c
   * @author    Engin Subasi <enginsubasi@gmail.com>, github.com/enginsubasi
-  * @version   0.2.0
+  * @version   0.3.0
   * @date      07/11/2026
   *
   * @brief     Self checking test program for the modules working together.
@@ -15,6 +15,7 @@
   * 06/08/2026 Created. @n
   * 07/11/2026 A protected link: se2e with sdiag's CRC, sbits byte order, @n
   *            ssignal and sfault. @n
+  * 07/11/2026 A fault memory saved with sstore and restored with slogAdopt. @n
   *
   * @note
   * Every other suite in this repository tests one module. Nothing tested
@@ -48,6 +49,11 @@
   *   se2e     a counter and sdiag's CRC over an implicit data identifier
   *   ssignal  the two tracks unpacked from it are checked for plausibility
   *
+  * A third saves a fault memory and restores it across a reset:
+  *
+  *   slog     the faults are remembered, then adopted back
+  *   sstore   two sealed copies, one torn by the reset
+  *
   * @note
   * The program checks its own results and returns a non zero exit code when
   * any case fails.
@@ -78,6 +84,8 @@
 #include "smath.h"
 #include "se2e.h"
 #include "ssignal.h"
+#include "slog.h"
+#include "sstore.h"
 
 static uint32_t checks = 0;
 static uint32_t failures = 0;
@@ -136,6 +144,10 @@ typedef struct
 } unit_t;
 
 static uint32_t checkCount = 0;
+
+/* One slog entry packed: identifier, occurrences, first and last cycle. */
+#define ENTRYBYTES  14u
+#define STOREBYTES  ( SSTORE_HEADERSIZE + ( 2u * ENTRYBYTES ) )
 
 /**
  * @brief   Records the outcome of one case and prints the failures.
@@ -859,6 +871,130 @@ static void testProtectedLink ( void )
 }
 
 /**
+ * @brief   Packs one slog entry into a record payload, little endian.
+ * @param[out] record  Record buffer of STOREBYTES bytes.
+ * @param[in] slot     Entry position in the payload.
+ * @param[in] entry    Entry to pack.
+ */
+static void packEntry ( uint8_t* record, uint32_t slot, const slogentry_t* entry )
+{
+    uint32_t at = SSTORE_HEADERSIZE + ( slot * ENTRYBYTES );
+
+    ( void ) sbitsWriteLE ( record, STOREBYTES, at, 2u, ( uint32_t ) entry->id );
+    ( void ) sbitsWriteLE ( record, STOREBYTES, at + 2u, 4u, entry->occurrences );
+    ( void ) sbitsWriteLE ( record, STOREBYTES, at + 6u, 4u, entry->firstCycle );
+    ( void ) sbitsWriteLE ( record, STOREBYTES, at + 10u, 4u, entry->lastCycle );
+}
+
+/**
+ * @brief   Unpacks one slog entry from a record payload.
+ * @param[in] record  Record buffer of STOREBYTES bytes.
+ * @param[in] slot    Entry position in the payload.
+ * @param[out] entry  Entry unpacked.
+ */
+static void unpackEntry ( const uint8_t* record, uint32_t slot, slogentry_t* entry )
+{
+    uint32_t at = SSTORE_HEADERSIZE + ( slot * ENTRYBYTES );
+    uint32_t value = 0;
+
+    ( void ) sbitsReadLE ( record, STOREBYTES, at, 2u, &value );
+    entry->id = ( uint16_t ) value;
+    ( void ) sbitsReadLE ( record, STOREBYTES, at + 2u, 4u, &entry->occurrences );
+    ( void ) sbitsReadLE ( record, STOREBYTES, at + 6u, 4u, &entry->firstCycle );
+    ( void ) sbitsReadLE ( record, STOREBYTES, at + 10u, 4u, &entry->lastCycle );
+}
+
+/**
+ * @brief   Checks a fault memory saved and restored across a reset.
+ * @note    slog's table is packed with sbits into an sstore record sealed
+ *          with sdiag's CRC-32, written as two copies, and the second write
+ *          is torn. After the reset the intact copy is chosen and the table
+ *          adopted, and it must hold what was recorded before. The sstore
+ *          banner says sdiagCrc32Update plugs in as it is; it is passed here
+ *          with no wrapper.
+ */
+static void testStoredFaultMemory ( void )
+{
+    slog_t log;
+    slog_t restored;
+    slogentry_t table[ 2 ];
+    slogentry_t back[ 2 ];
+    slogentry_t entry;
+    uint8_t copyA[ STOREBYTES ];
+    uint8_t copyB[ STOREBYTES ];
+    uint32_t length = 0;
+    uint32_t sequence = 0;
+    uint32_t used = 0;
+    uint32_t i = 0;
+    uint8_t choice = 0xEEu;
+
+    expectStatus ( "store: the fault memory", slogInit ( &log, table, 2u, SL_POLICY_KEEP ), SL_OK );
+    expectStatus ( "store: a fault", slogRecord ( &log, 0x0310u, 5u ), SL_OK );
+    expectStatus ( "store: another", slogRecord ( &log, 0x0120u, 7u ), SL_OK );
+    expectStatus ( "store: the first again", slogRecord ( &log, 0x0310u, 9u ), SL_OK );
+    expectStatus ( "store: how many", slogCount ( &log, &used ), SL_OK );
+
+    /* Copy A, sequence one. */
+    for ( i = 0; i < STOREBYTES; ++i )
+    {
+        copyA[ i ] = 0u;
+    }
+
+    for ( i = 0; i < used; ++i )
+    {
+        ( void ) slogGet ( &log, i, &entry );
+        packEntry ( copyA, i, &entry );
+    }
+
+    expectStatus ( "store: seal copy A with sdiag's CRC-32",
+                   sstoreSeal ( copyA, STOREBYTES, used * ENTRYBYTES, 1u, 1u, sdiagCrc32Update, SD_CRC32_SEED ), SO_OK );
+
+    /* Copy B, sequence two, after one more occurrence. */
+    expectStatus ( "store: the second again", slogRecord ( &log, 0x0120u, 12u ), SL_OK );
+
+    for ( i = 0; i < STOREBYTES; ++i )
+    {
+        copyB[ i ] = 0u;
+    }
+
+    for ( i = 0; i < used; ++i )
+    {
+        ( void ) slogGet ( &log, i, &entry );
+        packEntry ( copyB, i, &entry );
+    }
+
+    expectStatus ( "store: seal copy B",
+                   sstoreSeal ( copyB, STOREBYTES, used * ENTRYBYTES, 1u, 2u, sdiagCrc32Update, SD_CRC32_SEED ), SO_OK );
+
+    /* The third write goes over A and stops half way through. */
+    copyA[ 4 ] = 3u;
+    copyA[ SSTORE_HEADERSIZE + 2u ] = 0x7Fu;
+
+    /* After the reset. */
+    expectStatus ( "store: choose a copy",
+                   sstoreSelect ( copyA, STOREBYTES, copyB, STOREBYTES, 1u, sdiagCrc32Update, SD_CRC32_SEED, &choice ),
+                   SO_OK );
+    expectU32 ( "store: the intact copy", ( uint32_t ) choice, ( uint32_t ) SO_CHOICE_B );
+    expectStatus ( "store: check it",
+                   sstoreCheck ( copyB, STOREBYTES, 1u, sdiagCrc32Update, SD_CRC32_SEED, &length, &sequence ), SO_OK );
+    expectU32 ( "store: sequence two", sequence, 2u );
+
+    for ( i = 0; i < ( length / ENTRYBYTES ); ++i )
+    {
+        unpackEntry ( copyB, i, &back[ i ] );
+    }
+
+    expectStatus ( "store: adopt the restored table",
+                   slogAdopt ( &restored, back, 2u, length / ENTRYBYTES, 0u, SL_POLICY_KEEP ), SL_OK );
+    expectStatus ( "store: the first fault is back", slogFind ( &restored, 0x0310u, &entry ), SL_OK );
+    expectU32 ( "store: recorded twice", entry.occurrences, 2u );
+    expectU32 ( "store: last at nine", entry.lastCycle, 9u );
+    expectStatus ( "store: the second fault is back", slogFind ( &restored, 0x0120u, &entry ), SL_OK );
+    expectU32 ( "store: with the occurrence after copy A", entry.occurrences, 2u );
+    expectU32 ( "store: first seen at seven", entry.firstCycle, 7u );
+}
+
+/**
  * @brief   Runs every group and reports the totals.
  * @return  Zero when every case passed, one otherwise.
  */
@@ -873,6 +1009,7 @@ int main ( void )
     testMissedCycle ( );
     testUnitsAndSeams ( );
     testProtectedLink ( );
+    testStoredFaultMemory ( );
 
     printf ( "%lu cases, %lu failed\n",
              ( unsigned long ) checks, ( unsigned long ) failures );

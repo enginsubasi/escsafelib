@@ -26,7 +26,7 @@ Historical milestones and prior findings are recorded in
   5. `slog` (prefix `SL_`): fault event memory in a caller-owned table,
      saturating counters, full-table policy chosen at Init. **Done.**
   6. `sstore` (prefix `SO_`): record header, version, length and CRC over a
-     byte buffer; choose the valid and newer of two copies.
+     byte buffer; choose the valid and newer of two copies. **Done.**
   7. `spid` (prefix `SP_`): Q16.16 PID with anti-windup and output limits,
      its own arithmetic.
   Optional, only if the owner asks: `sscale` 2D map, `sstate` time in state.
@@ -129,9 +129,31 @@ Historical milestones and prior findings are recorded in
   `run_all.sh` and `coverage.sh` lists, the CI matrix and sanitizer steps
   and the CI cppcheck include list.
 
+## Piece 6: `sstore`, with `slogAdopt` and an `apicheck` fix
+
+- New module `inc/store/sstore.h`, `src/store/sstore.c`: `sstoreSeal`,
+  `sstoreCheck`, `sstoreSelect`; stateless, CRC-32 passed as a
+  `sstorecrc_t` shaped like `sdiagCrc32Update`. Header: version u16, length
+  u16, sequence u32, CRC u32, all little endian; payload written in place.
+  Check verifies CRC before version; Select picks the valid copy, the newer
+  across the sequence wrap when both are, A on a tie, and reports
+  `SO_WRONGVERSION` when nothing is valid but something is intact.
+- The integration suite's new `testStoredFaultMemory` (slog, sbits LE,
+  sstore with `sdiagCrc32Update`, a torn copy) found that a saved slog table
+  could not be restored: `slogAdopt` added, refusing duplicate identifiers
+  and zero-occurrence entries with the new `SL_CORRUPT`.
+- `tools/apicheck.py` skipped every prototype wrapped onto a second line
+  (pattern stopped at a line end): `sstringToken` was never checked. Fixed
+  (390 declarations, 0 findings) and a control with a wrapped prototype
+  missing its capacity fires.
+- Verified: sstore 73 cases, slog 155, integration 76, zig with UBSan and
+  gcc 14 strict; sstore M1-M12 and slog M15-M18 killed; coverage 100% in
+  both; MISRA 0 differences after 13 reviewed records (402 in all);
+  cppcheck, analyzers, ARM, headers clean; `run_all.sh` ALL GREEN.
+
 ## Remaining work
 
-1. Pieces 6-7 above, in order.
+1. Piece 7 (`spid`).
 2. Read the CI run of the suite rename commit.
 
 The first `se2e` commit (`ca747f9`) failed CI in tracecheck only: its suite was

@@ -62,6 +62,7 @@ MODULES=(
   "signal   ssignal       SSignal"
   "e2e      se2e          SE2e"
   "log      slog          SLog"
+  "store    sstore        SStore"
 )
 
 fail=0
@@ -174,13 +175,13 @@ done
 
 echo
 echo "== the modules working together =="
-# Every other suite tests one module. This one runs eleven of them as a
+# Every other suite tests one module. This one runs thirteen of them as a
 # chain, because a module can satisfy its own contract exactly and
 # still be impossible to use next to its neighbour.
 if "${CC[@]}" -Wall -Wextra -Wpedantic -std=c99 -g \
-     -Iinc/bits -Iinc/diag -Iinc/fault -Iinc/filter -Iinc/ring -Iinc/scale -Iinc/state -Iinc/vote -Iinc/watch -Iinc/math -Iinc/e2e -Iinc/signal \
+     -Iinc/bits -Iinc/diag -Iinc/fault -Iinc/filter -Iinc/ring -Iinc/scale -Iinc/state -Iinc/vote -Iinc/watch -Iinc/math -Iinc/e2e -Iinc/signal -Iinc/log -Iinc/store \
      test/Integration_Test/Integration_Test.c \
-     src/bits/sbits.c src/diag/sdiag.c src/fault/sfault.c src/filter/sfilter.c src/ring/sring.c src/scale/sscale.c src/state/sstate.c src/vote/svote.c src/watch/swatch.c src/math/smath.c src/e2e/se2e.c src/signal/ssignal.c \
+     src/bits/sbits.c src/diag/sdiag.c src/fault/sfault.c src/filter/sfilter.c src/ring/sring.c src/scale/sscale.c src/state/sstate.c src/vote/svote.c src/watch/swatch.c src/math/smath.c src/e2e/se2e.c src/signal/ssignal.c src/log/slog.c src/store/sstore.c \
      -o "$OUT/integration" 2>"$OUT/integration_build.log"; then
   if [ -s "$OUT/integration_build.log" ]; then
     echo "  WARNINGS"; sed 's/^/      /' "$OUT/integration_build.log" | head -20; fail=1

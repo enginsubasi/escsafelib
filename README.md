@@ -25,7 +25,8 @@ fails leaves its destination untouched.
 | `inc/scale/sscale.h` | 12 functions. Piecewise linear scaling: a validated breakpoint table in either direction, its inverse, and the two point map that needs no table. |
 | `inc/bits/sbits.h` | 18 functions. Bit field packing in a word and across a byte array, and integers of one to four bytes in an explicitly named byte order, with the position, the width and the value all checked. No shift by the width of the type, and no right shift of a signed value. |
 | `inc/e2e/se2e.h` | 5 functions. End to end protection: a counter and an injected eight bit CRC over an implicit data identifier, and a receiver that tells in sequence, lost, repeated, out of sequence and corrupted apart. sdiag's CRC-8s plug in directly. |
-| `inc/log/slog.h` | 8 functions. Fault event memory: one entry per identifier in a caller owned table, with occurrence count and first and last cycle, and a full table policy chosen at Init. Lost events are counted. |
+| `inc/log/slog.h` | 9 functions. Fault event memory: one entry per identifier in a caller owned table, with occurrence count and first and last cycle, and a full table policy chosen at Init. Lost events are counted, and a saved table can be adopted back after a reset. |
+| `inc/store/sstore.h` | 3 functions. Record integrity: a versioned, sequenced, CRC-32 protected record in a byte buffer, and the choice between two copies across a torn write. sdiag's CRC-32 plugs in directly. |
 | `inc/signal/ssignal.h` | 7 functions. Signal plausibility: range and gradient checks that say below or above, two sensor correlation without rounding, and a stuck signal detector. Observation only; qualification is `sfault`'s. |
 | `inc/watch/swatch.h` | 12 functions. Deadline and liveness supervision driven by a caller supplied tick: too late and too soon are both faults, and the arithmetic survives the tick counter wrapping. |
 | `inc/state/sstate.h` | 12 functions. Guarded state machine: a transition table validated at Init, illegal transitions refused and counted, and reachability queries over the whole table. |
@@ -203,12 +204,15 @@ gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/e2e \
 
 gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/log \
   test/SLog_Test/SLog_Test.c src/log/slog.c -o slog_test && ./slog_test
+
+gcc -Wall -Wextra -Wpedantic -std=c99 -Iinc/store \
+  test/SStore_Test/SStore_Test.c src/store/sstore.c -o sstore_test && ./sstore_test
 ```
 
 ## The modules together
 
 Every suite in `test/<Name>_Test/` covers one module. `test/Integration_Test/`
-covers eleven of them as a chain, because a module can satisfy its own
+covers thirteen of them as a chain, because a module can satisfy its own
 contract exactly and still be impossible to use next to its neighbour.
 
 It models a two channel pedal position sensor: a frame arrives on a ring,
@@ -220,17 +224,20 @@ qualified disagreement puts the state machine in its safe state. A cycle
 that does not happen is a missed deadline. A second path protects a frame
 end to end with se2e and sdiag's CRC, packs two tracks big endian with
 sbits, checks them with ssignal and qualifies corrupted frames with sfault.
+A third saves slog's fault memory as two sstore copies, tears one, and
+adopts the table back from the intact copy.
 
 ```bash
 gcc -Wall -Wextra -Wpedantic -std=c99 \
   -Iinc/bits -Iinc/diag -Iinc/fault -Iinc/filter -Iinc/ring \
   -Iinc/scale -Iinc/state -Iinc/vote -Iinc/watch -Iinc/math \
-  -Iinc/e2e -Iinc/signal \
+  -Iinc/e2e -Iinc/signal -Iinc/log -Iinc/store \
   test/Integration_Test/Integration_Test.c \
   src/bits/sbits.c src/diag/sdiag.c src/fault/sfault.c \
   src/filter/sfilter.c src/ring/sring.c src/scale/sscale.c \
   src/state/sstate.c src/vote/svote.c src/watch/swatch.c \
   src/math/smath.c src/e2e/se2e.c src/signal/ssignal.c \
+  src/log/slog.c src/store/sstore.c \
   -o integration_test && ./integration_test
 ```
 

@@ -115,8 +115,13 @@ def checkHeader(path, module, prefix, handles):
 
     text = io.open(path, encoding="utf-8").read()
 
-    for m in re.finditer(r"^(\w[\w\s]*?)\s+(\w+)\s*\(\s*(.*?)\s*\)\s*;\s*$", text, re.M):
-        rettype, name, params = m.group(1).strip(), m.group(2), m.group(3)
+    # The parameter list may run over several lines. Until 07/11/2026 this
+    # pattern used .*? there, which stops at a line end, so every prototype
+    # wrapped onto a second line was silently skipped: sstringToken since it
+    # was written, and the next three modules' longest declarations.
+    for m in re.finditer(r"^(\w[\w ]*?)\s+(\w+)\s*\(\s*([^;]*?)\s*\)\s*;\s*$", text, re.M):
+        rettype, name = m.group(1).strip(), m.group(2)
+        params = " ".join(m.group(3).split())
 
         # A function pointer typedef looks like a declaration and is not
         # one. sring's injected memory barrier is the only case, and
